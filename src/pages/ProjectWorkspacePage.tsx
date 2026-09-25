@@ -9,7 +9,7 @@ import { projectService } from '../services/projectService'
 import type { ProjectWorkspace } from '../types/workspace'
 
 function WorkspaceSkeleton() {
-  return <div className="p-7"><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
+  return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
 }
 
 export function ProjectWorkspacePage() {
@@ -21,7 +21,7 @@ export function ProjectWorkspacePage() {
     let active = true
     projectService.getWorkspace(projectId)
       .then((result) => active && setWorkspace(result))
-      .catch(() => active && setError('Unable to load this project. Please try again.'))
+      .catch(() => active && setError('Не удалось загрузить проект. Попробуйте ещё раз.'))
     return () => { active = false }
   }, [projectId])
 

@@ -1,7 +1,7 @@
 const dayMs = 86_400_000
 
 export function formatShortDate(value: string): string {
-  return new Intl.DateTimeFormat('en', {
+  return new Intl.DateTimeFormat('ru-RU', {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
@@ -9,7 +9,7 @@ export function formatShortDate(value: string): string {
 }
 
 export function formatAnalysisTime(value: string): string {
-  return new Intl.DateTimeFormat('en', {
+  return new Intl.DateTimeFormat('ru-RU', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -21,4 +21,3 @@ export function formatAnalysisTime(value: string): string {
 export function calendarDaysBetween(start: string, end: string): number {
   return Math.max(0, Math.round((Date.parse(end) - Date.parse(start)) / dayMs))
 }
-

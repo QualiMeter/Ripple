@@ -28,22 +28,22 @@ export function Timeline({ project, tasks, assignees, impact }: { project: Proje
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ebe9ef] px-5 py-4">
         <div>
-          <h2 className="text-sm font-bold text-[#302d40]">Project timeline</h2>
-          <p className="mt-0.5 text-[11px] text-[#918d9b]">Critical path and dependency shift</p>
+          <h2 className="text-sm font-bold text-[#302d40]">План проекта</h2>
+          <p className="mt-0.5 text-[11px] text-[#918d9b]">Критический путь и сдвиг зависимостей</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="rounded-lg border border-[#e1dfe6] p-2 text-[#777382] hover:bg-[#f6f5f8]" aria-label="Timeline filters"><SlidersHorizontal size={14} /></button>
+          <button className="rounded-lg border border-[#e1dfe6] p-2 text-[#777382] hover:bg-[#f6f5f8]" aria-label="Фильтры плана"><SlidersHorizontal size={14} /></button>
           <div className="flex rounded-lg border border-[#e1dfe6]">
-            <button className="border-r border-[#e1dfe6] p-2 text-[#777382]" aria-label="Previous period"><ChevronLeft size={14} /></button>
-            <button className="p-2 text-[#777382]" aria-label="Next period"><ChevronRight size={14} /></button>
+            <button className="border-r border-[#e1dfe6] p-2 text-[#777382]" aria-label="Предыдущий период"><ChevronLeft size={14} /></button>
+            <button className="p-2 text-[#777382]" aria-label="Следующий период"><ChevronRight size={14} /></button>
           </div>
-          <button className="rounded-lg border border-[#e1dfe6] px-2.5 py-2 text-[11px] font-semibold text-[#625e6f]">Today</button>
+          <button className="rounded-lg border border-[#e1dfe6] px-2.5 py-2 text-[11px] font-semibold text-[#625e6f]">Сегодня</button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[760px]">
           <div className="grid grid-cols-[210px_1fr] border-b border-[#eeecf1] bg-[#faf9fb]">
-            <div className="border-r border-[#eeecf1] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Task</div>
+            <div className="border-r border-[#eeecf1] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Задача</div>
             <div className="grid grid-cols-7">
               {columnLabels.map((label, index) => <div key={`${label}-${index}`} className="border-r border-[#eeecf1] px-2 py-2.5 text-center text-[10px] font-semibold text-[#8f8b99] last:border-r-0">{label}</div>)}
             </div>
@@ -64,7 +64,7 @@ export function Timeline({ project, tasks, assignees, impact }: { project: Proje
                   <div className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md ${impacted ? 'impact-pulse bg-[#e7774d]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)}>
                     <div className="h-full bg-white/20" style={{ width: `${task.progress}%` }} />
                   </div>
-                  {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)}d</span>}
+                  {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)} дн.</span>}
                 </div>
               </div>
             )
@@ -72,9 +72,9 @@ export function Timeline({ project, tasks, assignees, impact }: { project: Proje
         </div>
       </div>
       <div className="flex items-center gap-5 border-t border-[#ebe9ef] bg-[#faf9fb] px-5 py-2.5 text-[10px] text-[#85818f]">
-        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#e7774d]" /> Impacted</span>
-        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#7768ed]" /> In progress</span>
-        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#55ad89]" /> Complete</span>
+        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#e7774d]" /> Затронуто</span>
+        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#7768ed]" /> В работе</span>
+        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#55ad89]" /> Завершено</span>
       </div>
     </section>
   )

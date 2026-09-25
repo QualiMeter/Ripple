@@ -10,20 +10,20 @@ import type { ProjectsApi } from './projects.api'
 const recoveryScenarios: RecoveryScenario[] = [
   {
     id: 'parallel-qa',
-    title: 'Start QA in parallel',
-    description: 'Begin test planning and stable-module regression before the full integration handoff.',
+    title: 'Запустить QA параллельно',
+    description: 'Начать подготовку тестов и проверку стабильных модулей до завершения всей интеграции.',
     expectedProjectEndDate: '2026-11-07',
     recoveredDays: 4,
-    actions: ['Start QA prep on Oct 29', 'Keep final regression after integration'],
+    actions: ['Начать подготовку QA 29 октября', 'Провести итоговый регресс после интеграции'],
     confidence: 'high',
   },
   {
     id: 'api-support',
-    title: 'Pair on the Analytics API',
-    description: 'Move one backend engineer from infrastructure after its release checklist is complete.',
+    title: 'Усилить работу над API аналитики',
+    description: 'Подключить серверного разработчика после завершения подготовки инфраструктуры релиза.',
     expectedProjectEndDate: '2026-11-08',
     recoveredDays: 3,
-    actions: ['Reassign 50% of infrastructure capacity', 'Reduce API duration by 2 days'],
+    actions: ['Перенаправить 50% ресурса инфраструктуры', 'Сократить работу над API на 2 дня'],
     confidence: 'medium',
   },
 ]
@@ -32,7 +32,7 @@ export const mockProjectsApi: ProjectsApi = {
   async getWorkspace(projectId: string): Promise<ProjectWorkspace> {
     await new Promise((resolve) => setTimeout(resolve, 260))
     const project = demoProjects.find((candidate) => candidate.id === projectId)
-    if (!project) throw new Error('Project not found')
+    if (!project) throw new Error('Проект не найден')
     const tasks = demoTasks.filter((task) => task.projectId === projectId)
     const dependencies = demoDependencies.filter((dependency) => dependency.projectId === projectId)
     const completedTaskCount = tasks.filter((task) => task.status === 'completed').length

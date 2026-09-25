@@ -1,10 +1,10 @@
 import type { RiskState, TaskStatus } from '../../types/task'
 
 const statusLabels: Record<TaskStatus, string> = {
-  completed: 'Completed',
-  'in-progress': 'In progress',
-  blocked: 'Blocked',
-  'not-started': 'Not started',
+  completed: 'Завершено',
+  'in-progress': 'В работе',
+  blocked: 'Заблокировано',
+  'not-started': 'Не начато',
 }
 
 export function StatusBadge({ status, risk }: { status: TaskStatus; risk: RiskState }) {

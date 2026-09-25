@@ -11,9 +11,9 @@ import {
 import { NavLink } from 'react-router-dom'
 
 const navItems = [
-  { label: 'Overview', icon: LayoutDashboard, to: '/projects/aurora-launch' },
-  { label: 'Projects', icon: FolderKanban, to: '/projects/aurora-launch' },
-  { label: 'Portfolio', icon: Boxes, to: '/portfolio' },
+  { label: 'Обзор', icon: LayoutDashboard, to: '/projects/aurora-launch' },
+  { label: 'Проекты', icon: FolderKanban, to: '/projects/aurora-launch' },
+  { label: 'Портфель', icon: Boxes, to: '/portfolio' },
 ]
 
 export function Sidebar() {
@@ -27,8 +27,8 @@ export function Sidebar() {
         <span className="text-xl font-semibold tracking-[-.04em]">Ripple</span>
       </div>
 
-      <nav className="mt-5 px-3" aria-label="Primary navigation">
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[#858198]">Workspace</p>
+      <nav className="mt-5 px-3" aria-label="Основная навигация">
+        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[#858198]">Рабочая область</p>
         <div className="space-y-1">
           {navItems.map(({ label, icon: Icon, to }, index) => (
             <NavLink
@@ -47,16 +47,16 @@ export function Sidebar() {
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <span className="h-2 w-2 rounded-full bg-[#8b7fff]" />
-            My projects
+            Мои проекты
           </div>
           <Plus size={15} className="text-[#8e8a9f]" />
         </div>
         <div className="rounded-xl bg-white/[.07] p-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#8a79ff] to-[#5a49d6] text-[10px] font-bold">AU</div>
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#8a79ff] to-[#5a49d6] text-[10px] font-bold">АВ</div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-white">Aurora Platform</p>
-              <p className="mt-0.5 text-[11px] text-[#9691a6]">10 tasks · At risk</p>
+              <p className="truncate text-xs font-semibold text-white">Платформа «Аврора»</p>
+              <p className="mt-0.5 text-[11px] text-[#9691a6]">10 задач · Под угрозой</p>
             </div>
           </div>
         </div>
@@ -65,16 +65,16 @@ export function Sidebar() {
       <div className="mt-auto px-3 pb-4">
         <div className="mb-3 rounded-2xl bg-gradient-to-br from-[#292545] to-[#211e39] p-4">
           <Sparkles size={17} className="mb-2.5 text-[#f1b971]" />
-          <p className="text-xs font-semibold">Impact signals are live</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#9e99ae]">Ripple tracks 11 dependencies in this project.</p>
+          <p className="text-xs font-semibold">Анализ влияния активен</p>
+          <p className="mt-1 text-[11px] leading-4 text-[#9e99ae]">Ripple отслеживает 11 зависимостей в этом проекте.</p>
         </div>
-        <a href="#help" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><CircleHelp size={17} /> Help center</a>
-        <a href="#settings" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><Settings size={17} /> Settings</a>
+        <a href="#help" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><CircleHelp size={17} /> Центр помощи</a>
+        <a href="#settings" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><Settings size={17} /> Настройки</a>
         <div className="mt-3 flex items-center gap-3 border-t border-white/[.08] px-2 pt-4">
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#e7b4a6] text-[10px] font-bold text-[#512e2a]">MC</div>
+          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#e7b4a6] text-[10px] font-bold text-[#512e2a]">МЧ</div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold">Maya Chen</p>
-            <p className="text-[10px] text-[#858198]">Product lead</p>
+            <p className="truncate text-xs font-semibold">Майя Чен</p>
+            <p className="text-[10px] text-[#858198]">Руководитель продукта</p>
           </div>
           <ChevronDown size={15} className="text-[#858198]" />
         </div>

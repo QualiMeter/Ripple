@@ -46,9 +46,9 @@ export function buildImpactAnalysis(project: Project, tasks: ProjectTask[], depe
     deadlineShiftDays: Math.max(0, differenceInDays(projectedProjectEndDate, project.targetEndDate)),
     requiresIntervention: projectedProjectEndDate > project.targetEndDate,
     reasons: [
-      { taskId: sourceTaskId, reason: 'Vendor data delay moved the API finish by 3 working days.', severity: 'critical' },
-      { taskId: 'frontend', reason: 'Frontend integration cannot start before the API is ready.', severity: 'warning' },
-      { taskId: 'release', reason: 'The critical chain now finishes after the target date.', severity: 'critical' },
+      { taskId: sourceTaskId, reason: 'Задержка данных от поставщика сдвинула завершение API на 3 рабочих дня.', severity: 'critical' },
+      { taskId: 'frontend', reason: 'Интеграцию интерфейса нельзя начать до готовности API.', severity: 'warning' },
+      { taskId: 'release', reason: 'Критическая цепочка теперь завершается позже планового срока.', severity: 'critical' },
     ],
     analyzedAt: '2026-10-16T09:42:00.000Z',
   }

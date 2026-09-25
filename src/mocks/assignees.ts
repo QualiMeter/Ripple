@@ -1,9 +1,9 @@
 import type { Assignee } from '../types/task'
 
 export const demoAssignees: Assignee[] = [
-  { id: 'maya', name: 'Maya Chen', role: 'Product Lead', initials: 'MC', color: '#6D5DFB' },
-  { id: 'jon', name: 'Jon Bell', role: 'Product Designer', initials: 'JB', color: '#189A73' },
-  { id: 'lena', name: 'Lena Ortiz', role: 'Backend Engineer', initials: 'LO', color: '#2575D8' },
-  { id: 'sam', name: 'Sam Reed', role: 'Frontend Engineer', initials: 'SR', color: '#D35D96' },
-  { id: 'noah', name: 'Noah Kim', role: 'QA Engineer', initials: 'NK', color: '#D07A22' },
+  { id: 'maya', name: 'Майя Чен', role: 'Руководитель продукта', initials: 'МЧ', color: '#6D5DFB' },
+  { id: 'jon', name: 'Джон Белл', role: 'Продуктовый дизайнер', initials: 'ДБ', color: '#189A73' },
+  { id: 'lena', name: 'Лена Ортис', role: 'Серверный разработчик', initials: 'ЛО', color: '#2575D8' },
+  { id: 'sam', name: 'Сэм Рид', role: 'Разработчик интерфейсов', initials: 'СР', color: '#D35D96' },
+  { id: 'noah', name: 'Ноа Ким', role: 'QA-инженер', initials: 'НК', color: '#D07A22' },
 ]
