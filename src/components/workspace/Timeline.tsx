@@ -1,19 +1,29 @@
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import type { ImpactAnalysis } from '../../types/impact'
+import type { ProjectSummary } from '../../types/project'
 import type { Assignee, ProjectTask } from '../../types/task'
+import { calendarDaysBetween, formatShortDate } from '../../utils/date'
 
-const rangeStart = Date.parse('2026-09-28')
-const rangeEnd = Date.parse('2026-11-13')
-const range = rangeEnd - rangeStart
-const weekLabels = ['Sep 28', 'Oct 5', 'Oct 12', 'Oct 19', 'Oct 26', 'Nov 2', 'Nov 9']
+const dayMs = 86_400_000
+const columnCount = 7
 
-function barPosition(task: ProjectTask) {
+function barPosition(task: ProjectTask, rangeStart: number, rangeEnd: number) {
+  const range = Math.max(dayMs, rangeEnd - rangeStart)
   const start = Math.max(0, ((Date.parse(task.startDate) - rangeStart) / range) * 100)
-  const width = Math.max(2.5, ((Date.parse(task.endDate) - Date.parse(task.startDate) + 86_400_000) / range) * 100)
+  const width = Math.max(2.5, ((Date.parse(task.endDate) - Date.parse(task.startDate) + dayMs) / range) * 100)
   return { left: `${start}%`, width: `${Math.min(width, 100 - start)}%` }
 }
 
-export function Timeline({ tasks, assignees }: { tasks: ProjectTask[]; assignees: Assignee[] }) {
+export function Timeline({ project, tasks, assignees, impact }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis }) {
   const visibleTasks = tasks.slice(0, 8)
+  const startCandidates = [project.startDate, ...tasks.map((task) => task.startDate)]
+  const endCandidates = [project.targetEndDate, project.projectedEndDate, ...tasks.map((task) => task.endDate)]
+  const rangeStart = Math.min(...startCandidates.map(Date.parse))
+  const rangeEnd = Math.max(...endCandidates.map(Date.parse)) + dayMs
+  const range = Math.max(dayMs, rangeEnd - rangeStart)
+  const columnLabels = Array.from({ length: columnCount }, (_, index) => (
+    formatShortDate(new Date(rangeStart + (range * index) / columnCount).toISOString())
+  ))
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ebe9ef] px-5 py-4">
@@ -35,7 +45,7 @@ export function Timeline({ tasks, assignees }: { tasks: ProjectTask[]; assignees
           <div className="grid grid-cols-[210px_1fr] border-b border-[#eeecf1] bg-[#faf9fb]">
             <div className="border-r border-[#eeecf1] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Task</div>
             <div className="grid grid-cols-7">
-              {weekLabels.map((week) => <div key={week} className="border-r border-[#eeecf1] px-2 py-2.5 text-center text-[10px] font-semibold text-[#8f8b99] last:border-r-0">{week}</div>)}
+              {columnLabels.map((label, index) => <div key={`${label}-${index}`} className="border-r border-[#eeecf1] px-2 py-2.5 text-center text-[10px] font-semibold text-[#8f8b99] last:border-r-0">{label}</div>)}
             </div>
           </div>
           {visibleTasks.map((task) => {
@@ -51,10 +61,10 @@ export function Timeline({ tasks, assignees }: { tasks: ProjectTask[]; assignees
                   </div>
                 </div>
                 <div className="relative min-h-[48px] bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
-                  <div className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md ${impacted ? 'impact-pulse bg-[#e7774d]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task)}>
+                  <div className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md ${impacted ? 'impact-pulse bg-[#e7774d]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)}>
                     <div className="h-full bg-white/20" style={{ width: `${task.progress}%` }} />
                   </div>
-                  {task.id === 'api' && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+3d</span>}
+                  {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)}d</span>}
                 </div>
               </div>
             )

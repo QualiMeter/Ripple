@@ -39,7 +39,9 @@ export const mockProjectsApi: ProjectsApi = {
     return {
       project: {
         ...project,
-        progress: Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length),
+        progress: tasks.length > 0
+          ? Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
+          : 0,
         taskCount: tasks.length,
         completedTaskCount,
       },

@@ -1,13 +1,27 @@
 import { Bell, ChevronDown, Menu, Search, Share2 } from 'lucide-react'
+import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectSummary } from '../../types/project'
 
-export function WorkspaceHeader({ project }: { project: ProjectSummary }) {
+const healthLabels: Record<ProjectSummary['health'], string> = {
+  'on-track': 'On track',
+  'at-risk': 'At risk',
+  'off-track': 'Off track',
+}
+
+const healthStyles: Record<ProjectSummary['health'], { badge: string; dot: string }> = {
+  'on-track': { badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+  'at-risk': { badge: 'bg-[#fff2e7] text-[#a04f25]', dot: 'bg-[#e47d45]' },
+  'off-track': { badge: 'bg-rose-50 text-rose-700', dot: 'bg-rose-500' },
+}
+
+export function WorkspaceHeader({ project, impact }: { project: ProjectSummary; impact: ImpactAnalysis }) {
+  const healthStyle = healthStyles[project.health]
   return (
     <>
       <header className="flex h-[72px] items-center gap-4 border-b border-[#e8e7ed] bg-white px-4 sm:px-7">
         <button className="rounded-lg p-2 text-slate-500 lg:hidden" aria-label="Open navigation"><Menu size={20} /></button>
         <div className="hidden items-center gap-2 text-sm text-[#817d8f] sm:flex">
-          <span>Projects</span><span className="text-[#c2bfca]">/</span><span className="font-medium text-[#353244]">Aurora Platform</span>
+          <span>Projects</span><span className="text-[#c2bfca]">/</span><span className="font-medium text-[#353244]">{project.name}</span>
         </div>
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <button className="grid h-9 w-9 place-items-center rounded-xl text-[#706c7c] transition hover:bg-[#f4f3f7]" aria-label="Search"><Search size={18} /></button>
@@ -22,7 +36,7 @@ export function WorkspaceHeader({ project }: { project: ProjectSummary }) {
           <div>
             <div className="mb-2 flex items-center gap-2.5">
               <h1 className="text-2xl font-bold tracking-[-.035em] text-[#252238] sm:text-[28px]">{project.name}</h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fff2e7] px-2.5 py-1 text-[11px] font-semibold text-[#a04f25]"><span className="h-1.5 w-1.5 rounded-full bg-[#e47d45]" />At risk</span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${healthStyle.badge}`}><span className={`h-1.5 w-1.5 rounded-full ${healthStyle.dot}`} />{healthLabels[project.health]}</span>
             </div>
             <p className="text-sm text-[#837f8e]">{project.description}</p>
           </div>
@@ -33,7 +47,7 @@ export function WorkspaceHeader({ project }: { project: ProjectSummary }) {
         </div>
         <nav className="mt-6 flex gap-6 overflow-x-auto text-sm" aria-label="Project views">
           {['Overview', 'Timeline', 'Dependencies', 'Risks & impact'].map((item, index) => (
-            <button key={item} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${index === 0 ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{item}{item === 'Risks & impact' && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">4</span>}</button>
+            <button key={item} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${index === 0 ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{item}{item === 'Risks & impact' && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">{impact.atRiskTaskIds.length}</span>}</button>
           ))}
         </nav>
       </div>

@@ -1,13 +1,15 @@
 import { ArrowRight, CalendarDays, CheckCircle2, CircleAlert, Route } from 'lucide-react'
 import type { ProjectWorkspace } from '../../types/workspace'
+import { calendarDaysBetween, formatShortDate } from '../../utils/date'
 
 export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
   const { project, impact } = workspace
+  const plannedDays = calendarDaysBetween(project.startDate, project.targetEndDate) + 1
   const cards = [
     { icon: CheckCircle2, label: 'Overall progress', value: `${project.progress}%`, detail: `${project.completedTaskCount} of ${project.taskCount} tasks complete`, accent: 'text-emerald-600', bar: true },
-    { icon: CalendarDays, label: 'Target date', value: 'Nov 6', detail: '32 working days planned', accent: 'text-[#6d5dfb]' },
-    { icon: CircleAlert, label: 'Projected finish', value: 'Nov 11', detail: `+${impact.deadlineShiftDays} days from target`, accent: 'text-[#d9653f]', danger: true },
-    { icon: Route, label: 'Critical path', value: `${impact.criticalTaskIds.length} tasks`, detail: '4 downstream impacted', accent: 'text-[#4e46b5]' },
+    { icon: CalendarDays, label: 'Target date', value: formatShortDate(project.targetEndDate), detail: `${plannedDays} calendar days planned`, accent: 'text-[#6d5dfb]' },
+    { icon: CircleAlert, label: 'Projected finish', value: formatShortDate(impact.projectedProjectEndDate), detail: impact.deadlineShiftDays > 0 ? `+${impact.deadlineShiftDays} days from target` : 'On target', accent: 'text-[#d9653f]', danger: impact.requiresIntervention },
+    { icon: Route, label: 'Critical path', value: `${impact.criticalTaskIds.length} tasks`, detail: `${impact.affectedTaskIds.length} downstream impacted`, accent: 'text-[#4e46b5]' },
   ]
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -30,12 +30,12 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} />
+      <WorkspaceHeader project={workspace.project} impact={workspace.impact} />
       <div className="space-y-4 p-4 sm:p-7">
         <MetricCards workspace={workspace} />
         <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
           <div className="min-w-0 space-y-4">
-            <Timeline tasks={workspace.tasks} assignees={workspace.assignees} />
+            <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} />
             <TaskList tasks={workspace.tasks} assignees={workspace.assignees} />
           </div>
           <ImpactPanel workspace={workspace} />

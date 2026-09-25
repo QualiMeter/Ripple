@@ -13,5 +13,6 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!response.ok) throw new ApiError(response.status, `API request failed: ${response.status}`)
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
