@@ -6,16 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",
-    "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
+    "react-router-dom": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
@@ -24,6 +25,7 @@
     "autoprefixer": "latest",
     "postcss": "latest",
     "tailwindcss": "^3.4.17",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vitest": "^4.1.11"
   }
 }

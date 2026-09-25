@@ -11,8 +11,18 @@ export const mockTasksApi: TasksApi = {
 
     const state = getMockProjectState(projectId)
     const dependencies = demoDependencies.filter((dependency) => dependency.projectId === projectId)
-    const result = recalculateSchedule(state.tasks, dependencies, taskId, update)
-    saveMockProjectSchedule(projectId, result.tasks, taskId, result.affectedTaskIds)
+    const previousOverride = state.taskOverrides[taskId] ?? {}
+    const nextTaskOverride = { ...previousOverride, ...update }
+    if (update.durationDays !== undefined && update.endDate === undefined) delete nextTaskOverride.endDate
+    const taskOverrides = { ...state.taskOverrides, [taskId]: nextTaskOverride }
+    const result = recalculateSchedule(
+      state.baselineTasks,
+      dependencies,
+      taskOverrides,
+      taskId,
+      state.tasks,
+    )
+    saveMockProjectSchedule(projectId, result.tasks, taskOverrides, taskId, result.affectedTaskIds)
     return result.updatedTask
   },
   async deleteTask() {

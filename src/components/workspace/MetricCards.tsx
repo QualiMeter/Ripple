@@ -9,7 +9,7 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
   const cards = [
     { icon: CheckCircle2, label: 'Общий прогресс', value: `${project.progress}%`, detail: `${project.completedTaskCount} из ${formatTaskCount(project.taskCount)} завершено`, accent: 'text-emerald-600', bar: true },
     { icon: CalendarDays, label: 'Плановый срок', value: formatShortDate(project.targetEndDate), detail: `${plannedDays} календарных дней по плану`, accent: 'text-[#6d5dfb]' },
-    { icon: CircleAlert, label: 'Прогноз завершения', value: formatShortDate(impact.projectedProjectEndDate), detail: impact.deadlineShiftDays > 0 ? `На ${impact.deadlineShiftDays} дн. позже плана` : 'В пределах плана', accent: 'text-[#d9653f]', danger: impact.requiresIntervention },
+    { icon: CircleAlert, label: 'Прогноз завершения', value: formatShortDate(impact.projectedProjectEndDate), detail: impact.deadlineShiftDays > 0 ? `На ${impact.deadlineShiftDays} дн. позже плана` : impact.deadlineShiftDays < 0 ? `На ${Math.abs(impact.deadlineShiftDays)} дн. раньше плана` : 'В пределах плана', accent: 'text-[#d9653f]', danger: impact.requiresIntervention },
     { icon: Route, label: 'Критический путь', value: formatTaskCount(impact.criticalTaskIds.length), detail: `Затронуто следующих задач: ${impact.affectedTaskIds.length}`, accent: 'text-[#4e46b5]' },
   ]
   return (

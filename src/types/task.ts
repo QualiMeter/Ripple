@@ -15,6 +15,7 @@ export interface ProjectTask {
   title: string
   startDate: string
   endDate: string
+  plannedStartDate: string
   plannedEndDate: string
   durationDays: number
   progress: number

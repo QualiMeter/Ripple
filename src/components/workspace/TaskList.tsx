@@ -5,7 +5,12 @@ import { formatTaskCount } from '../../utils/plural'
 import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
 
-export function TaskList({ tasks, assignees, onTaskSelect }: { tasks: ProjectTask[]; assignees: Assignee[]; onTaskSelect: (task: ProjectTask) => void }) {
+export function TaskList({ tasks, assignees, affectedTaskIds, onTaskSelect }: { tasks: ProjectTask[]; assignees: Assignee[]; affectedTaskIds: string[]; onTaskSelect: (task: ProjectTask) => void }) {
+  const affectedTaskIdSet = new Set(affectedTaskIds)
+  const priorityTasks = tasks
+    .filter((task) => task.isCritical || task.riskState !== 'none' || affectedTaskIdSet.has(task.id))
+    .sort((left, right) => Number(affectedTaskIdSet.has(right.id)) - Number(affectedTaskIdSet.has(left.id)))
+    .slice(0, 5)
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
       <div className="flex items-center justify-between border-b border-[#ebe9ef] px-5 py-4">
@@ -16,11 +21,12 @@ export function TaskList({ tasks, assignees, onTaskSelect }: { tasks: ProjectTas
         <table className="w-full min-w-[700px] border-collapse text-left">
           <thead><tr className="bg-[#faf9fb] text-[10px] font-bold uppercase tracking-[.08em] text-[#9b97a4]"><th className="px-5 py-2.5">Задача</th><th className="px-3 py-2.5">Ответственный</th><th className="px-3 py-2.5">Статус</th><th className="px-3 py-2.5">Срок</th><th className="px-3 py-2.5">Прогресс</th><th className="w-10 px-3 py-2.5" /></tr></thead>
           <tbody>
-            {tasks.filter((task) => task.isCritical || task.riskState !== 'none').slice(0, 5).map((task) => {
+            {priorityTasks.map((task) => {
               const assignee = assignees.find((person) => person.id === task.assigneeId)
+              const affected = affectedTaskIdSet.has(task.id)
               return (
                 <tr key={task.id} className="group cursor-pointer border-t border-[#efedf2] hover:bg-[#fcfbfd] focus-within:bg-[#fcfbfd]" onClick={() => onTaskSelect(task)}>
-                  <td className="px-5 py-3"><div className="flex items-center gap-2.5"><span className={`h-2 w-2 rounded-full ${task.riskState === 'at-risk' ? 'bg-[#e06c49]' : task.status === 'completed' ? 'bg-emerald-500' : 'bg-[#7062e3]'}`} /><div><p className="text-xs font-semibold text-[#464152]">{task.title}</p>{task.changeNote && <p className="mt-0.5 text-[10px] text-[#b26042]">{task.changeNote}</p>}</div></div></td>
+                  <td className="px-5 py-3"><div className="flex items-center gap-2.5"><span className={`h-2 w-2 rounded-full ${affected ? 'bg-[#e7774d]' : task.riskState === 'at-risk' ? 'bg-[#df5e64]' : task.status === 'completed' ? 'bg-emerald-500' : 'bg-[#7062e3]'}`} /><div><div className="flex items-center gap-2"><p className="text-xs font-semibold text-[#464152]">{task.title}</p>{affected && <span className="rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">Затронуто</span>}</div>{task.changeNote && <p className="mt-0.5 text-[10px] text-[#b26042]">{task.changeNote}</p>}</div></div></td>
                   <td className="px-3 py-3"><div className="flex items-center gap-2"><Avatar assignee={assignee} size="sm" /><span className="text-[11px] text-[#6f6a79]">{assignee?.name}</span></div></td>
                   <td className="px-3 py-3"><StatusBadge status={task.status} risk={task.riskState} /></td>
                   <td className={`px-3 py-3 text-[11px] font-semibold ${task.riskState === 'at-risk' ? 'text-[#c15a37]' : 'text-[#696474]'}`}>{formatShortDate(task.endDate)}</td>

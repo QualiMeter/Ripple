@@ -5,6 +5,8 @@ import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 
 const dayMs = 86_400_000
 
+export type TaskScheduleOverrides = Record<string, TaskUpdateRequest>
+
 export function differenceInDays(later: string, earlier: string): number {
   return Math.round((Date.parse(later) - Date.parse(earlier)) / dayMs)
 }
@@ -13,13 +15,21 @@ function addDays(date: string, days: number): string {
   return new Date(Date.parse(date) + days * dayMs).toISOString().slice(0, 10)
 }
 
+function nextWorkingDay(date: string): string {
+  let candidate = addDays(date, 1)
+  while ([0, 6].includes(new Date(`${candidate}T00:00:00Z`).getUTCDay())) {
+    candidate = addDays(candidate, 1)
+  }
+  return candidate
+}
+
 function inclusiveDuration(startDate: string, endDate: string): number {
   return Math.max(1, differenceInDays(endDate, startDate) + 1)
 }
 
-function applyTaskUpdate(task: ProjectTask, update: TaskUpdateRequest): ProjectTask {
+function applyTaskOverride(task: ProjectTask, update: TaskUpdateRequest): ProjectTask {
   const startDate = update.startDate ?? task.startDate
-  const currentDuration = task.durationDays || inclusiveDuration(task.startDate, task.endDate)
+  const currentDuration = inclusiveDuration(task.startDate, task.endDate)
   const endDate = update.endDate
     ?? (update.durationDays !== undefined
       ? addDays(startDate, Math.max(1, update.durationDays) - 1)
@@ -33,8 +43,13 @@ function applyTaskUpdate(task: ProjectTask, update: TaskUpdateRequest): ProjectT
     startDate,
     endDate,
     durationDays: inclusiveDuration(startDate, endDate),
-    riskState: endDate > task.plannedEndDate ? 'at-risk' : task.riskState,
+    changeNote: undefined,
   }
+}
+
+function deriveRiskState(task: ProjectTask, baselineTask: ProjectTask): ProjectTask['riskState'] {
+  if (task.endDate > task.plannedEndDate) return 'at-risk'
+  return baselineTask.riskState === 'watch' ? 'watch' : 'none'
 }
 
 export interface ScheduleRecalculationResult {
@@ -44,59 +59,72 @@ export interface ScheduleRecalculationResult {
 }
 
 export function recalculateSchedule(
-  tasks: ProjectTask[],
+  baselineTasks: ProjectTask[],
   dependencies: Dependency[],
-  taskId: string,
-  update: TaskUpdateRequest,
+  taskOverrides: TaskScheduleOverrides,
+  sourceTaskId: string,
+  previousTasks: ProjectTask[] = baselineTasks,
 ): ScheduleRecalculationResult {
-  const sourceTask = tasks.find((task) => task.id === taskId)
-  if (!sourceTask) throw new Error('Задача не найдена')
+  if (!baselineTasks.some((task) => task.id === sourceTaskId)) throw new Error('Задача не найдена')
 
-  const recalculatedTasks = tasks.map((task) => (
-    task.id === taskId ? applyTaskUpdate(task, update) : { ...task }
-  ))
-  const tasksById = new Map(recalculatedTasks.map((task) => [task.id, task]))
-  const downstreamTaskIds = findDownstreamTaskIds(taskId, dependencies)
-  const affectedTaskIds = new Set<string>()
+  const tasksById = new Map(baselineTasks.map((task) => [
+    task.id,
+    applyTaskOverride({ ...task }, taskOverrides[task.id] ?? {}),
+  ]))
 
-  for (let iteration = 0; iteration < downstreamTaskIds.length; iteration += 1) {
+  for (let iteration = 0; iteration < baselineTasks.length; iteration += 1) {
     let changed = false
 
-    for (const downstreamTaskId of downstreamTaskIds) {
-      const task = tasksById.get(downstreamTaskId)
-      if (!task) continue
+    for (const dependency of dependencies) {
+      const predecessor = tasksById.get(dependency.predecessorTaskId)
+      const successor = tasksById.get(dependency.successorTaskId)
+      if (!predecessor || !successor) continue
 
-      const predecessorEndDates = dependencies
-        .filter((dependency) => dependency.successorTaskId === downstreamTaskId)
-        .map((dependency) => tasksById.get(dependency.predecessorTaskId)?.endDate)
-        .filter((date): date is string => Boolean(date))
+      const earliestStart = nextWorkingDay(predecessor.endDate)
+      if (successor.startDate >= earliestStart) continue
 
-      if (predecessorEndDates.length === 0) continue
-      const latestPredecessorEnd = predecessorEndDates.reduce((latest, date) => date > latest ? date : latest)
-      const earliestStart = addDays(latestPredecessorEnd, 1)
-      if (task.startDate >= earliestStart) continue
-
-      const shiftDays = differenceInDays(earliestStart, task.startDate)
-      const shiftedTask: ProjectTask = {
-        ...task,
-        startDate: addDays(task.startDate, shiftDays),
-        endDate: addDays(task.endDate, shiftDays),
-        riskState: 'at-risk',
-        changeNote: `Сдвиг на ${shiftDays} дн. из-за зависимости`,
-      }
-      tasksById.set(task.id, shiftedTask)
-      affectedTaskIds.add(task.id)
+      const shiftDays = differenceInDays(earliestStart, successor.startDate)
+      tasksById.set(successor.id, {
+        ...successor,
+        startDate: addDays(successor.startDate, shiftDays),
+        endDate: addDays(successor.endDate, shiftDays),
+      })
       changed = true
     }
 
     if (!changed) break
   }
 
-  const resultTasks = recalculatedTasks.map((task) => tasksById.get(task.id) ?? task)
+  const baselineById = new Map(baselineTasks.map((task) => [task.id, task]))
+  const previousById = new Map(previousTasks.map((task) => [task.id, task]))
+  const downstreamTaskIds = findDownstreamTaskIds(sourceTaskId, dependencies)
+  const affectedTaskIds = downstreamTaskIds.filter((taskId) => {
+    const previousTask = previousById.get(taskId)
+    const nextTask = tasksById.get(taskId)
+    return Boolean(previousTask && nextTask && (
+      previousTask.startDate !== nextTask.startDate || previousTask.endDate !== nextTask.endDate
+    ))
+  })
+  const affectedTaskIdSet = new Set(affectedTaskIds)
+
+  const tasks = baselineTasks.map((baselineTask) => {
+    const task = tasksById.get(baselineTask.id) ?? baselineTask
+    const shiftDays = differenceInDays(task.startDate, baselineTask.plannedStartDate)
+    return {
+      ...task,
+      riskState: deriveRiskState(task, baselineById.get(task.id) ?? baselineTask),
+      changeNote: affectedTaskIdSet.has(task.id)
+        ? shiftDays === 0
+          ? 'Срок восстановлен после пересчёта зависимостей'
+          : `${shiftDays > 0 ? 'Сдвиг' : 'Возврат'} на ${Math.abs(shiftDays)} дн. после пересчёта зависимостей`
+        : undefined,
+    }
+  })
+
   return {
-    tasks: resultTasks,
-    updatedTask: tasksById.get(taskId)!,
-    affectedTaskIds: downstreamTaskIds.filter((id) => affectedTaskIds.has(id)),
+    tasks,
+    updatedTask: tasks.find((task) => task.id === sourceTaskId)!,
+    affectedTaskIds,
   }
 }
 
@@ -126,37 +154,38 @@ export function buildImpactAnalysis(
   sourceTaskId: string,
   affectedTaskIds = findDownstreamTaskIds(sourceTaskId, dependencies),
 ): ImpactAnalysis {
-  const projectedProjectEndDate = tasks.reduce(
-    (latest, task) => (task.endDate > latest ? task.endDate : latest),
-    project.targetEndDate,
-  )
-  const atRiskTasks = tasks.filter((task) => task.riskState === 'at-risk')
+  const projectedProjectEndDate = tasks.length > 0
+    ? tasks.reduce((latest, task) => task.endDate > latest ? task.endDate : latest, tasks[0].endDate)
+    : project.targetEndDate
   const sourceTask = tasks.find((task) => task.id === sourceTaskId)
-  const sourceDelayDays = sourceTask ? Math.max(0, differenceInDays(sourceTask.endDate, sourceTask.plannedEndDate)) : 0
+  const sourceShiftDays = sourceTask ? differenceInDays(sourceTask.endDate, sourceTask.plannedEndDate) : 0
   const reasons = [
     {
       taskId: sourceTaskId,
-      reason: sourceDelayDays > 0
-        ? `Завершение задачи сдвинуто на ${sourceDelayDays} дн. относительно исходного плана.`
-        : 'Параметры задачи обновлены без сдвига её планового срока.',
-      severity: sourceDelayDays > 0 ? 'critical' as const : 'info' as const,
+      reason: sourceShiftDays > 0
+        ? `Завершение задачи сдвинуто на ${sourceShiftDays} дн. относительно исходного плана.`
+        : sourceShiftDays < 0
+          ? `Задача завершается на ${Math.abs(sourceShiftDays)} дн. раньше исходного плана.`
+          : 'Задача возвращена к исходному плановому сроку.',
+      severity: sourceShiftDays > 0 ? 'critical' as const : 'info' as const,
     },
     ...affectedTaskIds.map((taskId) => ({
       taskId,
-      reason: 'Срок задачи сдвинут из-за изменения предшествующей работы.',
+      reason: 'Срок задачи изменён при пересчёте зависимостей.',
       severity: 'warning' as const,
     })),
   ]
+  const deadlineShiftDays = differenceInDays(projectedProjectEndDate, project.targetEndDate)
 
   return {
     sourceTaskId,
     affectedTaskIds,
     criticalTaskIds: tasks.filter((task) => task.isCritical).map((task) => task.id),
-    atRiskTaskIds: atRiskTasks.map((task) => task.id),
+    atRiskTaskIds: tasks.filter((task) => task.riskState === 'at-risk').map((task) => task.id),
     previousProjectEndDate: project.targetEndDate,
     projectedProjectEndDate,
-    deadlineShiftDays: Math.max(0, differenceInDays(projectedProjectEndDate, project.targetEndDate)),
-    requiresIntervention: projectedProjectEndDate > project.targetEndDate,
+    deadlineShiftDays,
+    requiresIntervention: deadlineShiftDays > 0,
     reasons,
     analyzedAt: new Date().toISOString(),
   }

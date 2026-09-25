@@ -46,7 +46,7 @@ export function ProjectWorkspacePage() {
         <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
           <div className="min-w-0 space-y-4">
             <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
-            <TaskList tasks={workspace.tasks} assignees={workspace.assignees} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
+            <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
           </div>
           <ImpactPanel workspace={workspace} />
         </div>

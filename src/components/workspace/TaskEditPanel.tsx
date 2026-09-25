@@ -74,14 +74,16 @@ export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPane
     setError(null)
     setIsSaving(true)
     try {
-      await onSave({
-        title: title.trim(),
-        startDate,
-        endDate,
-        durationDays,
-        assigneeId,
-        status,
-      })
+      const update: TaskUpdateRequest = {}
+      if (title.trim() !== task.title) update.title = title.trim()
+      if (startDate !== task.startDate) update.startDate = startDate
+      if (endDate !== task.endDate) {
+        update.endDate = endDate
+        update.durationDays = durationDays
+      }
+      if (assigneeId !== task.assigneeId) update.assigneeId = assigneeId
+      if (status !== task.status) update.status = status
+      await onSave(update)
     } catch {
       setError('Не удалось сохранить задачу. Попробуйте ещё раз.')
       setIsSaving(false)

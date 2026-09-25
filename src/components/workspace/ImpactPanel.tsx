@@ -40,7 +40,7 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
           </div>
           <div className="mt-4 flex items-center justify-between rounded-xl bg-[#29263e] p-3 text-white">
             <div><p className="text-[10px] text-[#b7b3c5]">Завершение проекта</p><p className="mt-0.5 text-sm font-bold">{formatShortDate(impact.previousProjectEndDate)} <ArrowRight size={12} className="mx-1 inline" /> {formatShortDate(impact.projectedProjectEndDate)}</p></div>
-            <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.deadlineShiftDays > 0 ? `+${impact.deadlineShiftDays} дн.` : 'По плану'}</div>
+            <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.deadlineShiftDays > 0 ? `+${impact.deadlineShiftDays} дн.` : impact.deadlineShiftDays < 0 ? `${impact.deadlineShiftDays} дн.` : 'По плану'}</div>
           </div>
         </div>
       </section>
@@ -48,7 +48,7 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
       <section className="rounded-2xl border border-[#ded8fb] bg-gradient-to-br from-white to-[#f8f6ff] p-4 shadow-panel">
         <div className="flex items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#eae6ff] text-[#6556d9]"><Lightbulb size={18} /></span>
-          <div><div className="flex items-center gap-1.5"><h2 className="text-sm font-bold text-[#363247]">Как сохранить срок</h2><Sparkles size={12} className="text-[#806fe5]" /></div><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">{best ? 'Найден лучший сценарий восстановления' : 'Безопасный сценарий не найден'}</p></div>
+          <div><div className="flex items-center gap-1.5"><h2 className="text-sm font-bold text-[#363247]">Как сохранить срок</h2><Sparkles size={12} className="text-[#806fe5]" /></div><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">{best ? 'Найден лучший сценарий восстановления' : impact.requiresIntervention ? 'Безопасный сценарий не найден' : 'Восстановление срока не требуется'}</p></div>
         </div>
         {best ? (
           <>
@@ -60,8 +60,8 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
           </>
         ) : (
           <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-white p-3">
-            <p className="text-xs font-bold text-[#433e54]">Нет доступного плана восстановления</p>
-            <p className="mt-1 text-[10px] leading-4 text-[#878292]">Ripple не удалось найти безопасный способ скорректировать план с учётом текущих последствий.</p>
+            <p className="text-xs font-bold text-[#433e54]">{impact.requiresIntervention ? 'Нет доступного плана восстановления' : 'Проект укладывается в срок'}</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#878292]">{impact.requiresIntervention ? 'Ripple не удалось найти безопасный способ скорректировать план с учётом текущих последствий.' : 'Дополнительные действия для восстановления планового срока сейчас не нужны.'}</p>
           </div>
         )}
       </section>

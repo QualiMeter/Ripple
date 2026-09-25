@@ -50,9 +50,10 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
           </div>
           {visibleTasks.map((task) => {
             const assignee = assignees.find((person) => person.id === task.assigneeId)
-            const impacted = task.riskState === 'at-risk'
+            const affected = impact.affectedTaskIds.includes(task.id)
+            const atRisk = task.riskState === 'at-risk'
             return (
-              <div key={task.id} className={`grid grid-cols-[210px_1fr] border-b border-[#f0eef3] last:border-b-0 ${impacted ? 'bg-[#fffdfb]' : ''}`}>
+              <div key={task.id} className={`grid grid-cols-[210px_1fr] border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`}>
                 <button type="button" onClick={() => onTaskSelect(task)} className="flex min-w-0 items-center gap-2.5 border-r border-[#eeecf1] px-5 py-2.5 text-left hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${task.isCritical ? 'bg-[#e17149]' : task.status === 'completed' ? 'bg-[#4aaa83]' : 'bg-[#aaa5b6]'}`} />
                   <div className="min-w-0">
@@ -61,7 +62,7 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
                   </div>
                 </button>
                 <div className="relative min-h-[48px] bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
-                  <button type="button" onClick={() => onTaskSelect(task)} className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md text-left ${impacted ? 'impact-pulse bg-[#e7774d]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`}>
+                  <button type="button" onClick={() => onTaskSelect(task)} className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md text-left ${affected ? 'impact-pulse bg-[#e7774d]' : atRisk ? 'bg-[#df5e64]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`}>
                     <div className="h-full bg-white/20" style={{ width: `${task.progress}%` }} />
                   </button>
                   {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)} дн.</span>}
@@ -73,6 +74,7 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
       </div>
       <div className="flex items-center gap-5 border-t border-[#ebe9ef] bg-[#faf9fb] px-5 py-2.5 text-[10px] text-[#85818f]">
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#e7774d]" /> Затронуто</span>
+        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#df5e64]" /> Под риском</span>
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#7768ed]" /> В работе</span>
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#55ad89]" /> Завершено</span>
       </div>
