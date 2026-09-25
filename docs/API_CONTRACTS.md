@@ -31,4 +31,10 @@ The combined workspace route is a frontend read-model proposal. The final ASP.NE
 - `POST /api/projects/{projectId}/recalculate`
 - `GET /api/projects/{projectId}/recovery-scenarios`
 
+### Task update flow
+
+`PATCH /api/tasks/{taskId}` accepts a partial `TaskUpdateRequest` with `title`, `startDate`, `endDate`, `durationDays`, `assigneeId`, and `status`, and returns the updated task.
+
+The frontend then reloads `GET /api/projects/{projectId}/workspace` so the UI receives a single consistent read model containing recalculated tasks, project dates, and impact analysis. In mock mode the same sequence is preserved: `TasksApi` updates the in-memory store, `scheduleEngine` propagates finish-to-start shifts, and `ProjectsApi` rebuilds the workspace. The React layer does not invoke schedule calculations directly.
+
 TypeScript contracts live in `src/types/`. Once Swagger is available, generated backend DTOs should be mapped to these stable UI-facing models rather than imported throughout presentation components.

@@ -1,7 +1,7 @@
 import { demoAssignees } from '../mocks/assignees'
 import { demoDependencies } from '../mocks/dependencies'
 import { demoProjects } from '../mocks/projects'
-import { demoTasks } from '../mocks/tasks'
+import { getMockProjectState } from '../mocks/workspaceStore'
 import { buildImpactAnalysis } from '../services/scheduleEngine'
 import type { RecoveryScenario } from '../types/impact'
 import type { ProjectWorkspace } from '../types/workspace'
@@ -33,12 +33,21 @@ export const mockProjectsApi: ProjectsApi = {
     await new Promise((resolve) => setTimeout(resolve, 260))
     const project = demoProjects.find((candidate) => candidate.id === projectId)
     if (!project) throw new Error('Проект не найден')
-    const tasks = demoTasks.filter((task) => task.projectId === projectId)
+    const state = getMockProjectState(projectId)
+    const tasks = state.tasks.map((task) => ({ ...task }))
     const dependencies = demoDependencies.filter((dependency) => dependency.projectId === projectId)
     const completedTaskCount = tasks.filter((task) => task.status === 'completed').length
+    const impact = buildImpactAnalysis(
+      project,
+      tasks,
+      dependencies,
+      state.lastChangedTaskId,
+      state.affectedTaskIds ?? undefined,
+    )
     return {
       project: {
         ...project,
+        projectedEndDate: impact.projectedProjectEndDate,
         progress: tasks.length > 0
           ? Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
           : 0,
@@ -48,7 +57,7 @@ export const mockProjectsApi: ProjectsApi = {
       tasks,
       dependencies,
       assignees: demoAssignees,
-      impact: buildImpactAnalysis(project, tasks, dependencies, 'api'),
+      impact,
       recoveryScenarios,
     }
   },

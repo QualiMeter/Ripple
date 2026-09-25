@@ -14,8 +14,8 @@ function barPosition(task: ProjectTask, rangeStart: number, rangeEnd: number) {
   return { left: `${start}%`, width: `${Math.min(width, 100 - start)}%` }
 }
 
-export function Timeline({ project, tasks, assignees, impact }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis }) {
-  const visibleTasks = tasks.slice(0, 8)
+export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis; onTaskSelect: (task: ProjectTask) => void }) {
+  const visibleTasks = tasks
   const startCandidates = [project.startDate, ...tasks.map((task) => task.startDate)]
   const endCandidates = [project.targetEndDate, project.projectedEndDate, ...tasks.map((task) => task.endDate)]
   const rangeStart = Math.min(...startCandidates.map(Date.parse))
@@ -53,17 +53,17 @@ export function Timeline({ project, tasks, assignees, impact }: { project: Proje
             const impacted = task.riskState === 'at-risk'
             return (
               <div key={task.id} className={`grid grid-cols-[210px_1fr] border-b border-[#f0eef3] last:border-b-0 ${impacted ? 'bg-[#fffdfb]' : ''}`}>
-                <div className="flex min-w-0 items-center gap-2.5 border-r border-[#eeecf1] px-5 py-2.5">
+                <button type="button" onClick={() => onTaskSelect(task)} className="flex min-w-0 items-center gap-2.5 border-r border-[#eeecf1] px-5 py-2.5 text-left hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${task.isCritical ? 'bg-[#e17149]' : task.status === 'completed' ? 'bg-[#4aaa83]' : 'bg-[#aaa5b6]'}`} />
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-[#444051]">{task.title}</p>
                     <p className="mt-0.5 truncate text-[10px] text-[#9a96a3]">{assignee?.name}</p>
                   </div>
-                </div>
+                </button>
                 <div className="relative min-h-[48px] bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
-                  <div className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md ${impacted ? 'impact-pulse bg-[#e7774d]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)}>
+                  <button type="button" onClick={() => onTaskSelect(task)} className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md text-left ${impacted ? 'impact-pulse bg-[#e7774d]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`}>
                     <div className="h-full bg-white/20" style={{ width: `${task.progress}%` }} />
-                  </div>
+                  </button>
                   {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)} дн.</span>}
                 </div>
               </div>
