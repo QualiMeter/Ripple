@@ -50,6 +50,56 @@ The demo must visibly show a parameter change and its consequences.
 - Clearly show current state, deadlines, dependencies, and potential problems.
 - At least one integrated counter-feature that creates extra user value.
 
+## Backend integration
+The backend does not exist yet and will be developed separately in C# ASP.NET Core.
+
+The frontend must therefore be API-first and backend-ready from the beginning.
+
+Rules:
+- Do not place mock data directly inside UI components.
+- Put data access behind a dedicated `api/` or `services/` layer.
+- Define explicit TypeScript domain/DTO types for Project, Task, Dependency, Assignee, ImpactAnalysis, and recovery scenarios.
+- UI components must consume typed service/API interfaces rather than importing mock datasets directly.
+- Mock implementations should expose approximately the same operations that the future ASP.NET REST API will expose.
+- Use `VITE_API_URL` for the future backend base URL.
+- Keep request/response mapping isolated so backend DTO changes do not require UI rewrites.
+- Do not move business rules into presentation components.
+- Temporary frontend-side impact/schedule calculations are allowed for the MVP, but they must be isolated in domain/service modules and replaceable by backend responses later.
+- Keep API/domain contracts documented in `docs/`.
+- Once the ASP.NET OpenAPI/Swagger contract is available, align or generate client types from that contract instead of duplicating models manually.
+
+Expected frontend flow now:
+`UI -> typed API/service abstraction -> mock implementation/local engine`
+
+Expected flow after backend integration:
+`UI -> typed API client -> ASP.NET Core REST API -> backend domain logic/database`
+
+Suggested frontend structure:
+
+```text
+src/
+├── api/
+│   ├── client.ts
+│   ├── projects.api.ts
+│   ├── tasks.api.ts
+│   └── impact.api.ts
+├── mocks/
+│   ├── projects.ts
+│   ├── tasks.ts
+│   └── dependencies.ts
+├── types/
+│   ├── project.ts
+│   ├── task.ts
+│   ├── dependency.ts
+│   └── impact.ts
+├── services/
+│   └── scheduleEngine.ts
+├── components/
+└── pages/
+```
+
+The exact folders may evolve, but preserve the separation of concerns above.
+
 ## Counter-feature direction
 Preferred concept: “How to save the deadline”.
 
