@@ -64,6 +64,7 @@ export function recalculateSchedule(
   taskOverrides: TaskScheduleOverrides,
   sourceTaskId: string,
   previousTasks: ProjectTask[] = baselineTasks,
+  affectedCandidateIds = findDownstreamTaskIds(sourceTaskId, dependencies),
 ): ScheduleRecalculationResult {
   if (!baselineTasks.some((task) => task.id === sourceTaskId)) throw new Error('Задача не найдена')
 
@@ -97,8 +98,7 @@ export function recalculateSchedule(
 
   const baselineById = new Map(baselineTasks.map((task) => [task.id, task]))
   const previousById = new Map(previousTasks.map((task) => [task.id, task]))
-  const downstreamTaskIds = findDownstreamTaskIds(sourceTaskId, dependencies)
-  const affectedTaskIds = downstreamTaskIds.filter((taskId) => {
+  const affectedTaskIds = affectedCandidateIds.filter((taskId) => {
     const previousTask = previousById.get(taskId)
     const nextTask = tasksById.get(taskId)
     return Boolean(previousTask && nextTask && (

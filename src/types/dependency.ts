@@ -7,3 +7,9 @@ export interface Dependency {
   successorTaskId: string
   type: DependencyType
 }
+
+export interface CreateDependencyRequest {
+  predecessorTaskId: string
+  successorTaskId: string
+  type: DependencyType
+}

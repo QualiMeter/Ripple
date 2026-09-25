@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ImpactPanel } from '../components/workspace/ImpactPanel'
+import { DependenciesView } from '../components/workspace/DependenciesView'
 import { MetricCards } from '../components/workspace/MetricCards'
 import { TaskList } from '../components/workspace/TaskList'
 import { TaskEditPanel } from '../components/workspace/TaskEditPanel'
 import { Timeline } from '../components/workspace/Timeline'
-import { WorkspaceHeader } from '../components/workspace/WorkspaceHeader'
+import { WorkspaceHeader, type WorkspaceView } from '../components/workspace/WorkspaceHeader'
 import { projectService } from '../services/projectService'
 import type { ProjectWorkspace } from '../types/workspace'
 import type { TaskUpdateRequest } from '../types/task'
+import type { CreateDependencyRequest } from '../types/dependency'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -19,6 +21,7 @@ export function ProjectWorkspacePage() {
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState<WorkspaceView>('overview')
 
   useEffect(() => {
     let active = true
@@ -37,19 +40,30 @@ export function ProjectWorkspacePage() {
     setWorkspace(updatedWorkspace)
     setSelectedTaskId(null)
   }
+  const handleDependencyCreate = async (request: CreateDependencyRequest) => {
+    setWorkspace(await projectService.createDependency(projectId, request))
+  }
+  const handleDependencyDelete = async (dependencyId: string) => {
+    setWorkspace(await projectService.deleteDependency(projectId, dependencyId))
+  }
+
+  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
+  const timeline = <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} impact={workspace.impact} />
+      <WorkspaceHeader project={workspace.project} impact={workspace.impact} activeView={activeView} onViewChange={setActiveView} />
       <div className="space-y-4 p-4 sm:p-7">
-        <MetricCards workspace={workspace} />
-        <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="min-w-0 space-y-4">
-            <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
-            <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
+        {activeView === 'overview' && <>
+          <MetricCards workspace={workspace} />
+          <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
+            <div className="min-w-0 space-y-4">{timeline}{taskList}</div>
+            <ImpactPanel workspace={workspace} />
           </div>
-          <ImpactPanel workspace={workspace} />
-        </div>
+        </>}
+        {activeView === 'timeline' && <div className="space-y-4">{timeline}{taskList}</div>}
+        {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} />}
+        {activeView === 'risks' && <><MetricCards workspace={workspace} /><div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">{taskList}<ImpactPanel workspace={workspace} /></div></>}
       </div>
       {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} />}
     </div>

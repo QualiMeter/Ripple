@@ -1,5 +1,4 @@
 import { demoAssignees } from '../mocks/assignees'
-import { demoDependencies } from '../mocks/dependencies'
 import { demoProjects } from '../mocks/projects'
 import { getMockProjectState } from '../mocks/workspaceStore'
 import { buildRecoveryScenarios } from '../services/recoveryEngine'
@@ -14,7 +13,7 @@ export const mockProjectsApi: ProjectsApi = {
     if (!project) throw new Error('Проект не найден')
     const state = getMockProjectState(projectId)
     const tasks = state.tasks.map((task) => ({ ...task }))
-    const dependencies = demoDependencies.filter((dependency) => dependency.projectId === projectId)
+    const dependencies = state.dependencies.map((dependency) => ({ ...dependency }))
     const completedTaskCount = tasks.filter((task) => task.status === 'completed').length
     const impact = buildImpactAnalysis(
       project,

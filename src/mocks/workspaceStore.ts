@@ -1,10 +1,13 @@
 import { demoTasks } from './tasks'
+import { demoDependencies } from './dependencies'
+import type { Dependency } from '../types/dependency'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 
 export interface MockProjectState {
   baselineTasks: ProjectTask[]
   tasks: ProjectTask[]
   taskOverrides: Record<string, TaskUpdateRequest>
+  dependencies: Dependency[]
   lastChangedTaskId: string
   affectedTaskIds: string[] | null
 }
@@ -32,11 +35,31 @@ function createProjectState(projectId: string): MockProjectState {
     baselineTasks: tasks.map(toBaselineTask),
     tasks,
     taskOverrides: sourceTask ? { [sourceTask.id]: { endDate: sourceTask.endDate } } : {},
+    dependencies: demoDependencies
+      .filter((dependency) => dependency.projectId === projectId)
+      .map((dependency) => ({ ...dependency })),
     lastChangedTaskId: sourceTask?.id ?? tasks[0]?.id ?? '',
     affectedTaskIds: null,
   }
   projectStates.set(projectId, state)
   return state
+}
+
+export function saveMockProjectDependencies(
+  projectId: string,
+  dependencies: Dependency[],
+  tasks: ProjectTask[],
+  lastChangedTaskId: string,
+  affectedTaskIds: string[],
+): void {
+  const currentState = getMockProjectState(projectId)
+  projectStates.set(projectId, {
+    ...currentState,
+    dependencies: dependencies.map((dependency) => ({ ...dependency })),
+    tasks: tasks.map((task) => ({ ...task })),
+    lastChangedTaskId,
+    affectedTaskIds: [...affectedTaskIds],
+  })
 }
 
 export function getMockProjectState(projectId: string): MockProjectState {
@@ -48,6 +71,13 @@ export function findMockProjectIdForTask(taskId: string): string | undefined {
     if (state.tasks.some((task) => task.id === taskId)) return projectId
   }
   return demoTasks.find((task) => task.id === taskId)?.projectId
+}
+
+export function findMockProjectIdForDependency(dependencyId: string): string | undefined {
+  for (const [projectId, state] of projectStates) {
+    if (state.dependencies.some((dependency) => dependency.id === dependencyId)) return projectId
+  }
+  return demoDependencies.find((dependency) => dependency.id === dependencyId)?.projectId
 }
 
 export function saveMockProjectSchedule(

@@ -1,4 +1,3 @@
-import { demoDependencies } from '../mocks/dependencies'
 import { findMockProjectIdForTask, getMockProjectState, saveMockProjectSchedule } from '../mocks/workspaceStore'
 import { recalculateSchedule } from '../services/scheduleEngine'
 import type { TasksApi } from './tasks.api'
@@ -10,14 +9,13 @@ export const mockTasksApi: TasksApi = {
     if (!projectId) throw new Error('Задача не найдена')
 
     const state = getMockProjectState(projectId)
-    const dependencies = demoDependencies.filter((dependency) => dependency.projectId === projectId)
     const previousOverride = state.taskOverrides[taskId] ?? {}
     const nextTaskOverride = { ...previousOverride, ...update }
     if (update.durationDays !== undefined && update.endDate === undefined) delete nextTaskOverride.endDate
     const taskOverrides = { ...state.taskOverrides, [taskId]: nextTaskOverride }
     const result = recalculateSchedule(
       state.baselineTasks,
-      dependencies,
+      state.dependencies,
       taskOverrides,
       taskId,
       state.tasks,

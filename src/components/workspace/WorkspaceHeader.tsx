@@ -14,7 +14,16 @@ const healthStyles: Record<ProjectSummary['health'], { badge: string; dot: strin
   'off-track': { badge: 'bg-rose-50 text-rose-700', dot: 'bg-rose-500' },
 }
 
-export function WorkspaceHeader({ project, impact }: { project: ProjectSummary; impact: ImpactAnalysis }) {
+export type WorkspaceView = 'overview' | 'timeline' | 'dependencies' | 'risks'
+
+const projectViews: Array<{ id: WorkspaceView; label: string }> = [
+  { id: 'overview', label: 'Обзор' },
+  { id: 'timeline', label: 'План' },
+  { id: 'dependencies', label: 'Зависимости' },
+  { id: 'risks', label: 'Риски и последствия' },
+]
+
+export function WorkspaceHeader({ project, impact, activeView, onViewChange }: { project: ProjectSummary; impact: ImpactAnalysis; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void }) {
   const healthStyle = healthStyles[project.health]
   return (
     <>
@@ -46,8 +55,8 @@ export function WorkspaceHeader({ project, impact }: { project: ProjectSummary; 
           </div>
         </div>
         <nav className="mt-6 flex gap-6 overflow-x-auto text-sm" aria-label="Разделы проекта">
-          {['Обзор', 'План', 'Зависимости', 'Риски и последствия'].map((item, index) => (
-            <button key={item} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${index === 0 ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{item}{item === 'Риски и последствия' && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">{impact.atRiskTaskIds.length}</span>}</button>
+          {projectViews.map((view) => (
+            <button key={view.id} type="button" onClick={() => onViewChange(view.id)} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${activeView === view.id ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{view.label}{view.id === 'risks' && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">{impact.atRiskTaskIds.length}</span>}</button>
           ))}
         </nav>
       </div>
