@@ -27,13 +27,16 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
     state.lastChange,
       previousProjectedEndDate,
   )
-  const currentIssues = buildCurrentProjectIssues(tasks, dependencies)
+  const currentIssues = buildCurrentProjectIssues(project, tasks, dependencies)
+  const hasCurrentIssues = currentIssues.scheduleConflicts.length > 0
+    || currentIssues.statusConflicts.length > 0
+    || currentIssues.deadlineIssues.length > 0
   return {
     project: {
       ...project,
       projectedEndDate: impact.projectedProjectEndDate,
       ownerName: 'Майя Чен',
-      health: currentIssues.scheduleConflicts.length > 0 || impact.requiresIntervention || impact.atRiskTaskIds.length > 0 ? 'at-risk' : 'on-track',
+      health: hasCurrentIssues || impact.requiresIntervention || impact.atRiskTaskIds.length > 0 ? 'at-risk' : 'on-track',
       progress: calculateProjectProgress(completedTaskCount, tasks.length),
       taskCount: tasks.length,
       completedTaskCount,

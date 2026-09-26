@@ -25,7 +25,7 @@ The backend calls the target date `endDate`; frontend domain models call it `tar
 
 There is no backend workspace endpoint. `ProjectWorkspace` is composed in the adapter from `ProjectDetailsDto` (`employees`, `tasks`, `dependencies`, and project fields) plus local replaceable analytics. Project description is currently `''`. Owner names are resolved through the Users API and cached for the browser session.
 
-Project summary fields are read models: projected end is the latest current task end (or the project target for an empty project), progress is the average of task progress (`Completed = 100`, other statuses `0`), and health is derived from current conflicts, delayed tasks, and target overrun.
+Project summary fields are read models: projected end is the latest current task end (or the project target for an empty project), progress is the percentage of equally weighted tasks whose status is `Completed`, and health is derived from current conflicts, delayed tasks, and target overrun.
 
 ### Employees
 
@@ -58,6 +58,8 @@ The backend does not currently return planned/baseline dates. In HTTP mode, the 
 
 Task POST/PUT responses are `TaskMutationResponse`; the adapter unwraps `task` and retains `analysis` as the latest session change context.
 
+For a finish-to-start dependency, `PUT` with `status=Completed` is invalid while any direct predecessor is not completed. The frontend validates this before the request for immediate UX, and the ASP.NET backend is expected to enforce the same business rule and return `409 Conflict` with a user-readable message. Starting the task (`InProgress`) remains allowed and produces a consistency warning instead of a blocking error.
+
 ### Dependencies
 
 - `POST /api/v1/projects/{projectId}/dependencies`
@@ -74,7 +76,7 @@ The preview route always uses the conflict/source task explicitly selected by th
 
 ## Local analytics and session state
 
-HTTP mode still uses the pure frontend services for critical path, current unresolved dependency/date conflicts, project-boundary warnings, risk display, and aggregate metrics. These stay behind the workspace adapter and can later be replaced by backend read models without UI changes.
+HTTP mode still uses the pure frontend services for critical path, current unresolved dependency/date conflicts, status consistency, overdue deadlines, project-boundary warnings, risk display, and aggregate metrics. For task updates, status/date consistency is always rebuilt from the tasks and dependencies returned by the refetch; backend analysis cannot replace this current-state result. These services stay behind the workspace adapter and can later be replaced by backend read models without UI changes.
 
 The adapter stores the latest mutation context per project for the browser session: typed `LastChange`, source task, affected task IDs, backend analysis, and the prior projected end. Initial load uses neutral `session-started` context, not a fabricated task edit. `affectedTaskIds` describes only the latest change; `currentIssues` is recomputed from the complete current graph.
 

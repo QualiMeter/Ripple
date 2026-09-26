@@ -12,7 +12,7 @@ const workspace = {
     id: 'task', projectId: 'project', title: 'Задача', startDate: '2026-06-01', endDate: '2026-06-02', plannedStartDate: '2026-06-01', plannedEndDate: '2026-06-02', durationDays: 2, progress: 0, assigneeId: 'employee', status: 'not-started', riskState: 'none', isCritical: false,
   }],
   dependencies: [], assignees: [], recoveryScenarios: [], projectBoundaryIssues: [],
-  currentIssues: { scheduleConflicts: [], affectedTaskIds: [] },
+  currentIssues: { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] },
   impact: {
     sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: ['task'], atRiskTaskIds: [],
     previousProjectEndDate: '2026-06-30', projectedProjectEndDate: '2026-07-02', projectEndChangeDays: 2, deadlineShiftDays: 2,

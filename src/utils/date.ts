@@ -1,5 +1,12 @@
 const dayMs = 86_400_000
 
+export function getTodayIsoDate(now = new Date()): string {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function formatShortDate(value: string): string {
   return new Intl.DateTimeFormat('ru-RU', {
     month: 'short',

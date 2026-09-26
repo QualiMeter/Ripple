@@ -10,6 +10,7 @@ import type { ScheduleShiftPreview } from '../types/schedule'
 import type { CreateProjectRequest, Project, ProjectSummary, UpdateProjectRequest } from '../types/project'
 import { validateProjectInput } from './projectValidation'
 import type { CreateEmployeeRequest, Employee, UpdateEmployeeRequest } from '../types/employee'
+import { validateTaskCompletion } from './taskStatusConsistency'
 
 export interface ProjectService {
   listProjects(): Promise<ProjectSummary[]>
@@ -50,6 +51,9 @@ export const projectService: ProjectService = {
     const workspace = await projectsApi.getWorkspace(projectId)
     const currentTask = workspace.tasks.find((task) => task.id === taskId)
     if (!currentTask) throw new Error('Задача не найдена.')
+    if (update.status !== undefined) {
+      validateTaskCompletion(taskId, update.status, workspace.tasks, workspace.dependencies)
+    }
     await tasksApi.updateTask(projectId, taskId, currentTask, update)
     return projectsApi.getWorkspace(projectId)
   },

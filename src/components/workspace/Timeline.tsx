@@ -1,7 +1,7 @@
 import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectSummary } from '../../types/project'
 import type { Assignee, ProjectTask } from '../../types/task'
-import { calendarDaysBetween, formatShortDate } from '../../utils/date'
+import { calendarDaysBetween, formatFullDate, formatShortDate, getTodayIsoDate } from '../../utils/date'
 
 const dayMs = 86_400_000
 const columnCount = 7
@@ -13,7 +13,7 @@ function barPosition(task: ProjectTask, rangeStart: number, rangeEnd: number) {
   return { left: `${start}%`, width: `${Math.min(width, 100 - start)}%` }
 }
 
-export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis; onTaskSelect: (task: ProjectTask) => void }) {
+export function Timeline({ project, tasks, assignees, impact, onTaskSelect, today = getTodayIsoDate() }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis; onTaskSelect: (task: ProjectTask) => void; today?: string }) {
   const visibleTasks = tasks
   const criticalTaskIds = new Set(impact.criticalTaskIds)
   const startCandidates = [project.startDate, ...tasks.map((task) => task.startDate)]
@@ -21,20 +21,26 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
   const rangeStart = Math.min(...startCandidates.map(Date.parse))
   const rangeEnd = Math.max(...endCandidates.map(Date.parse)) + dayMs
   const range = Math.max(dayMs, rangeEnd - rangeStart)
+  const todayTimestamp = Date.parse(today)
+  const todayPosition = todayTimestamp >= rangeStart && todayTimestamp < rangeEnd
+    ? ((todayTimestamp - rangeStart) / range) * 100
+    : null
   const columnLabels = Array.from({ length: columnCount }, (_, index) => (
     formatShortDate(new Date(rangeStart + (range * index) / columnCount).toISOString())
   ))
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
-      <div className="border-b border-[#ebe9ef] px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#ebe9ef] px-5 py-4">
         <div>
           <h2 className="text-sm font-bold text-[#302d40]">План проекта</h2>
           <p className="mt-0.5 text-[11px] text-[#918d9b]">Критический путь и сдвиг зависимостей</p>
         </div>
+        <p className="rounded-lg bg-[#f5f3fa] px-2.5 py-1.5 text-[10px] font-semibold text-[#777181]">Сегодня: {formatFullDate(today)}</p>
       </div>
       {tasks.length === 0 ? <div className="grid min-h-48 place-items-center px-6 py-12 text-center"><div><p className="text-sm font-semibold text-[#4b4658]">В проекте пока нет задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Добавьте задачу, чтобы сформировать план проекта.</p></div></div> : <>
       <div className="overflow-x-auto">
-        <div className="min-w-[760px]">
+        <div className="relative min-w-[760px]">
+          {todayPosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-[210px_1fr]" aria-label={`Сегодня: ${formatFullDate(today)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l border-[#e46f42]" style={{ left: `${todayPosition}%` }}><b className="absolute left-0 top-1 -translate-x-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold not-italic text-[#b9542f]">Сегодня</b></i></span></div>}
           <div className="grid grid-cols-[210px_1fr] border-b border-[#eeecf1] bg-[#faf9fb]">
             <div className="border-r border-[#eeecf1] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Задача</div>
             <div className="grid grid-cols-7">

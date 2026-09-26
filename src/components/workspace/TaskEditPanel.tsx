@@ -5,6 +5,8 @@ import type { CreateDependencyRequest, Dependency } from '../../types/dependency
 import { Avatar } from '../common/Avatar'
 import type { Employee } from '../../types/employee'
 import { EmployeeCreateAction } from '../employees/EmployeeCreateAction'
+import { getTaskCompletionError } from '../../services/taskStatusConsistency'
+import { getErrorMessage } from '../../utils/error'
 
 interface TaskEditPanelProps {
   task: ProjectTask
@@ -64,6 +66,13 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, o
       setError('Выберите ответственного.')
       return
     }
+    const completionError = status === 'completed' && task.status !== 'completed'
+      ? getTaskCompletionError(task.id, status, tasks, dependencies)
+      : null
+    if (completionError) {
+      setError(completionError)
+      return
+    }
 
     setError(null)
     setIsSaving(true)
@@ -75,8 +84,8 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, o
       if (assigneeId !== task.assigneeId) update.assigneeId = assigneeId
       if (status !== task.status) update.status = status
       await onSave(update)
-    } catch {
-      setError('Не удалось сохранить задачу. Попробуйте ещё раз.')
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError, 'Не удалось сохранить задачу. Попробуйте ещё раз.'))
       setIsSaving(false)
     }
   }
@@ -129,6 +138,9 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, o
     .map((dependency) => taskById.get(dependency.successorTaskId))
     .filter((candidate): candidate is ProjectTask => Boolean(candidate))
   const relationCandidates = tasks.filter((candidate) => candidate.id !== task.id)
+  const completionError = status === 'completed' && task.status !== 'completed'
+    ? getTaskCompletionError(task.id, status, tasks, dependencies)
+    : null
   const inputClassName = 'mt-1.5 w-full rounded-xl border border-[#dedce6] bg-white px-3 py-2.5 text-sm text-[#363244] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10'
 
   return (
@@ -173,6 +185,7 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, o
                 <select className={inputClassName} value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)}>
                   {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
+                {completionError && <span className="mt-2 block rounded-lg bg-rose-50 px-3 py-2 text-[11px] leading-4 text-rose-700">{completionError}</span>}
               </label>
             </div>
 

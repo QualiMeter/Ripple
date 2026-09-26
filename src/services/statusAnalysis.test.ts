@@ -100,4 +100,25 @@ describe('analyzeStatusChange', () => {
     expect(findings[0]).toMatchObject({ severity: 'warning', affectedTaskIds: ['successor'] })
     expect(findings[0].reason).toContain('Ранее законченная')
   })
+
+  it('не объявляет D готовой, пока не завершены оба predecessors в разветвлённом графе', () => {
+    const dependencies = [
+      dependency('a-b', 'A', 'B'),
+      dependency('a-c', 'A', 'C'),
+      dependency('b-d', 'B', 'D'),
+      dependency('c-d', 'C', 'D'),
+    ]
+    const inconsistent = [task('A', 'not-started'), task('B', 'completed'), task('C', 'not-started'), task('D', 'not-started')]
+    expect(analyzeStatusChange(inconsistent, dependencies, statusChange('B', 'in-progress', 'completed'), '2026-01-15'))
+      .not.toEqual(expect.arrayContaining([expect.objectContaining({ reason: expect.stringContaining('Все предшественники задачи «D» закончены') })]))
+
+    const onlyACompleted = [task('A', 'completed'), task('B', 'completed'), task('C', 'not-started'), task('D', 'not-started')]
+    expect(analyzeStatusChange(onlyACompleted, dependencies, statusChange('B', 'in-progress', 'completed'), '2026-01-15'))
+      .toEqual([])
+
+    const allCompleted = [task('A', 'completed'), task('B', 'completed'), task('C', 'completed'), task('D', 'not-started')]
+    const ready = analyzeStatusChange(allCompleted, dependencies, statusChange('C', 'in-progress', 'completed'), '2026-01-15')
+    expect(ready).toHaveLength(1)
+    expect(ready[0].reason).toBe('Все предшественники задачи «D» закончены.')
+  })
 })

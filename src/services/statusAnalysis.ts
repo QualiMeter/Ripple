@@ -1,12 +1,18 @@
 import type { Dependency } from '../types/dependency'
 import type { ImpactReason, LastChange, TaskFieldChange } from '../types/impact'
 import type { ProjectTask, TaskStatus } from '../types/task'
+import { getTodayIsoDate } from '../utils/date'
+import { getIncompletePredecessors } from './taskStatusConsistency'
 
 const statusLabels: Record<TaskStatus, string> = {
   'not-started': 'Не в работе',
   'in-progress': 'В работе',
   completed: 'Закончено',
   delayed: 'Задерживается',
+}
+
+export function getTaskStatusLabel(status: TaskStatus): string {
+  return statusLabels[status]
 }
 
 function formatDate(date: string): string {
@@ -89,8 +95,7 @@ function inProgressFindings(
   tasks: ProjectTask[],
   dependencies: Dependency[],
 ): ImpactReason[] {
-  const unfinished = directPredecessors(source.id, tasks, dependencies)
-    .filter((predecessor) => predecessor.status !== 'completed')
+  const unfinished = getIncompletePredecessors(source.id, tasks, dependencies)
   if (unfinished.length === 0) return []
   return [{
     sourceTaskId: source.id,
@@ -124,7 +129,7 @@ export function analyzeStatusChange(
   tasks: ProjectTask[],
   dependencies: Dependency[],
   lastChange: LastChange,
-  today = new Date().toISOString().slice(0, 10),
+  today = getTodayIsoDate(),
 ): ImpactReason[] {
   const change = statusChange(lastChange)
   if (!change || lastChange.kind !== 'task-updated') return []
@@ -138,4 +143,34 @@ export function analyzeStatusChange(
   if (change.nextValue === 'delayed') return delayedFindings(source, tasks, dependencies)
   if (change.nextValue === 'in-progress') return inProgressFindings(source, tasks, dependencies)
   return []
+}
+
+export function findCurrentStatusConflicts(
+  tasks: ProjectTask[],
+  dependencies: Dependency[],
+): ImpactReason[] {
+  return tasks.flatMap((task): ImpactReason[] => {
+    if (task.status !== 'completed' && task.status !== 'in-progress') return []
+    const incomplete = getIncompletePredecessors(task.id, tasks, dependencies)
+    if (incomplete.length === 0) return []
+    const names = incomplete.map((predecessor) => `«${predecessor.title}»`).join(', ')
+    if (task.status === 'completed') {
+      return [{
+        sourceTaskId: task.id,
+        affectedTaskIds: [task.id, ...incomplete.map((predecessor) => predecessor.id)],
+        severity: 'error',
+        reason: `Задача «${task.title}» отмечена завершённой, но не завершены её предшественники: ${names}.`,
+        consequence: 'Статус противоречит текущему графу зависимостей и требует ручного исправления.',
+        action: { type: 'open-task', taskId: task.id },
+      }]
+    }
+    return [{
+      sourceTaskId: task.id,
+      affectedTaskIds: [task.id, ...incomplete.map((predecessor) => predecessor.id)],
+      severity: 'warning',
+      reason: `Задача «${task.title}» выполняется до завершения всех предшественников.`,
+      consequence: `Не завершены: ${names}. Задача не остановлена автоматически.`,
+      action: { type: 'open-task', taskId: task.id },
+    }]
+  })
 }

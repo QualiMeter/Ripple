@@ -33,6 +33,12 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
     : previewSourceIds.includes(selectedPreviewSourceId)
       ? selectedPreviewSourceId
       : ''
+  const currentIssueGroups = [
+    { id: 'schedule', title: 'Конфликты зависимостей и дат', items: currentIssues.scheduleConflicts },
+    { id: 'status', title: 'Логические конфликты статусов', items: currentIssues.statusConflicts },
+    { id: 'deadline', title: 'Просроченные сроки', items: currentIssues.deadlineIssues },
+  ]
+  const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
   const calculatePreview = async (sourceTaskId: string) => {
     setIsCalculating(true)
     setPreviewMessage(null)
@@ -117,17 +123,25 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
       </section>
 
       <section className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#363247]">Текущие проблемы проекта</h2><p className="mt-0.5 text-[10px] text-[#8c8798]">Нерешённые конфликты актуального графика, независимо от последнего изменения.</p></div><span className="rounded-full bg-[#fff0e8] px-2 py-1 text-[10px] font-bold text-[#b85a36]">{currentIssues.scheduleConflicts.length}</span></div>
-        {currentIssues.scheduleConflicts.length === 0 ? <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-[11px] text-emerald-700">Конфликтов расписания не обнаружено.</p> : <div className="mt-3 space-y-2">
-          {currentIssues.scheduleConflicts.map((reason, index) => {
-            const source = tasks.find((task) => task.id === reason.sourceTaskId)
-            return <div key={`${reason.sourceTaskId}-${index}`} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
-              <p className="text-[9px] font-bold uppercase tracking-[.08em]">Источник: {source?.title ?? reason.sourceTaskId}</p>
-              <p className="mt-1 text-[11px] font-semibold leading-4">{reason.reason}</p>
-              <p className="mt-1 text-[10px] leading-4 opacity-80">{reason.consequence}</p>
-              {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview(reason.sourceTaskId)} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
-            </div>
-          })}
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#363247]">Текущие проблемы проекта</h2><p className="mt-0.5 text-[10px] text-[#8c8798]">Конфликты дат, статусов и просроченные сроки в актуальном состоянии проекта.</p></div><span className="rounded-full bg-[#fff0e8] px-2 py-1 text-[10px] font-bold text-[#b85a36]" aria-label={`Всего текущих проблем: ${currentIssueCount}`}>{currentIssueCount}</span></div>
+        {currentIssueCount === 0 ? <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-[11px] text-emerald-700">Текущих проблем не обнаружено.</p> : <div className="mt-3 space-y-4">
+          {currentIssueGroups.filter((group) => group.items.length > 0).map((group) => <div key={group.id}>
+            <p className="mb-2 text-[9px] font-bold uppercase tracking-[.08em] text-[#8c8798]">{group.title} · {group.items.length}</p>
+            <div className="space-y-2">{group.items.map((reason, index) => {
+              const source = tasks.find((task) => task.id === reason.sourceTaskId)
+              const tone = reason.severity === 'error'
+                ? 'border-rose-200 bg-rose-50 text-rose-800'
+                : reason.severity === 'warning'
+                  ? 'border-amber-200 bg-amber-50 text-amber-900'
+                  : 'border-sky-200 bg-sky-50 text-sky-900'
+              return <div key={`${group.id}-${reason.sourceTaskId}-${index}`} className={`rounded-xl border p-3 ${tone}`}>
+                {source && <p className="text-[9px] font-bold uppercase tracking-[.08em]">Задача: {source.title}</p>}
+                <p className="mt-1 text-[11px] font-semibold leading-4">{reason.reason}</p>
+                <p className="mt-1 text-[10px] leading-4 opacity-80">{reason.consequence}</p>
+                {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview(reason.sourceTaskId)} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
+              </div>
+            })}</div>
+          </div>)}
         </div>}
       </section>
 

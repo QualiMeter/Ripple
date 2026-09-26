@@ -42,6 +42,8 @@ export interface ImpactAnalysis {
 
 export interface CurrentProjectIssues {
   scheduleConflicts: ImpactReason[]
+  statusConflicts: ImpactReason[]
+  deadlineIssues: ImpactReason[]
   affectedTaskIds: string[]
 }
 

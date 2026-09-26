@@ -1,7 +1,7 @@
 import { apiRequest } from '../client'
 import { analyzeProjectBoundaries } from '../../services/projectBoundaryAnalysis'
 import { calculateProjectProgress } from '../../services/projectProgress'
-import { buildCurrentProjectIssues, buildImpactAnalysis, differenceInDays } from '../../services/scheduleEngine'
+import { buildCurrentProjectIssues, buildImpactAnalysis, differenceInDays, findDownstreamTaskIds } from '../../services/scheduleEngine'
 import type { ProjectSummary } from '../../types/project'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { getHttpProjectSession } from './session'
@@ -37,25 +37,33 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
   const session = getHttpProjectSession(projectId)
   const currentEnd = latestEnd(tasks, project.targetEndDate)
   const previousEnd = session.previousProjectEndDate ?? currentEnd
+  const taskUpdateAffectsAnalysis = session.lastChange.kind === 'task-updated'
+    && session.lastChange.changes.some((change) => change.field === 'status' || change.field === 'startDate' || change.field === 'endDate')
+  const analyzedAffectedTaskIds = session.lastChange.kind === 'task-updated'
+    ? taskUpdateAffectsAnalysis ? findDownstreamTaskIds(session.lastChange.taskId, dependencies) : []
+    : session.affectedTaskIds
   const impact = buildImpactAnalysis(
-    project, tasks, dependencies, session.sourceTaskId, session.affectedTaskIds,
+    project, tasks, dependencies, session.sourceTaskId, analyzedAffectedTaskIds,
     session.lastChange, previousEnd,
   )
   impact.projectedProjectEndDate = currentEnd
   impact.projectEndChangeDays = differenceInDays(currentEnd, previousEnd)
   impact.deadlineShiftDays = differenceInDays(currentEnd, project.targetEndDate)
-  if (session.analysis.length > 0) {
+  if (session.analysis.length > 0 && session.lastChange.kind !== 'task-updated') {
     impact.reasons = session.analysis.map(mapAnalysisMessage)
     impact.affectedTaskIds = [...new Set(session.analysis.flatMap((message) => message.affectedTaskIds))]
     impact.requiresIntervention = impact.deadlineShiftDays > 0 || impact.reasons.some((reason) => reason.severity !== 'info')
   }
-  const currentIssues = buildCurrentProjectIssues(tasks, dependencies)
+  const currentIssues = buildCurrentProjectIssues(project, tasks, dependencies)
+  const hasCurrentIssues = currentIssues.scheduleConflicts.length > 0
+    || currentIssues.statusConflicts.length > 0
+    || currentIssues.deadlineIssues.length > 0
   const completedTaskCount = tasks.filter((task) => task.status === 'completed').length
   const summary: ProjectSummary = {
     ...project,
     projectedEndDate: currentEnd,
     ownerName: users.get(project.creatorId) ?? 'Менеджер',
-    health: currentIssues.scheduleConflicts.length > 0 || impact.atRiskTaskIds.length > 0 || impact.deadlineShiftDays > 0 ? 'at-risk' : 'on-track',
+    health: hasCurrentIssues || impact.atRiskTaskIds.length > 0 || impact.deadlineShiftDays > 0 ? 'at-risk' : 'on-track',
     progress: calculateProjectProgress(completedTaskCount, tasks.length),
     taskCount: tasks.length,
     completedTaskCount,

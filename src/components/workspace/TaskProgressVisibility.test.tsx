@@ -31,8 +31,10 @@ describe('task progress presentation', () => {
   })
 
   it('uses a solid full-period timeline bar without task progress fill', () => {
-    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} />)
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
     expect(markup).not.toContain('width:62%')
     expect(markup).not.toContain('bg-white/20')
+    expect(markup).toContain('Сегодня: 03.06.2026')
+    expect(markup).toContain('aria-label="Сегодня: 03.06.2026"')
   })
 })

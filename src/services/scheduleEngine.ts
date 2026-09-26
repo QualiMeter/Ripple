@@ -3,9 +3,10 @@ import type { CurrentProjectIssues, ImpactAnalysis, ImpactReason, LastChange } f
 import type { Project } from '../types/project'
 import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
-import { analyzeStatusChange } from './statusAnalysis'
+import { analyzeStatusChange, findCurrentStatusConflicts } from './statusAnalysis'
 import { analyzeCriticalPath } from './criticalPath'
-import { formatFullDate } from '../utils/date'
+import { formatFullDate, getTodayIsoDate } from '../utils/date'
+import { findCurrentDeadlineIssues } from './deadlineAnalysis'
 
 const dayMs = 86_400_000
 
@@ -98,13 +99,20 @@ export function findScheduleConflicts(
 }
 
 export function buildCurrentProjectIssues(
+  project: Project,
   tasks: ProjectTask[],
   dependencies: Dependency[],
+  today = getTodayIsoDate(),
 ): CurrentProjectIssues {
   const scheduleConflicts = findScheduleConflicts(tasks, dependencies, tasks.map((task) => task.id))
+  const statusConflicts = findCurrentStatusConflicts(tasks, dependencies)
+  const deadlineIssues = findCurrentDeadlineIssues(project, tasks, today)
+  const allIssues = [...scheduleConflicts, ...statusConflicts, ...deadlineIssues]
   return {
     scheduleConflicts,
-    affectedTaskIds: [...new Set(scheduleConflicts.flatMap((reason) => reason.affectedTaskIds))],
+    statusConflicts,
+    deadlineIssues,
+    affectedTaskIds: [...new Set(allIssues.flatMap((reason) => reason.affectedTaskIds))],
   }
 }
 

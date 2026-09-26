@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { composeHttpWorkspace } from './workspace'
+import { clearHttpProjectSessions, setHttpProjectSession } from './session'
 
 function response(body: unknown) { return Promise.resolve(new Response(JSON.stringify(body), { status: 200 })) }
 
 describe('HTTP workspace composition', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    clearHttpProjectSessions()
+  })
 
   it('builds a safe empty project workspace', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/users')
@@ -31,5 +35,35 @@ describe('HTTP workspace composition', () => {
     expect(workspace.tasks.map((task) => task.title)).toEqual(['A', 'B'])
     expect(workspace.dependencies[0]).toMatchObject({ predecessorTaskId: 'a', successorTaskId: 'b' })
     expect(workspace.project).toMatchObject({ taskCount: 2, completedTaskCount: 1, progress: 50, projectedEndDate: '2026-10-10' })
+  })
+
+  it('keeps refetched local status consistency authoritative over contradictory backend analysis', async () => {
+    setHttpProjectSession('consistency', {
+      sourceTaskId: 'b',
+      affectedTaskIds: ['b'],
+      lastChange: {
+        kind: 'task-updated', taskId: 'b', taskTitle: 'B',
+        changes: [{ field: 'status', previousValue: 'not-started', nextValue: 'in-progress' }],
+      },
+      analysis: [{
+        severity: 0, triggerTaskId: 'a', triggerTaskName: 'A', affectedTaskIds: ['b'], affectedTaskNames: ['B'],
+        description: 'Все предшественники задачи B закончены.', actions: [],
+      }],
+      previousProjectEndDate: '2026-10-10',
+    })
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/users')
+      ? response([{ id: 'u', name: 'Менеджер', email: 'manager@example.test' }])
+      : response({
+        id: 'consistency', creatorId: 'u', name: 'Consistency', startDate: '2026-10-01', endDate: '2026-10-20', boundaryWarnings: [], employees: [],
+        tasks: [
+          { id: 'a', projectId: 'consistency', name: 'A', startDate: '2026-10-01', endDate: '2026-10-02', durationCalendarDays: 2, assigneeId: 'e', assigneeName: 'Анна', status: 'NotStarted' },
+          { id: 'b', projectId: 'consistency', name: 'B', startDate: '2026-10-03', endDate: '2026-10-10', durationCalendarDays: 8, assigneeId: 'e', assigneeName: 'Анна', status: 'InProgress' },
+        ],
+        dependencies: [{ projectId: 'consistency', predecessorTaskId: 'a', successorTaskId: 'b', predecessorTaskName: 'A', successorTaskName: 'B' }],
+      })))
+
+    const workspace = await composeHttpWorkspace('consistency')
+    expect(workspace.impact.reasons.some((reason) => reason.reason.includes('начата до завершения всех предшественников'))).toBe(true)
+    expect(workspace.impact.reasons.some((reason) => reason.reason.includes('Все предшественники'))).toBe(false)
   })
 })
