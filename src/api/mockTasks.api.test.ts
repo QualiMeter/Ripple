@@ -4,6 +4,7 @@ import { mockDependenciesApi } from './mockDependencies.api'
 import { mockTasksApi } from './mockTasks.api'
 import { mockScheduleApi } from './mockSchedule.api'
 import { buildCurrentProjectIssues } from '../services/scheduleEngine'
+import { getSchedulePreviewSourceIds } from '../services/schedulePreviewSource'
 
 const assigneeId = 'owner'
 
@@ -117,7 +118,10 @@ describe('mockTasksApi', () => {
     })
     const currentState = getMockProjectState(projectId)
     expect(currentState.lastChangedTaskId).toBe(independent.id)
-    expect(buildCurrentProjectIssues(currentState.tasks, currentState.dependencies).scheduleConflicts).toHaveLength(1)
+    const currentIssues = buildCurrentProjectIssues(currentState.tasks, currentState.dependencies)
+    expect(currentIssues.scheduleConflicts).toHaveLength(1)
+    expect(getSchedulePreviewSourceIds(currentIssues)).toEqual([source.id])
+    expect(getSchedulePreviewSourceIds(currentIssues)).not.toContain(independent.id)
 
     const preview = await mockScheduleApi.previewShift(projectId, { sourceTaskId: source.id })
     expect(preview.sourceTaskId).toBe(source.id)

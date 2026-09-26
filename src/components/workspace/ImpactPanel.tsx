@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, Sparkles, TriangleAlert } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
+import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
 import type { ProjectTask } from '../../types/task'
 import type { ProjectWorkspace } from '../../types/workspace'
 import type { ScheduleShiftPreview } from '../../types/schedule'
@@ -18,6 +19,7 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
+  const [selectedPreviewSourceId, setSelectedPreviewSourceId] = useState('')
   const { impact, currentIssues, tasks, recoveryScenarios } = workspace
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
@@ -25,7 +27,13 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
   const changeDescription = describeLastChange(impact.lastChange, tasks, workspace.assignees)
   const impactOutcome = describeImpactOutcome(impact)
   const best = recoveryScenarios[0]
-  const calculatePreview = async (sourceTaskId = impact.sourceTaskId) => {
+  const previewSourceIds = getSchedulePreviewSourceIds(currentIssues)
+  const commonPreviewSourceId = previewSourceIds.length === 1
+    ? previewSourceIds[0]
+    : previewSourceIds.includes(selectedPreviewSourceId)
+      ? selectedPreviewSourceId
+      : ''
+  const calculatePreview = async (sourceTaskId: string) => {
     setIsCalculating(true)
     setPreviewMessage(null)
     try {
@@ -125,7 +133,9 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Calculator size={18} /></span>
           <div><h2 className="text-sm font-bold text-[#363247]">Автоматический сдвиг</h2><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">Даты изменятся только после подтверждения предложенного плана.</p></div>
         </div>
-        {!preview && <button type="button" onClick={() => calculatePreview(impact.sourceTaskId)} disabled={isCalculating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#37334f] disabled:opacity-60">{isCalculating ? 'Расчёт…' : 'Рассчитать автоматический сдвиг'}</button>}
+        {!preview && previewSourceIds.length === 0 && <p className="mt-3 rounded-xl bg-[#f5f3fa] px-3 py-2.5 text-[11px] leading-4 text-[#716b7b]">Нет текущих конфликтов, для которых требуется расчёт сдвига.</p>}
+        {!preview && previewSourceIds.length > 1 && <label className="mt-3 block text-[11px] font-semibold text-[#625d6d]">Источник конфликта<select value={commonPreviewSourceId} onChange={(event) => setSelectedPreviewSourceId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-[#dedce6] bg-white px-3 py-2.5 text-xs text-[#363244] outline-none focus:border-[#7667ed]"><option value="">Выберите задачу</option>{previewSourceIds.map((taskId) => <option key={taskId} value={taskId}>{tasks.find((task) => task.id === taskId)?.title ?? taskId}</option>)}</select></label>}
+        {!preview && previewSourceIds.length > 0 && <button type="button" onClick={() => commonPreviewSourceId && calculatePreview(commonPreviewSourceId)} disabled={isCalculating || !commonPreviewSourceId} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#37334f] disabled:opacity-60">{isCalculating ? 'Расчёт…' : 'Рассчитать автоматический сдвиг'}</button>}
         {preview && <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-[#faf9ff] p-3">
           <p className="text-[10px] font-bold uppercase tracking-[.08em] text-[#7468bd]">Предпросмотр</p>
           <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
