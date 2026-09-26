@@ -1,6 +1,9 @@
 import type { CreateProjectRequest, Project, ProjectSummary, UpdateProjectRequest } from '../types/project'
 import type { ProjectWorkspace } from '../types/workspace'
 import { apiRequest } from './client'
+import type { ProjectDetailsDto } from './backend/types'
+import { mapProject, toCreateProjectDto, toUpdateProjectDto } from './backend/mappers'
+import { composeHttpWorkspace, fetchProjectDetails, listHttpProjectSummaries } from './backend/workspace'
 
 export interface ProjectsApi {
   listProjects(): Promise<ProjectSummary[]>
@@ -9,11 +12,18 @@ export interface ProjectsApi {
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
 }
 
-const httpProjectsApi: ProjectsApi = {
-  listProjects: () => apiRequest<ProjectSummary[]>('/api/projects'),
-  createProject: (request) => apiRequest<Project>('/api/projects', { method: 'POST', body: JSON.stringify(request) }),
-  updateProject: (projectId, request) => apiRequest<Project>(`/api/projects/${projectId}`, { method: 'PATCH', body: JSON.stringify(request) }),
-  getWorkspace: (projectId) => apiRequest<ProjectWorkspace>(`/api/projects/${projectId}/workspace`),
+export const httpProjectsApi: ProjectsApi = {
+  listProjects: listHttpProjectSummaries,
+  async createProject(request) {
+    const dto = await apiRequest<ProjectDetailsDto>('/api/v1/projects', { method: 'POST', body: JSON.stringify(toCreateProjectDto(request)) })
+    return mapProject(dto)
+  },
+  async updateProject(projectId, request) {
+    const current = mapProject(await fetchProjectDetails(projectId))
+    const dto = await apiRequest<ProjectDetailsDto>(`/api/v1/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(toUpdateProjectDto(current, request)) })
+    return mapProject(dto)
+  },
+  getWorkspace: composeHttpWorkspace,
 }
 
 const mode = import.meta.env.VITE_API_MODE ?? 'mock'

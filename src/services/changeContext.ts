@@ -45,6 +45,9 @@ export function describeLastChange(
   tasks: ProjectTask[],
   assignees: Assignee[],
 ): ChangeDescription {
+  if (change.kind === 'session-started') {
+    return { title: 'Текущее состояние проекта', details: ['Изменений в этой сессии пока не было.'] }
+  }
   if (change.kind === 'task-created') {
     return { title: change.taskTitle, details: ['Задача добавлена в проект.'] }
   }

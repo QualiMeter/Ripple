@@ -134,25 +134,12 @@ Output: candidate recovery scenarios with expected impact.
 
 This may also begin client-side and later move to the backend.
 
-## Suggested API contract
-Exact routes may change once backend Swagger/OpenAPI is available.
+## Backend API contract
 
-- GET /api/projects
-- POST /api/projects
-- GET /api/projects/{id}
-- PATCH /api/projects/{id}
-- POST /api/projects/{id}/tasks
-- PATCH /api/tasks/{id}
-- DELETE /api/tasks/{id}
-- POST /api/projects/{id}/dependencies
-- DELETE /api/dependencies/{id}
-- POST /api/projects/{id}/recalculate
-- GET /api/projects/{id}/impact
-- GET /api/projects/{id}/recovery-scenarios
+The ASP.NET OpenAPI contract is now available. HTTP mode uses the `/api/v1` project, employee, task, dependency, user, and explicit shift-preview/confirmation routes documented in `API_CONTRACTS.md`. The backend has no combined workspace, impact, or recovery-scenario endpoint; the frontend adapter composes the workspace from project details and the existing pure analysis services.
 
 ## Integration rule
-When the backend publishes OpenAPI/Swagger:
-1. compare real endpoints and DTOs with this draft;
-2. update the API layer/mappers;
-3. keep UI-facing models stable where practical;
-4. do not spread backend-specific DTO differences across React components.
+When the backend OpenAPI changes:
+1. update the isolated DTO and mapping layer;
+2. keep UI-facing models stable where practical;
+3. do not spread backend-specific DTO differences across React components.

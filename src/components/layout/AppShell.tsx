@@ -16,11 +16,19 @@ export function AppShell() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
+  const [projectsError, setProjectsError] = useState<string | null>(null)
 
   const refreshProjects = async () => {
-    const nextProjects = await projectService.listProjects()
-    setProjects(nextProjects)
-    setProjectsLoading(false)
+    try {
+      setProjectsError(null)
+      const nextProjects = await projectService.listProjects()
+      setProjects(nextProjects)
+    } catch (error) {
+      setProjectsError(error instanceof Error ? error.message : 'Не удалось загрузить проекты.')
+      throw error
+    } finally {
+      setProjectsLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -55,9 +63,9 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f8] lg:flex">
-      <Sidebar projects={projects} loading={projectsLoading} onCreateProject={openCreateProject} />
+      <Sidebar projects={projects} loading={projectsLoading} error={projectsError} onCreateProject={openCreateProject} />
       {mobileSidebarOpen && <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Навигация">
-        <Sidebar projects={projects} loading={projectsLoading} mobile onClose={() => setMobileSidebarOpen(false)} onCreateProject={openCreateProject} />
+        <Sidebar projects={projects} loading={projectsLoading} error={projectsError} mobile onClose={() => setMobileSidebarOpen(false)} onCreateProject={openCreateProject} />
         <button type="button" className="min-w-0 flex-1 bg-[#17152b]/55 backdrop-blur-[1px]" onClick={() => setMobileSidebarOpen(false)} aria-label="Закрыть навигацию по фону" />
       </div>}
       <main className="min-w-0 flex-1 lg:ml-[244px]">

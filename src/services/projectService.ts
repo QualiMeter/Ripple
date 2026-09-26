@@ -16,7 +16,7 @@ export interface ProjectService {
   createProject(request: CreateProjectRequest): Promise<Project>
   updateProject(projectId: string, request: UpdateProjectRequest): Promise<ProjectWorkspace>
   createEmployee(projectId: string, request: CreateEmployeeRequest): Promise<Employee>
-  updateEmployee(employeeId: string, request: UpdateEmployeeRequest): Promise<Employee>
+  updateEmployee(projectId: string, employeeId: string, request: UpdateEmployeeRequest): Promise<Employee>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
   updateTask(projectId: string, taskId: string, update: TaskUpdateRequest): Promise<ProjectWorkspace>
   createTask(projectId: string, request: TaskCreateRequest): Promise<ProjectWorkspace>
@@ -44,10 +44,13 @@ export const projectService: ProjectService = {
     return projectsApi.getWorkspace(projectId)
   },
   createEmployee: (projectId, request) => employeesApi.createEmployee(projectId, request),
-  updateEmployee: (employeeId, request) => employeesApi.updateEmployee(employeeId, request),
+  updateEmployee: (projectId, employeeId, request) => employeesApi.updateEmployee(projectId, employeeId, request),
   getWorkspace: (projectId) => projectsApi.getWorkspace(projectId),
   async updateTask(projectId, taskId, update) {
-    await tasksApi.updateTask(taskId, update)
+    const workspace = await projectsApi.getWorkspace(projectId)
+    const currentTask = workspace.tasks.find((task) => task.id === taskId)
+    if (!currentTask) throw new Error('Задача не найдена.')
+    await tasksApi.updateTask(projectId, taskId, currentTask, update)
     return projectsApi.getWorkspace(projectId)
   },
   async createTask(projectId, request) {
@@ -55,7 +58,7 @@ export const projectService: ProjectService = {
     return projectsApi.getWorkspace(projectId)
   },
   async deleteTask(projectId, taskId) {
-    await tasksApi.deleteTask(taskId)
+    await tasksApi.deleteTask(projectId, taskId)
     return projectsApi.getWorkspace(projectId)
   },
   async createDependency(projectId, request) {
@@ -63,7 +66,10 @@ export const projectService: ProjectService = {
     return projectsApi.getWorkspace(projectId)
   },
   async deleteDependency(projectId, dependencyId) {
-    await dependenciesApi.deleteDependency(dependencyId)
+    const workspace = await projectsApi.getWorkspace(projectId)
+    const dependency = workspace.dependencies.find((candidate) => candidate.id === dependencyId)
+    if (!dependency) throw new Error('Зависимость не найдена.')
+    await dependenciesApi.deleteDependency(projectId, dependency)
     return projectsApi.getWorkspace(projectId)
   },
   previewScheduleShift: (projectId, sourceTaskId) => scheduleApi.previewShift(projectId, { sourceTaskId }),

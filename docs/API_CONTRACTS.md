@@ -1,145 +1,87 @@
 # Frontend API contracts
 
-The frontend currently runs in `mock` mode and preserves the same UI-facing contract intended for the future ASP.NET Core API.
+The UI consumes stable domain models from `src/types`. ASP.NET transport DTOs and all field/status conversions live in `src/api/backend`; React components never consume backend DTOs directly.
 
 ## Runtime selection
 
-- `VITE_API_MODE=mock` (default): dynamically loads the in-memory mock implementation.
-- `VITE_API_MODE=http`: sends REST requests to `VITE_API_URL`.
+- `VITE_API_MODE=mock` (default) uses the in-memory MVP implementation.
+- `VITE_API_MODE=http` uses the Railway ASP.NET API.
+- `VITE_API_URL` is the origin only; the client adds `/api/v1`. The default is `https://mvp-action.up.railway.app`.
 
-React components only use `projectService`; they do not import seed data, API transport, or schedule rules.
+The checked contract is the supplied OpenAPI document (`v1.json`). Scalar is available at `/scalar` on the backend.
 
-## Projects
+## Backend routes
 
-- `GET /api/projects` returns the current manager's `ProjectSummary[]` for navigation and project selection.
-- `POST /api/projects` creates a project and returns its persistent `Project` fields.
-- `PATCH /api/projects/{projectId}` updates the supplied editable fields and returns the updated `Project`.
-- `GET /api/projects/{projectId}/workspace` returns the complete project read model described below.
+### Projects and users
 
-```ts
-interface CreateProjectRequest {
-  name: string
-  startDate: string
-  targetEndDate: string
-}
+- `GET /api/v1/projects`
+- `POST /api/v1/projects`
+- `GET /api/v1/projects/{id}`
+- `PUT /api/v1/projects/{id}`
+- `GET /api/v1/users`
+- `GET /api/v1/users/{id}`
 
-interface UpdateProjectRequest {
-  name?: string
-  startDate?: string
-  targetEndDate?: string
-}
-```
+The backend calls the target date `endDate`; frontend domain models call it `targetEndDate`. Project updates are partial in the UI, but the adapter fetches the current project and sends the full required PUT body.
 
-`Project` stores `id`, `creatorId`, `name`, `description`, `startDate`, and `targetEndDate`. `creatorId` is assigned by the server (the single mock manager in mock mode) and is not editable in the MVP UI. Computed fields such as `projectedEndDate`, `health`, progress, and task counters belong to `ProjectSummary`/workspace read models rather than project mutation payloads.
+There is no backend workspace endpoint. `ProjectWorkspace` is composed in the adapter from `ProjectDetailsDto` (`employees`, `tasks`, `dependencies`, and project fields) plus local replaceable analytics. Project description is currently `''`. Owner names are resolved through the Users API and cached for the browser session.
 
-The name is required and `startDate` must not be later than `targetEndDate`. Changing project dates never changes task dates and never starts schedule shift. The returned workspace contains `projectBoundaryIssues` for tasks that start before the project or end after its target date; these are non-blocking warnings.
+Project summary fields are read models: projected end is the latest current task end (or the project target for an empty project), progress is the average of task progress (`Completed = 100`, other statuses `0`), and health is derived from current conflicts, delayed tasks, and target overrun.
 
-## Employees
+### Employees
 
-- `GET /api/projects/{projectId}/employees` returns only employees of the project in the route.
-- `POST /api/projects/{projectId}/employees` creates an employee in that project.
-- `PATCH /api/employees/{employeeId}` updates an employee.
+- `GET /api/v1/projects/{projectId}/employees`
+- `POST /api/v1/projects/{projectId}/employees`
+- `PUT /api/v1/projects/{projectId}/employees/{employeeId}`
 
-```ts
-interface Employee {
-  id: string
-  projectId: string
-  name: string
-}
+The adapter maps `EmployeeDto` to the project-scoped frontend `Employee`. The MVP does not expose employee deletion.
 
-interface CreateEmployeeRequest {
-  name: string
-}
+### Tasks
 
-interface UpdateEmployeeRequest {
-  name?: string
-}
-```
+- `GET /api/v1/projects/{projectId}/tasks`
+- `POST /api/v1/projects/{projectId}/tasks`
+- `GET /api/v1/projects/{projectId}/tasks/{taskId}`
+- `PUT /api/v1/projects/{projectId}/tasks/{taskId}`
+- `DELETE /api/v1/projects/{projectId}/tasks/{taskId}?confirm=true`
 
-`name` is the only required business field, is trimmed, and cannot be empty. The frontend read model may also contain optional presentation fields such as `role`, `initials`, and `color`. Employees are project-scoped: a task mutation must reject an unknown employee and an employee whose `projectId` differs from the task's `projectId`. A new project has an empty employee collection; the prepared `aurora-launch` project retains its seeded employees.
+Backend `name` maps to frontend `title`. Backend status conversion is explicit:
 
-Changing only `assigneeId` updates task ownership without changing dates, status, dependencies, or triggering schedule/dependency analysis.
+| Backend | Frontend |
+| --- | --- |
+| `NotStarted` | `not-started` |
+| `InProgress` | `in-progress` |
+| `Completed` | `completed` |
+| `Delayed` | `delayed` |
 
-## Workspace read model
+`Delayed` maps to the computed UI risk marker; completed tasks never map to current risk. `ProjectTask.isCritical` remains a compatibility field fixed to `false`; criticality comes only from the local critical-path analysis.
 
-`GET /api/projects/{projectId}/workspace`
+The backend does not currently return planned/baseline dates. In HTTP mode, the adapter initializes them from the first task fetch and preserves them in a session-only cache. A newly created task is seeded with its entered dates. A full browser reload starts a new baseline session; persistent planned dates require a future backend contract extension.
 
-Returns one `ProjectWorkspace` containing:
+Task POST/PUT responses are `TaskMutationResponse`; the adapter unwraps `task` and retains `analysis` as the latest session change context.
 
-- `project`: summary, dates, health, progress;
-- `tasks`: typed task records;
-- `dependencies`: finish-to-start edges;
-- `assignees`: project-scoped employees available for task assignment (the compatibility field name is retained for the current UI);
-- `impact`: current impact analysis;
-- `currentIssues`: unresolved schedule conflicts recomputed from the complete current graph;
-- `projectBoundaryIssues`: tasks outside the editable project date boundaries;
-- `recoveryScenarios`: deadline recovery candidates.
+### Dependencies
 
-An empty project returns empty task/dependency/impact collections, progress `0`, and uses `targetEndDate` as its initial projected end. Consumers must not synthesize critical or risk metrics for an empty workspace.
+- `POST /api/v1/projects/{projectId}/dependencies`
+- `DELETE /api/v1/projects/{projectId}/dependencies/{predecessorId}/{successorId}`
 
-The combined workspace route is a frontend read-model proposal. The final ASP.NET API may expose separate endpoints; mapping/composition must remain inside `api/` or `services/`.
+The POST body contains only `predecessorTaskId` and `successorTaskId`; the only MVP dependency type is finish-to-start. Since backend edges have no ID, the adapter creates a deterministic UI ID from the two task IDs. Deletion resolves that ID back to the endpoint coordinates. Backend analysis is retained after both mutations.
 
-## Draft mutation and analysis routes
+### Explicit schedule shift
 
-- `PATCH /api/tasks/{taskId}`
-- `POST /api/projects/{projectId}/tasks`
-- `DELETE /api/tasks/{taskId}`
-- `POST /api/projects/{projectId}/dependencies`
-- `DELETE /api/dependencies/{dependencyId}`
-- `POST /api/projects/{projectId}/impact/analyze`
-- `POST /api/projects/{projectId}/schedule-shift/preview`
-- `POST /api/projects/{projectId}/schedule-shift/apply`
-- `GET /api/projects/{projectId}/recovery-scenarios`
+- `POST /api/v1/projects/{projectId}/tasks/{taskId}/shift-preview` (no request body)
+- `POST /api/v1/projects/{projectId}/tasks/{taskId}/shift-confirm`
 
-### Task update flow
+The preview route always uses the conflict/source task explicitly selected by the UI. Confirmation sends `{ "confirmProjectEndDate": false }`. Completed tasks returned with `completedRequiresManualResolution` are displayed as manual-resolution warnings, not silently shifted.
 
-`PATCH /api/tasks/{taskId}` accepts a partial `TaskUpdateRequest` with `title`, `startDate`, `endDate`, `assigneeId`, and `status`, and returns the updated task. Duration is derived from the two dates and is not an editable MVP field.
+## Local analytics and session state
 
-The frontend then reloads `GET /api/projects/{projectId}/workspace` so the UI receives a single consistent read model containing the saved task, project dates, warnings, and impact analysis. An ordinary mutation never changes any other task dates. Assignee changes do not run schedule analysis.
+HTTP mode still uses the pure frontend services for critical path, current unresolved dependency/date conflicts, project-boundary warnings, risk display, and aggregate metrics. These stay behind the workspace adapter and can later be replaced by backend read models without UI changes.
 
-`ImpactAnalysis.affectedTaskIds` describes the downstream tasks considered by the latest analysis; it is independent from persistent task `riskState`. Conflicting finish-to-start dates are returned as reasons, without silently correcting the schedule.
+The adapter stores the latest mutation context per project for the browser session: typed `LastChange`, source task, affected task IDs, backend analysis, and the prior projected end. Initial load uses neutral `session-started` context, not a fabricated task edit. `affectedTaskIds` describes only the latest change; `currentIssues` is recomputed from the complete current graph.
 
-`ImpactAnalysis.criticalTaskIds` is also computed, not persisted. The mock engine performs a calendar-day CPM-style backward calculation from the latest current task end, preserves task durations, and accounts for existing gaps before successors. Tasks with zero or negative slack are critical. The legacy `ProjectTask.isCritical` field may remain in transport DTOs for compatibility but must not affect analysis or UI decisions.
+Recovery scenarios remain in domain types for compatibility, but the unimplemented “Как сохранить срок” UI is hidden until a real API/engine is available.
 
-`CurrentProjectIssues` is a separate computed read model. Its `scheduleConflicts` and `affectedTaskIds` describe unresolved problems in the complete current graph, not only consequences of the latest mutation. Creating an unrelated task can produce an empty last-change impact while existing current issues remain visible.
+## Error and browser behavior
 
-Each analysis reason is a structured result with `severity` (`info`, `warning`, or `error`), `sourceTaskId`, `affectedTaskIds`, `reason`, `consequence`, and an optional action (`open-task` or `preview-shift`). Status analysis uses the same result model:
+`apiRequest` normalizes base/path slashes, accepts empty `200` and `204` responses, and extracts messages from ASP.NET ProblemDetails (`detail`, `message`, `title`, or validation `errors`). Pages surface these messages and do not remain in an endless loading state.
 
-- completing a task reports immediately available successors when all their predecessors are complete and distinguishes whether their planned start date has arrived;
-- delaying a task warns its unfinished direct successors without changing or stopping them;
-- starting a task reports unfinished predecessors;
-- reopening a completed task warns its unfinished direct successors.
-
-Completed tasks are immutable for automatic schedule shifts. A finish-to-start/date conflict involving a completed task remains visible as a manual-resolution warning.
-
-`POST /api/projects/{projectId}/tasks` accepts `TaskCreateRequest` with `title`, `startDate`, `endDate`, `assigneeId`, and `status`. It returns the created task. The entered dates become both its current and immutable planned dates.
-
-`DELETE /api/tasks/{taskId}` returns `204 No Content`. The backend must remove every dependency whose predecessor or successor is the deleted task, analyze the remaining graph, and leave every remaining task date unchanged.
-
-Completed tasks represent recorded work: schedule propagation must not move them, and they cannot be returned as current `at-risk` tasks.
-
-### Last change context
-
-`ImpactAnalysis.lastChange` is a typed discriminated union. It distinguishes task field updates, task creation/deletion, dependency creation/deletion, and a confirmed automatic schedule shift. Task updates contain only fields whose values actually changed, including dates, status, and assignee. This context describes the user action; `affectedTaskIds`, deadline fields, and reasons describe its calculated consequences separately.
-
-`previousProjectEndDate` and `projectEndChangeDays` compare the forecast immediately before and after the latest mutation. `deadlineShiftDays` remains the current deviation from the project's target date; these values must not be conflated when a non-schedule edit occurs on an already delayed project.
-
-### Dependency mutation flow
-
-`POST /api/projects/{projectId}/dependencies` accepts a `CreateDependencyRequest` with `predecessorTaskId`, `successorTaskId`, and `type`. The MVP accepts only `finish-to-start` and returns the created `Dependency`.
-
-`DELETE /api/dependencies/{dependencyId}` removes one edge and returns `204 No Content`. Both mutations are followed by a workspace reload and impact analysis. They never change task dates automatically. A conflicting new edge is reported as a warning and may be resolved through the explicit shift flow.
-
-### Explicit schedule shift flow
-
-`POST /api/projects/{projectId}/schedule-shift/preview` accepts `ScheduleShiftPreviewRequest` with an explicit `sourceTaskId` and performs a non-mutating finish-to-start calculation from that source in the current graph. It must not infer the source from the latest workspace mutation. It returns `ScheduleShiftPreview` with current and proposed dates, calendar-day shifts for each affected task, and current/proposed project finish dates. Weekends and holidays are not special cases. Completed tasks are never proposed for movement.
-
-`POST /api/projects/{projectId}/schedule-shift/apply` accepts the preview and applies it only after user confirmation. The backend should validate that the preview still matches current project state and reject stale input. Canceling the preview performs no write.
-
-MVP task statuses are `not-started` (Не в работе), `in-progress` (В работе), `completed` (Закончено), and `delayed` (Задерживается). `delayed` is a manual status and is not equivalent to computed `riskState`.
-
-The domain validation rejects self-dependencies, duplicate edges, and any edge that would create a directed cycle. The HTTP backend must enforce the same invariants and return a structured validation error whose message can be shown to the user.
-
-Before graph validation, both dependency endpoints must verify that the predecessor and successor exist and belong to the project named in the route. Cross-project and missing-task references are rejected. The task edit panel and dependency graph both call the same `DependenciesApi`; neither mutates the workspace directly.
-
-TypeScript contracts live in `src/types/`. Once Swagger is available, generated backend DTOs should be mapped to these stable UI-facing models rather than imported throughout presentation components.
+The frontend intentionally has no dev proxy. The Railway API must allow the frontend origin with CORS, including `OPTIONS` preflight for JSON mutation requests. At integration time the live host returned `405` for `OPTIONS /api/v1/projects` and no `Access-Control-Allow-Origin`; browser HTTP mode therefore requires a backend CORS configuration change.

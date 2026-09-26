@@ -6,6 +6,7 @@ export type TaskFieldChange =
   | { field: 'assigneeId'; previousValue: string; nextValue: string }
 
 export type LastChange =
+  | { kind: 'session-started' }
   | { kind: 'task-updated'; taskId: string; taskTitle: string; changes: TaskFieldChange[] }
   | { kind: 'task-created'; taskId: string; taskTitle: string }
   | { kind: 'task-deleted'; taskId: string; taskTitle: string }

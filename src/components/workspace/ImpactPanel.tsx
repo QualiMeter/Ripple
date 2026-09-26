@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, Sparkles, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Calculator, GitBranch, MoveRight, TriangleAlert } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
 import type { ProjectTask } from '../../types/task'
@@ -20,13 +20,12 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
   const [isCalculating, setIsCalculating] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
   const [selectedPreviewSourceId, setSelectedPreviewSourceId] = useState('')
-  const { impact, currentIssues, tasks, recoveryScenarios } = workspace
+  const { impact, currentIssues, tasks } = workspace
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
     .filter((task): task is ProjectTask => Boolean(task))
   const changeDescription = describeLastChange(impact.lastChange, tasks, workspace.assignees)
   const impactOutcome = describeImpactOutcome(impact)
-  const best = recoveryScenarios[0]
   const previewSourceIds = getSchedulePreviewSourceIds(currentIssues)
   const commonPreviewSourceId = previewSourceIds.length === 1
     ? previewSourceIds[0]
@@ -144,9 +143,10 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
           <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
             {preview.taskShifts.map((shift) => {
               const task = tasks.find((candidate) => candidate.id === shift.taskId)
-              return <div key={shift.taskId} className="rounded-lg bg-white p-2.5 text-[10px] text-[#777181]">
-                <div className="flex items-center justify-between gap-2"><span className="truncate font-bold text-[#474252]">{task?.title ?? shift.taskId}</span><span className="shrink-0 font-bold text-[#c45b37]">+{shift.shiftDays} дн.</span></div>
+              return <div key={shift.taskId} className={`rounded-lg border p-2.5 text-[10px] text-[#777181] ${shift.completedRequiresManualResolution ? 'border-amber-300 bg-amber-50' : 'border-transparent bg-white'}`}>
+                <div className="flex items-center justify-between gap-2"><span className="truncate font-bold text-[#474252]">{task?.title ?? shift.taskId}</span><span className="shrink-0 font-bold text-[#c45b37]">{shift.shiftDays > 0 ? '+' : ''}{shift.shiftDays} дн.</span></div>
                 <p className="mt-1">{formatShortDate(shift.currentStartDate)}–{formatShortDate(shift.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(shift.proposedStartDate)}–{formatShortDate(shift.proposedEndDate)}</p>
+                {shift.completedRequiresManualResolution && <p className="mt-1.5 font-semibold text-amber-800">Законченная задача требует ручного решения. {shift.reason}</p>}
               </div>
             })}
           </div>
@@ -156,25 +156,6 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
         {previewMessage && <p className="mt-3 rounded-lg bg-[#f5f3fa] px-3 py-2 text-[10px] leading-4 text-[#716b7b]" role="status">{previewMessage}</p>}
       </section>
 
-      <section className="rounded-2xl border border-[#ded8fb] bg-gradient-to-br from-white to-[#f8f6ff] p-4 shadow-panel">
-        <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#eae6ff] text-[#6556d9]"><Lightbulb size={18} /></span>
-          <div><div className="flex items-center gap-1.5"><h2 className="text-sm font-bold text-[#363247]">Как сохранить срок</h2><Sparkles size={12} className="text-[#806fe5]" /></div><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">{best ? 'Найден лучший сценарий восстановления' : impact.requiresIntervention ? 'Безопасный сценарий не найден' : 'Восстановление срока не требуется'}</p></div>
-        </div>
-        {best ? (
-          <>
-            <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-white p-3">
-              <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-[#433e54]">{best.title}</p><p className="mt-1 text-[10px] leading-4 text-[#878292]">{best.description}</p></div><span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700">Вернуть {best.recoveredDays} дн.</span></div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#eeebf3] pt-3"><span className="text-[10px] text-[#918c9c]">Ожидаемое завершение</span><span className="text-xs font-bold text-[#494358]">{formatShortDate(impact.projectedProjectEndDate)} <ArrowRight size={11} className="mx-1 inline" /> {formatShortDate(best.expectedProjectEndDate)}</span></div>
-            </div>
-          </>
-        ) : (
-          <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-white p-3">
-            <p className="text-xs font-bold text-[#433e54]">{impact.requiresIntervention ? 'Нет доступного плана восстановления' : 'Проект укладывается в срок'}</p>
-            <p className="mt-1 text-[10px] leading-4 text-[#878292]">{impact.requiresIntervention ? 'Ripple не удалось найти безопасный способ скорректировать план с учётом текущих последствий.' : 'Дополнительные действия для восстановления планового срока сейчас не нужны.'}</p>
-          </div>
-        )}
-      </section>
     </aside>
   )
 }

@@ -5,8 +5,7 @@ import {
 } from '../mocks/workspaceStore'
 import { buildTaskUpdateChange } from '../services/changeContext'
 import { applyExplicitTaskUpdate, findDownstreamTaskIds, inclusiveDuration } from '../services/scheduleEngine'
-import type { ProjectTask } from '../types/task'
-import type { TasksApi } from './tasks.api'
+import type { ProjectTask, TaskCreateRequest } from '../types/task'
 import { getMockEmployee } from '../mocks/employeeStore'
 
 function validateAssignee(projectId: string, employeeId: string): void {
@@ -16,8 +15,8 @@ function validateAssignee(projectId: string, employeeId: string): void {
 }
 
 let taskSequence = 100
-export const mockTasksApi: TasksApi = {
-  async createTask(projectId, request) {
+export const mockTasksApi = {
+  async createTask(projectId: string, request: TaskCreateRequest) {
     await new Promise((resolve) => setTimeout(resolve, 220))
     validateAssignee(projectId, request.assigneeId)
     const state = getMockProjectState(projectId)
@@ -47,7 +46,7 @@ export const mockTasksApi: TasksApi = {
     return task
   },
 
-  async updateTask(taskId, update) {
+  async updateTask(taskId: string, update: import('../types/task').TaskUpdateRequest) {
     await new Promise((resolve) => setTimeout(resolve, 220))
     const projectId = findMockProjectIdForTask(taskId)
     if (!projectId) throw new Error('Задача не найдена')
@@ -72,7 +71,7 @@ export const mockTasksApi: TasksApi = {
     return updatedTask
   },
 
-  async deleteTask(taskId) {
+  async deleteTask(taskId: string) {
     await new Promise((resolve) => setTimeout(resolve, 180))
     const projectId = findMockProjectIdForTask(taskId)
     if (!projectId) throw new Error('Задача не найдена')

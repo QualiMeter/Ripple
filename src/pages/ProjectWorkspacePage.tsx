@@ -26,7 +26,7 @@ function WorkspaceSkeleton() {
 
 export function ProjectWorkspacePage() {
   const { openMobileSidebar, refreshProjects } = useOutletContext<AppShellContext>()
-  const { projectId = 'aurora-launch' } = useParams()
+  const { projectId = '' } = useParams()
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -34,6 +34,7 @@ export function ProjectWorkspacePage() {
   const [showAllTasks, setShowAllTasks] = useState(false)
   const [activeView, setActiveView] = useState<WorkspaceView>('overview')
   const [isEditingProject, setIsEditingProject] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -45,11 +46,11 @@ export function ProjectWorkspacePage() {
     setActiveView('overview')
     projectService.getWorkspace(projectId)
       .then((result) => active && setWorkspace(result))
-      .catch(() => active && setError('Не удалось загрузить проект. Попробуйте ещё раз.'))
+      .catch((loadError: unknown) => active && setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить проект.'))
     return () => { active = false }
-  }, [projectId])
+  }, [projectId, loadAttempt])
 
-  if (error) return <div className="grid min-h-screen place-items-center p-8 text-sm text-rose-700">{error}</div>
+  if (error) return <div className="grid min-h-screen place-items-center p-8"><div className="text-center text-sm text-rose-700"><p>{error}</p><button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="mt-4 rounded-xl bg-[#29263e] px-4 py-2 font-bold text-white">Повторить</button></div></div>
   if (!workspace) return <WorkspaceSkeleton />
 
   const selectedTask = workspace.tasks.find((task) => task.id === selectedTaskId)
@@ -84,7 +85,7 @@ export function ProjectWorkspacePage() {
     return employee
   }
   const handleEmployeeUpdate = async (employeeId: string, name: string): Promise<Employee> => {
-    const employee = await projectService.updateEmployee(employeeId, { name })
+    const employee = await projectService.updateEmployee(projectId, employeeId, { name })
     setWorkspace(await projectService.getWorkspace(projectId))
     return employee
   }

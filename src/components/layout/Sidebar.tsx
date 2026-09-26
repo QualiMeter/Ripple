@@ -10,6 +10,7 @@ import { formatTaskCount } from '../../utils/plural'
 interface SidebarProps {
   projects: ProjectSummary[]
   loading: boolean
+  error?: string | null
   onCreateProject: () => void
   mobile?: boolean
   onClose?: () => void
@@ -25,7 +26,7 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('ru-RU')
 }
 
-export function Sidebar({ projects, loading, onCreateProject, mobile = false, onClose }: SidebarProps) {
+export function Sidebar({ projects, loading, error, onCreateProject, mobile = false, onClose }: SidebarProps) {
   return (
     <aside className={mobile ? 'flex h-full w-[280px] max-w-[86vw] shrink-0 flex-col bg-[#17152b] text-white shadow-[24px_0_60px_rgba(23,21,43,.28)]' : 'hidden h-screen w-[244px] shrink-0 flex-col bg-[#17152b] text-white lg:fixed lg:flex'} aria-label={mobile ? 'Мобильная навигация' : undefined}>
       <div className="flex h-[72px] items-center gap-3 px-6">
@@ -47,6 +48,7 @@ export function Sidebar({ projects, loading, onCreateProject, mobile = false, on
         </div>
         <div className="max-h-[260px] space-y-1 overflow-y-auto">
           {loading && <div className="h-14 animate-pulse rounded-xl bg-white/[.06]" aria-label="Загрузка проектов" />}
+          {!loading && error && <p className="rounded-xl bg-rose-400/[.08] p-3 text-[11px] leading-4 text-rose-200">{error}</p>}
           {!loading && projects.length === 0 && <p className="rounded-xl bg-white/[.04] p-3 text-[11px] leading-4 text-[#9691a6]">Проектов пока нет. Создайте первый проект.</p>}
           {projects.map((project) => <NavLink key={project.id} to={`/projects/${project.id}`} onClick={onClose} className={({ isActive }) => `block rounded-xl p-2.5 transition ${isActive ? 'bg-white/[.1]' : 'hover:bg-white/[.06]'}`}>
             <div className="flex items-center gap-2.5">

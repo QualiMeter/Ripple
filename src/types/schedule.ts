@@ -5,6 +5,8 @@ export interface TaskScheduleShift {
   proposedStartDate: string
   proposedEndDate: string
   shiftDays: number
+  completedRequiresManualResolution?: boolean
+  reason?: string | null
 }
 
 export interface ScheduleShiftPreview {

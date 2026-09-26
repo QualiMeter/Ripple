@@ -6,7 +6,7 @@ import {
   saveMockProjectDependencies,
 } from '../mocks/workspaceStore'
 import type { Dependency } from '../types/dependency'
-import type { DependenciesApi } from './dependencies.api'
+import type { CreateDependencyRequest } from '../types/dependency'
 
 let dependencySequence = 100
 
@@ -47,8 +47,8 @@ function analyzeAfterDependencyChange(
   )
 }
 
-export const mockDependenciesApi: DependenciesApi = {
-  async createDependency(projectId, request) {
+export const mockDependenciesApi = {
+  async createDependency(projectId: string, request: CreateDependencyRequest) {
     await new Promise((resolve) => setTimeout(resolve, 180))
     const state = getMockProjectState(projectId)
     validateDependencyTasks(projectId, state.tasks, request)
@@ -68,7 +68,7 @@ export const mockDependenciesApi: DependenciesApi = {
     )
     return dependency
   },
-  async deleteDependency(dependencyId) {
+  async deleteDependency(dependencyId: string) {
     await new Promise((resolve) => setTimeout(resolve, 180))
     const projectId = findMockProjectIdForDependency(dependencyId)
     if (!projectId) throw new Error('Зависимость не найдена.')
