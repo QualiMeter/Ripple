@@ -60,6 +60,9 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
       setIsApplying(false)
     }
   }
+  if (tasks.length === 0) {
+    return <aside><section className="rounded-2xl border border-[#e5e2ea] bg-white px-5 py-12 text-center shadow-panel"><TriangleAlert size={22} className="mx-auto text-[#aaa4b5]" /><p className="mt-3 text-sm font-semibold text-[#4b4658]">Пока нечего анализировать</p><p className="mt-1 text-[11px] leading-4 text-[#918d9b]">Добавьте задачи и зависимости, чтобы Ripple показал риски и последствия изменений.</p></section></aside>
+  }
   return (
     <aside className="space-y-3">
       <section className="overflow-hidden rounded-2xl border border-[#efc5b5] bg-white shadow-panel">

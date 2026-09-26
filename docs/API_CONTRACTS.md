@@ -9,6 +9,31 @@ The frontend currently runs in `mock` mode and preserves the same UI-facing cont
 
 React components only use `projectService`; they do not import seed data, API transport, or schedule rules.
 
+## Projects
+
+- `GET /api/projects` returns the current manager's `ProjectSummary[]` for navigation and project selection.
+- `POST /api/projects` creates a project and returns its persistent `Project` fields.
+- `PATCH /api/projects/{projectId}` updates the supplied editable fields and returns the updated `Project`.
+- `GET /api/projects/{projectId}/workspace` returns the complete project read model described below.
+
+```ts
+interface CreateProjectRequest {
+  name: string
+  startDate: string
+  targetEndDate: string
+}
+
+interface UpdateProjectRequest {
+  name?: string
+  startDate?: string
+  targetEndDate?: string
+}
+```
+
+`Project` stores `id`, `creatorId`, `name`, `description`, `startDate`, and `targetEndDate`. `creatorId` is assigned by the server (the single mock manager in mock mode) and is not editable in the MVP UI. Computed fields such as `projectedEndDate`, `health`, progress, and task counters belong to `ProjectSummary`/workspace read models rather than project mutation payloads.
+
+The name is required and `startDate` must not be later than `targetEndDate`. Changing project dates never changes task dates and never starts schedule shift. The returned workspace contains `projectBoundaryIssues` for tasks that start before the project or end after its target date; these are non-blocking warnings.
+
 ## Workspace read model
 
 `GET /api/projects/{projectId}/workspace`
@@ -21,7 +46,10 @@ Returns one `ProjectWorkspace` containing:
 - `assignees`: people referenced by tasks;
 - `impact`: current impact analysis;
 - `currentIssues`: unresolved schedule conflicts recomputed from the complete current graph;
+- `projectBoundaryIssues`: tasks outside the editable project date boundaries;
 - `recoveryScenarios`: deadline recovery candidates.
+
+An empty project returns empty task/dependency/impact collections, progress `0`, and uses `targetEndDate` as its initial projected end. Consumers must not synthesize critical or risk metrics for an empty workspace.
 
 The combined workspace route is a frontend read-model proposal. The final ASP.NET API may expose separate endpoints; mapping/composition must remain inside `api/` or `services/`.
 

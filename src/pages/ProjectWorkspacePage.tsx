@@ -9,18 +9,21 @@ import { TaskEditPanel } from '../components/workspace/TaskEditPanel'
 import { TaskCreatePanel } from '../components/workspace/TaskCreatePanel'
 import { Timeline } from '../components/workspace/Timeline'
 import { WorkspaceHeader, type WorkspaceView } from '../components/workspace/WorkspaceHeader'
+import { ProjectFormPanel } from '../components/projects/ProjectFormPanel'
+import { ProjectBoundaryWarnings } from '../components/projects/ProjectBoundaryWarnings'
 import { projectService } from '../services/projectService'
 import type { ProjectWorkspace } from '../types/workspace'
 import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { CreateDependencyRequest } from '../types/dependency'
 import type { ScheduleShiftPreview } from '../types/schedule'
+import type { CreateProjectRequest } from '../types/project'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
 }
 
 export function ProjectWorkspacePage() {
-  const { openMobileSidebar } = useOutletContext<AppShellContext>()
+  const { openMobileSidebar, refreshProjects } = useOutletContext<AppShellContext>()
   const { projectId = 'aurora-launch' } = useParams()
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -28,9 +31,15 @@ export function ProjectWorkspacePage() {
   const [isCreatingTask, setIsCreatingTask] = useState(false)
   const [showAllTasks, setShowAllTasks] = useState(false)
   const [activeView, setActiveView] = useState<WorkspaceView>('overview')
+  const [isEditingProject, setIsEditingProject] = useState(false)
 
   useEffect(() => {
     let active = true
+    setWorkspace(null)
+    setError(null)
+    setSelectedTaskId(null)
+    setIsCreatingTask(false)
+    setIsEditingProject(false)
     projectService.getWorkspace(projectId)
       .then((result) => active && setWorkspace(result))
       .catch(() => active && setError('Не удалось загрузить проект. Попробуйте ещё раз.'))
@@ -66,6 +75,12 @@ export function ProjectWorkspacePage() {
   const handleScheduleApply = async (preview: ScheduleShiftPreview) => {
     setWorkspace(await projectService.applyScheduleShift(projectId, preview))
   }
+  const handleProjectUpdate = async (request: CreateProjectRequest) => {
+    const updatedWorkspace = await projectService.updateProject(projectId, request)
+    setWorkspace(updatedWorkspace)
+    await refreshProjects()
+    setIsEditingProject(false)
+  }
 
   const impactPanel = <ImpactPanel workspace={workspace} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} onTaskSelect={(taskId) => setSelectedTaskId(taskId)} />
 
@@ -74,8 +89,9 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} impact={workspace.impact} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} />
+      <WorkspaceHeader project={workspace.project} impact={workspace.impact} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} />
       <div className="space-y-4 p-4 sm:p-7">
+        <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
         {activeView === 'overview' && <>
           <MetricCards workspace={workspace} />
           <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
@@ -89,6 +105,7 @@ export function ProjectWorkspacePage() {
       </div>
       {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} />}
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} />}
+      {isEditingProject && <ProjectFormPanel title="Редактирование проекта" submitLabel="Сохранить" initialValues={{ name: workspace.project.name, startDate: workspace.project.startDate, targetEndDate: workspace.project.targetEndDate }} onClose={() => setIsEditingProject(false)} onSubmit={handleProjectUpdate} />}
     </div>
   )
 }

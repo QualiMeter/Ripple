@@ -40,6 +40,7 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
           <button className="rounded-lg border border-[#e1dfe6] px-2.5 py-2 text-[11px] font-semibold text-[#625e6f]">Сегодня</button>
         </div>
       </div>
+      {tasks.length === 0 ? <div className="grid min-h-48 place-items-center px-6 py-12 text-center"><div><p className="text-sm font-semibold text-[#4b4658]">В проекте пока нет задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Добавьте задачу, чтобы сформировать план проекта.</p></div></div> : <>
       <div className="overflow-x-auto">
         <div className="min-w-[760px]">
           <div className="grid grid-cols-[210px_1fr] border-b border-[#eeecf1] bg-[#faf9fb]">
@@ -78,6 +79,7 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#7768ed]" /> В работе</span>
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#55ad89]" /> Закончено</span>
       </div>
+      </>}
     </section>
   )
 }

@@ -46,9 +46,9 @@ export function TaskList({ tasks, assignees, affectedTaskIds, onTaskSelect, onTa
             })}
           </tbody>
         </table>
-        {visibleTasks.length === 0 && <p className="px-5 py-8 text-center text-xs text-[#8f8a98]">Нет незавершённых задач, требующих внимания.</p>}
+        {visibleTasks.length === 0 && <p className="px-5 py-8 text-center text-xs text-[#8f8a98]">{tasks.length === 0 ? 'В проекте пока нет задач. Добавьте первую задачу.' : 'Нет незавершённых задач, требующих внимания.'}</p>}
       </div>
-      <button type="button" onClick={() => onShowAllChange(!showAll)} className="flex w-full items-center justify-center gap-1.5 border-t border-[#ebe9ef] py-3 text-[11px] font-semibold text-[#6658d7] hover:bg-[#faf9ff]">{showAll ? 'Показать только требующие внимания' : `Показать все ${formatTaskCount(tasks.length)}`} <ArrowUpRight size={13} className={showAll ? 'rotate-180' : ''} /></button>
+      {tasks.length > 0 && <button type="button" onClick={() => onShowAllChange(!showAll)} className="flex w-full items-center justify-center gap-1.5 border-t border-[#ebe9ef] py-3 text-[11px] font-semibold text-[#6658d7] hover:bg-[#faf9ff]">{showAll ? 'Показать только требующие внимания' : `Показать все ${formatTaskCount(tasks.length)}`} <ArrowUpRight size={13} className={showAll ? 'rotate-180' : ''} /></button>}
     </section>
   )
 }

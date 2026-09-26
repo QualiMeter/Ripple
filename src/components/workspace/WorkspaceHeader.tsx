@@ -1,4 +1,5 @@
-import { Bell, ChevronDown, Menu, Search, Share2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Bell, ChevronDown, Menu, Pencil, Search, Share2 } from 'lucide-react'
 import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectSummary } from '../../types/project'
 
@@ -23,8 +24,25 @@ const projectViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: 'risks', label: 'Риски и последствия' },
 ]
 
-export function WorkspaceHeader({ project, impact, activeView, onViewChange, onOpenNavigation }: { project: ProjectSummary; impact: ImpactAnalysis; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void }) {
+export function WorkspaceHeader({ project, impact, activeView, onViewChange, onOpenNavigation, onEditProject }: { project: ProjectSummary; impact: ImpactAnalysis; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void }) {
   const healthStyle = healthStyles[project.health]
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const closeMenu = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return
+      if (event instanceof MouseEvent && menuRef.current?.contains(event.target as Node)) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', closeMenu)
+    document.addEventListener('keydown', closeMenu)
+    return () => {
+      document.removeEventListener('mousedown', closeMenu)
+      document.removeEventListener('keydown', closeMenu)
+    }
+  }, [menuOpen])
   return (
     <>
       <header className="flex h-[72px] items-center gap-4 border-b border-[#e8e7ed] bg-white px-4 sm:px-7">
@@ -37,7 +55,10 @@ export function WorkspaceHeader({ project, impact, activeView, onViewChange, onO
           <button className="relative grid h-9 w-9 place-items-center rounded-xl text-[#706c7c] transition hover:bg-[#f4f3f7]" aria-label="Уведомления"><Bell size={18} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#e46956] ring-2 ring-white" /></button>
           <div className="mx-1 hidden h-6 w-px bg-[#e5e3ea] sm:block" />
           <button className="hidden items-center gap-2 rounded-xl border border-[#dedce6] bg-white px-3.5 py-2 text-xs font-semibold text-[#494557] shadow-sm transition hover:border-[#c9c5d5] sm:flex"><Share2 size={15} /> Поделиться</button>
-          <button className="flex items-center gap-2 rounded-xl bg-[#211f37] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#302d4c]">Меню проекта <ChevronDown size={14} /></button>
+          <div className="relative" ref={menuRef}>
+            <button type="button" onClick={() => setMenuOpen((value) => !value)} className="flex items-center gap-2 rounded-xl bg-[#211f37] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#302d4c]" aria-expanded={menuOpen} aria-haspopup="menu">Меню проекта <ChevronDown size={14} /></button>
+            {menuOpen && <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-52 rounded-xl border border-[#e4e1e9] bg-white p-1.5 shadow-[0_14px_36px_rgba(32,29,49,.16)]" role="menu"><button type="button" onClick={() => { setMenuOpen(false); onEditProject() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#4a4557] hover:bg-[#f5f3f8]" role="menuitem"><Pencil size={14} /> Редактировать проект</button></div>}
+          </div>
         </div>
       </header>
       <div className="border-b border-[#e8e7ed] bg-white px-4 pb-0 pt-6 sm:px-7">

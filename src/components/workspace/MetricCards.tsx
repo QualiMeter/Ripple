@@ -5,6 +5,9 @@ import { formatTaskCount } from '../../utils/plural'
 
 export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
   const { project, impact } = workspace
+  if (workspace.tasks.length === 0) {
+    return <section className="rounded-2xl border border-[#e5e3eb] bg-white px-6 py-10 text-center shadow-panel"><p className="text-sm font-semibold text-[#4b4658]">Метрики появятся после добавления задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Пока у проекта нет прогресса, критических задач или рисков.</p></section>
+  }
   const plannedDays = calendarDaysBetween(project.startDate, project.targetEndDate) + 1
   const cards = [
     { icon: CheckCircle2, label: 'Общий прогресс', value: `${project.progress}%`, detail: `${project.completedTaskCount} из ${formatTaskCount(project.taskCount)} завершено`, accent: 'text-emerald-600', bar: true },
