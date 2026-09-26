@@ -23,6 +23,10 @@ describe('mockProjectsApi', () => {
     expect(workspace.dependencies).toEqual([])
     expect(workspace.impact.criticalTaskIds).toEqual([])
     expect(workspace.impact.atRiskTaskIds).toEqual([])
+    expect(Number.isFinite(workspace.impact.projectEndChangeDays)).toBe(true)
+    expect(workspace.impact.projectEndChangeDays).toBe(0)
+    expect(workspace.impact.deadlineShiftDays).toBe(0)
+
   })
 
   it('запрещает проект с датой начала позже даты окончания', async () => {

@@ -15,6 +15,8 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
   const tasks = state.tasks.map((task) => ({ ...task }))
   const dependencies = state.dependencies.map((dependency) => ({ ...dependency }))
   const completedTaskCount = tasks.filter((task) => task.status === 'completed').length
+  const previousProjectedEndDate =
+      state.previousProjectedEndDate || project.targetEndDate
   const impact = buildImpactAnalysis(
     project,
     tasks,
@@ -22,7 +24,7 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
     state.lastChangedTaskId,
     state.affectedTaskIds ?? undefined,
     state.lastChange,
-    state.previousProjectedEndDate,
+      previousProjectedEndDate,
   )
   const currentIssues = buildCurrentProjectIssues(tasks, dependencies)
   return {
