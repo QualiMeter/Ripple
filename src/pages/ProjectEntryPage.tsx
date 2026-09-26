@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { projectService } from '../services/projectService'
+import { getInitialProjectPath } from '../services/projectNavigation'
 
 export function ProjectEntryPage() {
   const navigate = useNavigate()
@@ -11,7 +12,8 @@ export function ProjectEntryPage() {
     let active = true
     projectService.listProjects().then((projects) => {
       if (!active) return
-      if (projects[0]) navigate(`/projects/${projects[0].id}`, { replace: true })
+      const path = getInitialProjectPath(projects)
+      if (path) navigate(path, { replace: true })
       else setState('empty')
     }).catch((error: unknown) => {
       if (!active) return

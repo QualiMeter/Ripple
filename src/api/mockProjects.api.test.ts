@@ -3,6 +3,7 @@ import { mockDependenciesApi } from './mockDependencies.api'
 import { mockProjectsApi } from './mockProjects.api'
 import { mockTasksApi } from './mockTasks.api'
 import { mockEmployeesApi } from './mockEmployees.api'
+import { listMockEmployees } from '../mocks/employeeStore'
 
 async function createProject(name: string, startDate = '2027-01-05', targetEndDate = '2027-01-20') {
   return mockProjectsApi.createProject({ name, startDate, targetEndDate })
@@ -106,5 +107,19 @@ describe('mockProjectsApi', () => {
     expect(firstWorkspace.dependencies).toHaveLength(1)
     expect(secondWorkspace.tasks.map((task) => task.title)).toEqual(['X'])
     expect(secondWorkspace.dependencies).toEqual([])
+  })
+
+  it('удаляет проект вместе с его задачами, сотрудниками и зависимостями', async () => {
+    const project = await createProject('Проект для удаления', '2027-08-01', '2027-08-31')
+    const employee = await createEmployee(project.id)
+    const source = await mockTasksApi.createTask(project.id, { title: 'A', startDate: '2027-08-01', endDate: '2027-08-02', assigneeId: employee.id, status: 'not-started' })
+    const successor = await mockTasksApi.createTask(project.id, { title: 'B', startDate: '2027-08-03', endDate: '2027-08-04', assigneeId: employee.id, status: 'not-started' })
+    await mockDependenciesApi.createDependency(project.id, { predecessorTaskId: source.id, successorTaskId: successor.id, type: 'finish-to-start' })
+
+    await mockProjectsApi.deleteProject(project.id)
+
+    expect((await mockProjectsApi.listProjects()).some((candidate) => candidate.id === project.id)).toBe(false)
+    expect(listMockEmployees(project.id)).toEqual([])
+    await expect(mockProjectsApi.getWorkspace(project.id)).rejects.toThrow('Проект не найден')
   })
 })

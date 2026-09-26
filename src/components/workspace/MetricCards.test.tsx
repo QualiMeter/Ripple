@@ -34,4 +34,14 @@ describe('MetricCards', () => {
     expect(markup).toContain('Критические задачи')
     expect(markup).toContain('Задачи без запаса по срокам')
   })
+
+  it('counts all current project issue categories', () => {
+    const reason = { sourceTaskId: 'task', affectedTaskIds: ['task'], reason: 'Проблема', consequence: 'Проверить', severity: 'warning' as const }
+    const markup = renderToStaticMarkup(<MetricCards workspace={{
+      ...workspace,
+      currentIssues: { scheduleConflicts: [reason], statusConflicts: [reason], deadlineIssues: [reason], affectedTaskIds: ['task'] },
+    }} />)
+    expect(markup).toContain('Текущие проблемы:')
+    expect(markup).toContain('<strong>3</strong>')
+  })
 })

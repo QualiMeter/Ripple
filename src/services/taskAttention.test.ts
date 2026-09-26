@@ -31,7 +31,22 @@ describe('selectTasksRequiringAttention', () => {
     })
     const active = task({ id: 'active', isCritical: false })
 
-    expect(selectTasksRequiringAttention([completed, active], ['completed'], ['completed', 'active']).map((item) => item.id))
+    expect(selectTasksRequiringAttention([completed, active], ['completed'], ['completed', 'active'], {
+      scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [],
+    }).map((item) => item.id))
       .toEqual(['active'])
+  })
+
+  it('includes an overdue or status-conflict task from current issues', () => {
+    const source = task({ id: 'source' })
+    const affected = task({ id: 'affected' })
+    const issues = {
+      scheduleConflicts: [],
+      statusConflicts: [{ sourceTaskId: source.id, affectedTaskIds: [affected.id], reason: 'Проблема', consequence: 'Проверить', severity: 'warning' as const }],
+      deadlineIssues: [],
+      affectedTaskIds: [affected.id],
+    }
+    expect(selectTasksRequiringAttention([source, affected], [], [], issues).map((item) => item.id).sort())
+      .toEqual(['affected', 'source'])
   })
 })

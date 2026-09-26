@@ -40,3 +40,9 @@ export function updateMockEmployee(employeeId: string, request: UpdateEmployeeRe
   employees.set(employeeId, employee)
   return { ...employee }
 }
+
+export function deleteMockProjectEmployees(projectId: string): void {
+  for (const [employeeId, employee] of employees) {
+    if (employee.projectId === projectId) employees.delete(employeeId)
+  }
+}

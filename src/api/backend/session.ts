@@ -27,3 +27,7 @@ export function setHttpProjectSession(projectId: string, session: HttpProjectSes
 export function clearHttpProjectSessions(): void {
   sessions.clear()
 }
+
+export function clearHttpProjectSession(projectId: string): void {
+  sessions.delete(projectId)
+}

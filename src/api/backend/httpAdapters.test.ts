@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpProjectsApi } from '../projects.api'
 import { httpScheduleApi } from '../schedule.api'
 import { httpEmployeesApi } from '../employees.api'
+import { getHttpProjectSession, setHttpProjectSession } from './session'
 
 const projectDetails = {
   id: 'project-1', name: 'Проект', startDate: '2026-10-01', endDate: '2026-10-20', creatorId: 'user-1',
@@ -20,6 +21,20 @@ describe('HTTP adapters', () => {
     expect(fetchMock.mock.calls[1][0]).toMatch(/\/api\/v1\/projects\/project-1$/)
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'PUT' })
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ name: 'Новое имя', startDate: '2026-10-01', endDate: '2026-10-20' })
+  })
+
+  it('deletes a project through its project resource and clears session state', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    setHttpProjectSession('project-1', {
+      sourceTaskId: 'task', affectedTaskIds: ['task'], lastChange: { kind: 'task-created', taskId: 'task', taskTitle: 'Задача' }, analysis: [],
+    })
+    await httpProjectsApi.deleteProject('project-1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/v1\/projects\/project-1$/),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    expect(getHttpProjectSession('project-1').lastChange).toEqual({ kind: 'session-started' })
   })
 
   it('requests shift preview from the explicitly selected source task', async () => {

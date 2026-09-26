@@ -49,3 +49,7 @@ export function updateMockProject(projectId: string, request: UpdateProjectReque
   projects.set(projectId, project)
   return { ...project }
 }
+
+export function deleteMockProject(projectId: string): void {
+  if (!projects.delete(projectId)) throw new Error('Проект не найден')
+}

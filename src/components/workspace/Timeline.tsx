@@ -2,6 +2,7 @@ import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectSummary } from '../../types/project'
 import type { Assignee, ProjectTask } from '../../types/task'
 import { calendarDaysBetween, formatFullDate, formatShortDate, getTodayIsoDate } from '../../utils/date'
+import { getTaskVisualState, taskVisualStateClasses } from '../../services/taskVisualState'
 
 const dayMs = 86_400_000
 const columnCount = 7
@@ -50,18 +51,19 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect, toda
           {visibleTasks.map((task) => {
             const assignee = assignees.find((person) => person.id === task.assigneeId)
             const affected = impact.affectedTaskIds.includes(task.id)
-            const atRisk = task.riskState === 'at-risk'
+            const visualState = getTaskVisualState(task, { affected })
+            const critical = criticalTaskIds.has(task.id)
             return (
               <div key={task.id} className={`grid grid-cols-[210px_1fr] border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`}>
                 <button type="button" onClick={() => onTaskSelect(task)} className="flex min-w-0 items-center gap-2.5 border-r border-[#eeecf1] px-5 py-2.5 text-left hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${criticalTaskIds.has(task.id) ? 'bg-[#6d5dfb]' : task.status === 'completed' ? 'bg-[#4aaa83]' : 'bg-[#aaa5b6]'}`} />
+                  <span data-task-visual-state={visualState} className={`h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} />
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-[#444051]">{task.title}</p>
+                    <div className="flex min-w-0 items-center gap-1.5"><p className="truncate text-xs font-semibold text-[#444051]">{task.title}</p>{critical && <span className="shrink-0 rounded-full bg-[#efedff] px-1.5 py-0.5 text-[8px] font-bold text-[#5e50c5]">Критическая</span>}</div>
                     <p className="mt-0.5 truncate text-[10px] text-[#9a96a3]">{assignee?.name}</p>
                   </div>
                 </button>
                 <div className="relative min-h-[48px] bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
-                  <button type="button" onClick={() => onTaskSelect(task)} className={`absolute top-1/2 h-6 -translate-y-1/2 rounded-md text-left ${affected ? 'impact-pulse bg-[#e7774d]' : atRisk || task.status === 'delayed' ? 'bg-[#df5e64]' : task.status === 'completed' ? 'bg-[#55ad89]' : task.status === 'in-progress' ? 'bg-[#7768ed]' : 'bg-[#aaa5b6]'}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`} />
+                  <button type="button" onClick={() => onTaskSelect(task)} data-task-visual-state={visualState} className={`absolute top-1/2 h-6 -translate-y-1/2 rounded-md text-left ${affected ? 'impact-pulse' : ''} ${taskVisualStateClasses[visualState]}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`} />
                   {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)} дн.</span>}
                 </div>
               </div>

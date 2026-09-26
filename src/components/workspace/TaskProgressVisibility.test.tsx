@@ -21,13 +21,35 @@ const impact: ImpactAnalysis = {
   requiresIntervention: false, reasons: [], analyzedAt: '2026-06-01T00:00:00.000Z',
 }
 const assignees = [{ id: 'employee-1', projectId: 'project-1', name: 'Иван Иванов' }]
+const currentIssues = { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] }
 
 describe('task progress presentation', () => {
   it('does not show a progress column, percentage or bar in TaskList', () => {
-    const markup = renderToStaticMarkup(<TaskList tasks={[task]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} onTaskSelect={() => undefined} onTaskCreate={() => undefined} showAll onShowAllChange={() => undefined} />)
+    const markup = renderToStaticMarkup(<TaskList tasks={[task]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} currentIssues={currentIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} showAll onShowAllChange={() => undefined} />)
     expect(markup).not.toContain('Прогресс')
     expect(markup).not.toContain('62%')
     expect(markup).not.toContain('width:62%')
+  })
+
+  it('uses the same violet visual state for a non-critical in-progress timeline task', () => {
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
+    expect(markup.match(/data-task-visual-state="in-progress"/g)).toHaveLength(2)
+    expect(markup).toContain('bg-[#7768ed]')
+  })
+
+  it('keeps criticality separate from a violet in-progress status', () => {
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={{ ...impact, criticalTaskIds: [task.id] }} onTaskSelect={() => undefined} today="2026-06-03" />)
+    expect(markup).toContain('data-task-visual-state="in-progress"')
+    expect(markup).toContain('Критическая')
+  })
+
+  it('shows a not-started task as gray in Timeline and TaskList', () => {
+    const notStarted = { ...task, status: 'not-started' as const }
+    const timelineMarkup = renderToStaticMarkup(<Timeline project={project} tasks={[notStarted]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
+    const listMarkup = renderToStaticMarkup(<TaskList tasks={[notStarted]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} currentIssues={currentIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} showAll onShowAllChange={() => undefined} />)
+    expect(timelineMarkup).toContain('data-task-visual-state="not-started"')
+    expect(listMarkup).toContain('data-task-visual-state="not-started"')
+    expect(listMarkup).toContain('bg-[#aaa5b6]')
   })
 
   it('uses a solid full-period timeline bar without task progress fill', () => {

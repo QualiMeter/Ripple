@@ -4,11 +4,13 @@ import { apiRequest } from './client'
 import type { ProjectDetailsDto } from './backend/types'
 import { mapProject, toCreateProjectDto, toUpdateProjectDto } from './backend/mappers'
 import { composeHttpWorkspace, fetchProjectDetails, listHttpProjectSummaries } from './backend/workspace'
+import { clearHttpProjectSession } from './backend/session'
 
 export interface ProjectsApi {
   listProjects(): Promise<ProjectSummary[]>
   createProject(request: CreateProjectRequest): Promise<Project>
   updateProject(projectId: string, request: UpdateProjectRequest): Promise<Project>
+  deleteProject(projectId: string): Promise<void>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
 }
 
@@ -22,6 +24,10 @@ export const httpProjectsApi: ProjectsApi = {
     const current = mapProject(await fetchProjectDetails(projectId))
     const dto = await apiRequest<ProjectDetailsDto>(`/api/v1/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(toUpdateProjectDto(current, request)) })
     return mapProject(dto)
+  },
+  async deleteProject(projectId) {
+    await apiRequest<void>(`/api/v1/projects/${projectId}`, { method: 'DELETE' })
+    clearHttpProjectSession(projectId)
   },
   getWorkspace: composeHttpWorkspace,
 }
@@ -42,6 +48,10 @@ export const projectsApi: ProjectsApi = mode === 'http'
       updateProject: async (projectId, request) => {
         const { mockProjectsApi } = await import('./mockProjects.api')
         return mockProjectsApi.updateProject(projectId, request)
+      },
+      deleteProject: async (projectId) => {
+        const { mockProjectsApi } = await import('./mockProjects.api')
+        return mockProjectsApi.deleteProject(projectId)
       },
       getWorkspace: async (projectId) => {
         const { mockProjectsApi } = await import('./mockProjects.api')

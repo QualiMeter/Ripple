@@ -2,6 +2,7 @@ import { CalendarDays, CheckCircle2, CircleAlert, Route } from 'lucide-react'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { calendarDaysBetween, formatShortDate } from '../../utils/date'
 import { formatTaskCount } from '../../utils/plural'
+import { getCurrentIssueCount } from '../../services/currentProjectAnalysis'
 
 export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
   const { project, impact } = workspace
@@ -9,6 +10,7 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
     return <section className="rounded-2xl border border-[#e5e3eb] bg-white px-6 py-10 text-center shadow-panel"><p className="text-sm font-semibold text-[#4b4658]">Метрики появятся после добавления задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Пока у проекта нет задач, критических сроков или рисков.</p></section>
   }
   const plannedDays = calendarDaysBetween(project.startDate, project.targetEndDate) + 1
+  const currentIssueCount = getCurrentIssueCount(workspace.currentIssues)
   const cards = [
     { icon: CheckCircle2, label: 'Общий прогресс', value: `${project.progress}%`, detail: `${project.completedTaskCount} из ${formatTaskCount(project.taskCount)} завершено`, accent: 'text-emerald-600', progress: project.progress },
     { icon: CalendarDays, label: 'Плановый срок', value: formatShortDate(project.targetEndDate), detail: `${plannedDays} календарных дней по плану`, accent: 'text-[#6d5dfb]' },
@@ -35,7 +37,7 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
       </div>
       <div className="flex flex-wrap gap-2 text-[11px]">
         <span className="rounded-full border border-[#e4e1ea] bg-white px-3 py-1.5 text-[#716c7b]">Затронуто последним изменением: <strong className="text-[#403a50]">{impact.affectedTaskIds.length}</strong></span>
-        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800">Текущие конфликты расписания: <strong>{workspace.currentIssues.scheduleConflicts.length}</strong></span>
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800">Текущие проблемы: <strong>{currentIssueCount}</strong></span>
       </div>
     </div>
   )

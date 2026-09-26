@@ -5,21 +5,25 @@ import { formatShortDate } from '../../utils/date'
 import { formatTaskCount } from '../../utils/plural'
 import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
+import type { CurrentProjectIssues } from '../../types/impact'
+import { getTaskVisualState, taskVisualStateClasses } from '../../services/taskVisualState'
 
 interface TaskListProps {
   tasks: ProjectTask[]
   assignees: Assignee[]
   affectedTaskIds: string[]
   criticalTaskIds: string[]
+  currentIssues: CurrentProjectIssues
   onTaskSelect: (task: ProjectTask) => void
   onTaskCreate: () => void
   showAll: boolean
   onShowAllChange: (showAll: boolean) => void
 }
 
-export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, onTaskSelect, onTaskCreate, showAll, onShowAllChange }: TaskListProps) {
+export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, currentIssues, onTaskSelect, onTaskCreate, showAll, onShowAllChange }: TaskListProps) {
   const affectedTaskIdSet = new Set(affectedTaskIds)
-  const attentionTasks = selectTasksRequiringAttention(tasks, affectedTaskIds, criticalTaskIds)
+  const criticalTaskIdSet = new Set(criticalTaskIds)
+  const attentionTasks = selectTasksRequiringAttention(tasks, affectedTaskIds, criticalTaskIds, currentIssues)
   const visibleTasks = showAll ? tasks : attentionTasks
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
@@ -34,9 +38,11 @@ export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, o
             {visibleTasks.map((task) => {
               const assignee = assignees.find((person) => person.id === task.assigneeId)
               const affected = affectedTaskIdSet.has(task.id)
+              const critical = criticalTaskIdSet.has(task.id)
+              const visualState = getTaskVisualState(task, { affected })
               return (
                 <tr key={task.id} className="group cursor-pointer border-t border-[#efedf2] hover:bg-[#fcfbfd] focus-within:bg-[#fcfbfd]" onClick={() => onTaskSelect(task)}>
-                  <td className="px-5 py-3"><div className="flex items-center gap-2.5"><span className={`h-2 w-2 rounded-full ${affected ? 'bg-[#e7774d]' : task.riskState === 'at-risk' ? 'bg-[#df5e64]' : task.status === 'completed' ? 'bg-emerald-500' : 'bg-[#7062e3]'}`} /><div><div className="flex items-center gap-2"><p className="text-xs font-semibold text-[#464152]">{task.title}</p>{affected && <span className="rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">Затронуто</span>}</div>{task.changeNote && <p className="mt-0.5 text-[10px] text-[#b26042]">{task.changeNote}</p>}</div></div></td>
+                  <td className="px-5 py-3"><div className="flex items-center gap-2.5"><span data-task-visual-state={visualState} className={`h-2 w-2 rounded-full ${taskVisualStateClasses[visualState]}`} /><div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold text-[#464152]">{task.title}</p>{affected && <span className="rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">Затронуто</span>}{critical && <span className="rounded-full bg-[#efedff] px-1.5 py-0.5 text-[9px] font-bold text-[#5e50c5]">Критическая</span>}{task.riskState !== 'none' && <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-bold text-rose-700">Риск</span>}</div>{task.changeNote && <p className="mt-0.5 text-[10px] text-[#b26042]">{task.changeNote}</p>}</div></div></td>
                   <td className="px-3 py-3"><div className="flex items-center gap-2"><Avatar assignee={assignee} size="sm" /><span className="text-[11px] text-[#6f6a79]">{assignee?.name}</span></div></td>
                   <td className="px-3 py-3"><StatusBadge status={task.status} risk={task.riskState} /></td>
                   <td className={`px-3 py-3 text-[11px] font-semibold ${task.riskState === 'at-risk' ? 'text-[#c15a37]' : 'text-[#696474]'}`}>{formatShortDate(task.endDate)}</td>

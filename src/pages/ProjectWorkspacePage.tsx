@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { AppShellContext } from '../components/layout/AppShell'
 import { ImpactPanel } from '../components/workspace/ImpactPanel'
 import { DependenciesView } from '../components/workspace/DependenciesView'
@@ -19,6 +19,9 @@ import type { ScheduleShiftPreview } from '../types/schedule'
 import type { CreateProjectRequest } from '../types/project'
 import type { Employee } from '../types/employee'
 import { EmployeesView } from '../components/employees/EmployeesView'
+import { ProjectDeleteDialog } from '../components/projects/ProjectDeleteDialog'
+import { getCurrentIssueCount } from '../services/currentProjectAnalysis'
+import { deleteProjectAndLeave } from '../services/projectDeletion'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -26,6 +29,7 @@ function WorkspaceSkeleton() {
 
 export function ProjectWorkspacePage() {
   const { openMobileSidebar, refreshProjects } = useOutletContext<AppShellContext>()
+  const navigate = useNavigate()
   const { projectId = '' } = useParams()
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +38,7 @@ export function ProjectWorkspacePage() {
   const [showAllTasks, setShowAllTasks] = useState(false)
   const [activeView, setActiveView] = useState<WorkspaceView>('overview')
   const [isEditingProject, setIsEditingProject] = useState(false)
+  const [isDeletingProject, setIsDeletingProject] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
@@ -43,6 +48,7 @@ export function ProjectWorkspacePage() {
     setSelectedTaskId(null)
     setIsCreatingTask(false)
     setIsEditingProject(false)
+    setIsDeletingProject(false)
     setActiveView('overview')
     projectService.getWorkspace(projectId)
       .then((result) => active && setWorkspace(result))
@@ -95,15 +101,23 @@ export function ProjectWorkspacePage() {
     await refreshProjects()
     setIsEditingProject(false)
   }
+  const handleProjectDelete = async () => {
+    await deleteProjectAndLeave(projectId, {
+      deleteProject: projectService.deleteProject,
+      closeDialog: () => setIsDeletingProject(false),
+      refreshProjects,
+      navigateHome: () => navigate('/', { replace: true }),
+    })
+  }
 
   const impactPanel = <ImpactPanel workspace={workspace} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} onTaskSelect={(taskId) => setSelectedTaskId(taskId)} />
 
-  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} onTaskCreate={() => setIsCreatingTask(true)} showAll={showAllTasks} onShowAllChange={setShowAllTasks} />
+  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onTaskCreate={() => setIsCreatingTask(true)} showAll={showAllTasks} onShowAllChange={setShowAllTasks} />
   const timeline = <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} impact={workspace.impact} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} />
+      <WorkspaceHeader project={workspace.project} currentIssueCount={getCurrentIssueCount(workspace.currentIssues)} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
         {activeView === 'overview' && <>
@@ -114,13 +128,14 @@ export function ProjectWorkspacePage() {
           </div>
         </>}
         {activeView === 'timeline' && <div className="space-y-4">{timeline}{taskList}</div>}
-        {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
+        {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
         {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
         {activeView === 'risks' && <><MetricCards workspace={workspace} /><div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">{taskList}{impactPanel}</div></>}
       </div>
       {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onCreateEmployee={handleEmployeeCreate} />}
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} onCreateEmployee={handleEmployeeCreate} />}
       {isEditingProject && <ProjectFormPanel title="Редактирование проекта" submitLabel="Сохранить" initialValues={{ name: workspace.project.name, startDate: workspace.project.startDate, targetEndDate: workspace.project.targetEndDate }} onClose={() => setIsEditingProject(false)} onSubmit={handleProjectUpdate} />}
+      {isDeletingProject && <ProjectDeleteDialog projectName={workspace.project.name} onClose={() => setIsDeletingProject(false)} onConfirm={handleProjectDelete} />}
     </div>
   )
 }

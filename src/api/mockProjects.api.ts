@@ -1,6 +1,7 @@
 import { listMockEmployees } from '../mocks/employeeStore'
-import { createMockProject, getMockProject, listMockProjects, updateMockProject } from '../mocks/projectStore'
-import { getMockProjectState } from '../mocks/workspaceStore'
+import { createMockProject, deleteMockProject, getMockProject, listMockProjects, updateMockProject } from '../mocks/projectStore'
+import { deleteMockProjectState, getMockProjectState } from '../mocks/workspaceStore'
+import { deleteMockProjectEmployees } from '../mocks/employeeStore'
 import { analyzeProjectBoundaries } from '../services/projectBoundaryAnalysis'
 import { calculateProjectProgress } from '../services/projectProgress'
 import { validateProjectInput } from '../services/projectValidation'
@@ -8,6 +9,7 @@ import { buildRecoveryScenarios } from '../services/recoveryEngine'
 import { buildCurrentProjectIssues, buildImpactAnalysis } from '../services/scheduleEngine'
 import type { ProjectWorkspace } from '../types/workspace'
 import type { ProjectsApi } from './projects.api'
+import { deriveProjectHealth, includeCurrentIssuesInImpact } from '../services/currentProjectAnalysis'
 
 function buildWorkspace(projectId: string): ProjectWorkspace {
   const project = getMockProject(projectId)
@@ -18,7 +20,7 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
   const completedTaskCount = tasks.filter((task) => task.status === 'completed').length
   const previousProjectedEndDate =
       state.previousProjectedEndDate || project.targetEndDate
-  const impact = buildImpactAnalysis(
+  let impact = buildImpactAnalysis(
     project,
     tasks,
     dependencies,
@@ -28,15 +30,13 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
       previousProjectedEndDate,
   )
   const currentIssues = buildCurrentProjectIssues(project, tasks, dependencies)
-  const hasCurrentIssues = currentIssues.scheduleConflicts.length > 0
-    || currentIssues.statusConflicts.length > 0
-    || currentIssues.deadlineIssues.length > 0
+  impact = includeCurrentIssuesInImpact(impact, currentIssues)
   return {
     project: {
       ...project,
       projectedEndDate: impact.projectedProjectEndDate,
       ownerName: 'Майя Чен',
-      health: hasCurrentIssues || impact.requiresIntervention || impact.atRiskTaskIds.length > 0 ? 'at-risk' : 'on-track',
+      health: deriveProjectHealth(project, tasks, currentIssues, impact.atRiskTaskIds, impact.projectedProjectEndDate),
       progress: calculateProjectProgress(completedTaskCount, tasks.length),
       taskCount: tasks.length,
       completedTaskCount,
@@ -73,6 +73,13 @@ export const mockProjectsApi: ProjectsApi = {
       targetEndDate: request.targetEndDate ?? current.targetEndDate,
     })
     return updateMockProject(projectId, request)
+  },
+
+  async deleteProject(projectId) {
+    await new Promise((resolve) => setTimeout(resolve, 180))
+    deleteMockProject(projectId)
+    deleteMockProjectState(projectId)
+    deleteMockProjectEmployees(projectId)
   },
 
   async getWorkspace(projectId: string): Promise<ProjectWorkspace> {

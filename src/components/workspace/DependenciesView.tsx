@@ -22,17 +22,19 @@ import {
 } from 'lucide-react'
 import { isDependencyInImpactPath } from '../../services/impactPath'
 import type { CreateDependencyRequest, Dependency } from '../../types/dependency'
-import type { ImpactAnalysis } from '../../types/impact'
+import type { CurrentProjectIssues, ImpactAnalysis } from '../../types/impact'
 import type { Assignee, ProjectTask } from '../../types/task'
 import { formatFullDate } from '../../utils/date'
 import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
+import { getCurrentIssueLabel, getTaskCurrentIssues } from '../../services/currentProjectAnalysis'
 
 interface DependenciesViewProps {
   tasks: ProjectTask[]
   dependencies: Dependency[]
   assignees: Assignee[]
   impact: ImpactAnalysis
+  currentIssues: CurrentProjectIssues
   onTaskSelect: (task: ProjectTask) => void
   onCreateDependency: (request: CreateDependencyRequest) => Promise<void>
   onDeleteDependency: (dependencyId: string) => Promise<void>
@@ -155,6 +157,7 @@ export function DependenciesView({
   dependencies,
   assignees,
   impact,
+  currentIssues,
   onTaskSelect,
   onCreateDependency,
   onDeleteDependency,
@@ -443,6 +446,9 @@ export function DependenciesView({
                 const atRisk = task.riskState === 'at-risk'
                 const critical = criticalTaskIdSet.has(task.id)
                 const selected = selectedTaskId === task.id
+                const taskIssues = getTaskCurrentIssues(currentIssues, task.id)
+                const primaryIssue = taskIssues[0]
+                const issueLabel = primaryIssue ? getCurrentIssueLabel(primaryIssue) : null
                 return (
                   <button
                     key={task.id}
@@ -469,9 +475,11 @@ export function DependenciesView({
                       <CalendarDays size={11} className="shrink-0 text-[#9994a2]" aria-hidden="true" />
                       {formatFullDate(task.startDate)} — {formatFullDate(task.endDate)}
                     </p>
-                    <p className={`mt-1.5 flex items-center gap-1.5 text-[9px] font-bold ${atRisk ? 'text-[#c55359]' : task.riskState === 'watch' ? 'text-[#a56d28]' : 'text-[#777280]'}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${atRisk ? 'bg-[#df5e64]' : task.riskState === 'watch' ? 'bg-[#d99a45]' : 'bg-[#aaa5b2]'}`} />
-                      {atRisk ? 'Под риском' : task.riskState === 'watch' ? 'Требует наблюдения' : 'Рисков нет'}
+                    <p className={`mt-1.5 flex items-center gap-1.5 text-[9px] font-bold ${primaryIssue?.reason.severity === 'error' || atRisk ? 'text-[#c55359]' : primaryIssue || task.riskState === 'watch' ? 'text-[#a56d28]' : 'text-[#777280]'}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${primaryIssue?.reason.severity === 'error' || atRisk ? 'bg-[#df5e64]' : primaryIssue || task.riskState === 'watch' ? 'bg-[#d99a45]' : 'bg-[#aaa5b2]'}`} />
+                      {issueLabel
+                        ? <>{issueLabel}{taskIssues.length > 1 && <span className="font-medium"> · {taskIssues.length} проблемы</span>}</>
+                        : atRisk ? 'Под риском' : task.riskState === 'watch' ? 'Требует наблюдения' : 'Рисков нет'}
                     </p>
                   </button>
                 )

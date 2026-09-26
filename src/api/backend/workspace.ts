@@ -7,6 +7,7 @@ import type { ProjectWorkspace } from '../../types/workspace'
 import { getHttpProjectSession } from './session'
 import { mapAnalysisMessage, mapDependency, mapEmployee, mapProject, mapTask } from './mappers'
 import type { ProjectDetailsDto, ProjectListItemDto, UserDto } from './types'
+import { deriveProjectHealth, includeCurrentIssuesInImpact } from '../../services/currentProjectAnalysis'
 
 let usersCache: Promise<Map<string, string>> | null = null
 
@@ -42,7 +43,7 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
   const analyzedAffectedTaskIds = session.lastChange.kind === 'task-updated'
     ? taskUpdateAffectsAnalysis ? findDownstreamTaskIds(session.lastChange.taskId, dependencies) : []
     : session.affectedTaskIds
-  const impact = buildImpactAnalysis(
+  let impact = buildImpactAnalysis(
     project, tasks, dependencies, session.sourceTaskId, analyzedAffectedTaskIds,
     session.lastChange, previousEnd,
   )
@@ -55,15 +56,13 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
     impact.requiresIntervention = impact.deadlineShiftDays > 0 || impact.reasons.some((reason) => reason.severity !== 'info')
   }
   const currentIssues = buildCurrentProjectIssues(project, tasks, dependencies)
-  const hasCurrentIssues = currentIssues.scheduleConflicts.length > 0
-    || currentIssues.statusConflicts.length > 0
-    || currentIssues.deadlineIssues.length > 0
+  impact = includeCurrentIssuesInImpact(impact, currentIssues)
   const completedTaskCount = tasks.filter((task) => task.status === 'completed').length
   const summary: ProjectSummary = {
     ...project,
     projectedEndDate: currentEnd,
     ownerName: users.get(project.creatorId) ?? 'Менеджер',
-    health: hasCurrentIssues || impact.atRiskTaskIds.length > 0 || impact.deadlineShiftDays > 0 ? 'at-risk' : 'on-track',
+    health: deriveProjectHealth(project, tasks, currentIssues, impact.atRiskTaskIds, currentEnd),
     progress: calculateProjectProgress(completedTaskCount, tasks.length),
     taskCount: tasks.length,
     completedTaskCount,

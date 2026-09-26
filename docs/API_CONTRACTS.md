@@ -18,6 +18,7 @@ The checked contract is the supplied OpenAPI document (`v1.json`). Scalar is ava
 - `POST /api/v1/projects`
 - `GET /api/v1/projects/{id}`
 - `PUT /api/v1/projects/{id}`
+- `DELETE /api/v1/projects/{id}`
 - `GET /api/v1/users`
 - `GET /api/v1/users/{id}`
 
@@ -26,6 +27,8 @@ The backend calls the target date `endDate`; frontend domain models call it `tar
 There is no backend workspace endpoint. `ProjectWorkspace` is composed in the adapter from `ProjectDetailsDto` (`employees`, `tasks`, `dependencies`, and project fields) plus local replaceable analytics. Project description is currently `''`. Owner names are resolved through the Users API and cached for the browser session.
 
 Project summary fields are read models: projected end is the latest current task end (or the project target for an empty project), progress is the percentage of equally weighted tasks whose status is `Completed`, and health is derived from current conflicts, delayed tasks, and target overrun.
+
+Project deletion returns an empty success response. After it succeeds, the frontend clears project-scoped session analysis and reloads the project list. The mock adapter also removes all project tasks, employees, dependencies, and project session state.
 
 ### Employees
 

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Menu, Pencil } from 'lucide-react'
-import type { ImpactAnalysis } from '../../types/impact'
+import { ChevronDown, Menu, Pencil, Trash2 } from 'lucide-react'
 import type { ProjectSummary } from '../../types/project'
 
 const healthLabels: Record<ProjectSummary['health'], string> = {
@@ -25,7 +24,7 @@ const projectViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: 'risks', label: 'Риски и последствия' },
 ]
 
-export function WorkspaceHeader({ project, impact, activeView, onViewChange, onOpenNavigation, onEditProject }: { project: ProjectSummary; impact: ImpactAnalysis; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void }) {
+export function WorkspaceHeader({ project, currentIssueCount, activeView, onViewChange, onOpenNavigation, onEditProject, onDeleteProject }: { project: ProjectSummary; currentIssueCount: number; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void; onDeleteProject: () => void }) {
   const healthStyle = healthStyles[project.health]
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -53,7 +52,7 @@ export function WorkspaceHeader({ project, impact, activeView, onViewChange, onO
         </div>
         <div className="relative ml-auto" ref={menuRef}>
           <button type="button" onClick={() => setMenuOpen((value) => !value)} className="flex items-center gap-2 rounded-xl bg-[#211f37] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#302d4c]" aria-expanded={menuOpen} aria-haspopup="menu">Меню проекта <ChevronDown size={14} /></button>
-          {menuOpen && <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-52 rounded-xl border border-[#e4e1e9] bg-white p-1.5 shadow-[0_14px_36px_rgba(32,29,49,.16)]" role="menu"><button type="button" onClick={() => { setMenuOpen(false); onEditProject() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#4a4557] hover:bg-[#f5f3f8]" role="menuitem"><Pencil size={14} /> Редактировать проект</button></div>}
+          {menuOpen && <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-52 rounded-xl border border-[#e4e1e9] bg-white p-1.5 shadow-[0_14px_36px_rgba(32,29,49,.16)]" role="menu"><button type="button" onClick={() => { setMenuOpen(false); onEditProject() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#4a4557] hover:bg-[#f5f3f8]" role="menuitem"><Pencil size={14} /> Редактировать проект</button><button type="button" onClick={() => { setMenuOpen(false); onDeleteProject() }} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50" role="menuitem"><Trash2 size={14} /> Удалить проект</button></div>}
         </div>
       </header>
       <div className="border-b border-[#e8e7ed] bg-white px-4 pb-0 pt-6 sm:px-7">
@@ -66,7 +65,7 @@ export function WorkspaceHeader({ project, impact, activeView, onViewChange, onO
         </div>
         <nav className="mt-6 flex gap-6 overflow-x-auto text-sm" aria-label="Разделы проекта">
           {projectViews.map((view) => (
-            <button key={view.id} type="button" onClick={() => onViewChange(view.id)} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${activeView === view.id ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{view.label}{view.id === 'risks' && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">{impact.atRiskTaskIds.length}</span>}</button>
+            <button key={view.id} type="button" onClick={() => onViewChange(view.id)} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${activeView === view.id ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{view.label}{view.id === 'risks' && currentIssueCount > 0 && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">{currentIssueCount}</span>}</button>
           ))}
         </nav>
       </div>

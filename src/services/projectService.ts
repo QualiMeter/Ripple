@@ -16,6 +16,7 @@ export interface ProjectService {
   listProjects(): Promise<ProjectSummary[]>
   createProject(request: CreateProjectRequest): Promise<Project>
   updateProject(projectId: string, request: UpdateProjectRequest): Promise<ProjectWorkspace>
+  deleteProject(projectId: string): Promise<void>
   createEmployee(projectId: string, request: CreateEmployeeRequest): Promise<Employee>
   updateEmployee(projectId: string, employeeId: string, request: UpdateEmployeeRequest): Promise<Employee>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
@@ -44,6 +45,7 @@ export const projectService: ProjectService = {
     await projectsApi.updateProject(projectId, request)
     return projectsApi.getWorkspace(projectId)
   },
+  deleteProject: (projectId) => projectsApi.deleteProject(projectId),
   createEmployee: (projectId, request) => employeesApi.createEmployee(projectId, request),
   updateEmployee: (projectId, employeeId, request) => employeesApi.updateEmployee(projectId, employeeId, request),
   getWorkspace: (projectId) => projectsApi.getWorkspace(projectId),

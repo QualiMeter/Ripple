@@ -147,3 +147,7 @@ export function saveMockProjectSchedule(
     previousProjectedEndDate: latestTaskEnd(currentState.tasks),
   })
 }
+
+export function deleteMockProjectState(projectId: string): void {
+  projectStates.delete(projectId)
+}
