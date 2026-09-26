@@ -256,16 +256,20 @@ export function DependenciesView({
   }
 
   const handleCanvasPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (panRef.current?.pointerId !== event.pointerId) return
+    const pan = panRef.current
+    if (!pan || pan.pointerId !== event.pointerId) return
+    const dx = event.clientX - pan.start.x
+    const dy = event.clientY - pan.start.y
     setCamera((current) => ({
       ...current,
-      x: panRef.current!.origin.x + event.clientX - panRef.current!.start.x,
-      y: panRef.current!.origin.y + event.clientY - panRef.current!.start.y,
+      x: pan.origin.x + dx,
+      y: pan.origin.y + dy,
     }))
   }
 
   const stopPanning = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (panRef.current?.pointerId !== event.pointerId) return
+    const pan = panRef.current
+    if (!pan || pan.pointerId !== event.pointerId) return
     panRef.current = null
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)

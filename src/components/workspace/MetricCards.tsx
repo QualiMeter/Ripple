@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, CheckCircle2, CircleAlert, Route } from 'lucide-react'
+import { CalendarDays, CheckCircle2, CircleAlert, Route } from 'lucide-react'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { calendarDaysBetween, formatShortDate } from '../../utils/date'
 import { formatTaskCount } from '../../utils/plural'
@@ -27,7 +27,6 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
           <p className="text-xs font-medium text-[#858190]">{label}</p>
           <div className="mt-1 flex items-end justify-between gap-2">
             <p className="text-[22px] font-bold tracking-[-.035em] text-[#29263b]">{value}</p>
-            {label === 'Прогноз завершения' && <ArrowRight size={15} className="mb-1 text-[#d9653f]" />}
           </div>
           <p className={`mt-1 text-[11px] ${danger ? 'font-medium text-[#c55b37]' : 'text-[#9692a0]'}`}>{detail}</p>
           {bar && <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ecebf1]"><div className="h-full rounded-full bg-[#42a782]" style={{ width: `${project.progress}%` }} /></div>}
