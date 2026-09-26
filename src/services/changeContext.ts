@@ -3,10 +3,10 @@ import type { ImpactAnalysis, LastChange, TaskFieldChange } from '../types/impac
 import { formatShortDate } from '../utils/date'
 
 const statusLabels: Record<TaskStatus, string> = {
-  'not-started': 'Не начато',
+  'not-started': 'Не в работе',
   'in-progress': 'В работе',
-  blocked: 'Заблокировано',
-  completed: 'Завершено',
+  delayed: 'Задерживается',
+  completed: 'Закончено',
 }
 
 export function buildTaskUpdateChange(
@@ -21,13 +21,6 @@ export function buildTaskUpdateChange(
       changes.push({ field, previousValue: previousTask[field], nextValue: nextTask[field] })
     }
   })
-  if (update.durationDays !== undefined && previousTask.durationDays !== nextTask.durationDays) {
-    changes.push({
-      field: 'durationDays',
-      previousValue: previousTask.durationDays,
-      nextValue: nextTask.durationDays,
-    })
-  }
   if (update.status !== undefined && previousTask.status !== nextTask.status) {
     changes.push({ field: 'status', previousValue: previousTask.status, nextValue: nextTask.status })
   }
@@ -64,6 +57,12 @@ export function describeLastChange(
       details: [`${taskTitle(change.predecessorTaskId, tasks)} → ${taskTitle(change.successorTaskId, tasks)}`],
     }
   }
+  if (change.kind === 'schedule-shift-applied') {
+    return {
+      title: 'Автоматический сдвиг подтверждён',
+      details: [`Обновлены даты задач: ${change.shiftedTaskIds.length}.`],
+    }
+  }
 
   const details = change.changes.map((fieldChange) => {
     switch (fieldChange.field) {
@@ -73,8 +72,6 @@ export function describeLastChange(
         return `Начало: ${formatShortDate(fieldChange.previousValue)} → ${formatShortDate(fieldChange.nextValue)}`
       case 'endDate':
         return `Завершение: ${formatShortDate(fieldChange.previousValue)} → ${formatShortDate(fieldChange.nextValue)}`
-      case 'durationDays':
-        return `Длительность: ${fieldChange.previousValue} → ${fieldChange.nextValue} дн.`
       case 'status':
         return `Статус: ${statusLabels[fieldChange.previousValue]} → ${statusLabels[fieldChange.nextValue]}`
       case 'assigneeId':
@@ -88,11 +85,14 @@ export function describeLastChange(
 }
 
 export function describeImpactOutcome(impact: ImpactAnalysis): string {
-  if (impact.affectedTaskIds.length === 0 && impact.projectEndChangeDays === 0) {
+  if (impact.reasons.length > 0) {
+    return `Обнаружено конфликтов расписания: ${impact.reasons.length}. Даты зависимых задач пока не изменены.`
+  }
+  if (impact.projectEndChangeDays === 0) {
     return 'Изменение не повлияло на сроки проекта.'
   }
   if (impact.affectedTaskIds.length === 0) {
     return 'Зависимые задачи не изменились, но прогноз завершения проекта обновлён.'
   }
-  return `Пересчитано зависимых задач: ${impact.affectedTaskIds.length}.`
+  return `Проанализировано зависимых задач: ${impact.affectedTaskIds.length}. Автоматического переноса дат не было.`
 }

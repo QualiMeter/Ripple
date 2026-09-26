@@ -1,16 +1,16 @@
 import type { RiskState, TaskStatus } from '../../types/task'
 
 const statusLabels: Record<TaskStatus, string> = {
-  completed: 'Завершено',
+  completed: 'Закончено',
   'in-progress': 'В работе',
-  blocked: 'Заблокировано',
-  'not-started': 'Не начато',
+  delayed: 'Задерживается',
+  'not-started': 'Не в работе',
 }
 
 export function StatusBadge({ status, risk }: { status: TaskStatus; risk: RiskState }) {
   const styles = status === 'completed'
     ? 'bg-emerald-50 text-emerald-700'
-    : status === 'blocked'
+    : status === 'delayed'
       ? 'bg-rose-50 text-rose-700'
       : status === 'in-progress'
         ? 'bg-violet-50 text-violet-700'

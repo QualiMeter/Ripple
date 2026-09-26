@@ -1,21 +1,14 @@
 import {
   findMockProjectIdForTask,
   getMockProjectState,
-  saveMockProjectSchedule,
   saveMockProjectState,
 } from '../mocks/workspaceStore'
 import { buildTaskUpdateChange } from '../services/changeContext'
-import { findDownstreamTaskIds, rebuildSchedule, recalculateSchedule } from '../services/scheduleEngine'
+import { applyExplicitTaskUpdate, findDownstreamTaskIds, inclusiveDuration } from '../services/scheduleEngine'
 import type { ProjectTask } from '../types/task'
 import type { TasksApi } from './tasks.api'
 
 let taskSequence = 100
-const dayMs = 86_400_000
-
-function inclusiveDuration(startDate: string, endDate: string): number {
-  return Math.max(1, Math.round((Date.parse(endDate) - Date.parse(startDate)) / dayMs) + 1)
-}
-
 export const mockTasksApi: TasksApi = {
   async createTask(projectId, request) {
     await new Promise((resolve) => setTimeout(resolve, 220))
@@ -28,7 +21,7 @@ export const mockTasksApi: TasksApi = {
       endDate: request.endDate,
       plannedStartDate: request.startDate,
       plannedEndDate: request.endDate,
-      durationDays: request.durationDays ?? inclusiveDuration(request.startDate, request.endDate),
+      durationDays: inclusiveDuration(request.startDate, request.endDate),
       progress: request.status === 'completed' ? 100 : 0,
       assigneeId: request.assigneeId,
       status: request.status,
@@ -54,35 +47,20 @@ export const mockTasksApi: TasksApi = {
     const state = getMockProjectState(projectId)
     const previousTask = state.tasks.find((task) => task.id === taskId)
     if (!previousTask) throw new Error('Задача не найдена')
-    const previousOverride = state.taskOverrides[taskId] ?? {}
-    const nextTaskOverride = { ...previousOverride, ...update }
-    if (update.status === 'completed' && previousTask.status !== 'completed') {
-      nextTaskOverride.startDate ??= previousTask.startDate
-      nextTaskOverride.endDate ??= previousTask.endDate
-      nextTaskOverride.durationDays ??= previousTask.durationDays
-    }
-    if (update.startDate !== undefined && update.endDate === undefined && update.durationDays === undefined) {
-      nextTaskOverride.durationDays = previousTask.durationDays
-      delete nextTaskOverride.endDate
-    }
-    if (update.durationDays !== undefined && update.endDate === undefined) delete nextTaskOverride.endDate
-    const taskOverrides = { ...state.taskOverrides, [taskId]: nextTaskOverride }
-    const result = recalculateSchedule(
-      state.baselineTasks,
-      state.dependencies,
-      taskOverrides,
-      taskId,
-      state.tasks,
-    )
-    saveMockProjectSchedule(
-      projectId,
-      result.tasks,
-      taskOverrides,
-      taskId,
-      result.affectedTaskIds,
-      buildTaskUpdateChange(previousTask, result.updatedTask, update),
-    )
-    return result.updatedTask
+    const updatedTask = applyExplicitTaskUpdate(previousTask, update)
+    const affectsSchedule = update.startDate !== undefined || update.endDate !== undefined || update.status !== undefined
+    const affectedTaskIds = affectsSchedule
+      ? findDownstreamTaskIds(taskId, state.dependencies).filter((id) => state.tasks.some((task) => task.id === id && task.status !== 'completed'))
+      : []
+    saveMockProjectState(projectId, {
+      ...state,
+      tasks: state.tasks.map((task) => task.id === taskId ? updatedTask : task),
+      taskOverrides: { ...state.taskOverrides, [taskId]: { ...state.taskOverrides[taskId], ...update } },
+      lastChangedTaskId: taskId,
+      affectedTaskIds,
+      lastChange: buildTaskUpdateChange(previousTask, updatedTask, update),
+    })
+    return updatedTask
   },
 
   async deleteTask(taskId) {
@@ -101,21 +79,14 @@ export const mockTasksApi: TasksApi = {
     ))
     const taskOverrides = { ...state.taskOverrides }
     delete taskOverrides[taskId]
-    const result = rebuildSchedule(
-      baselineTasks,
-      dependencies,
-      taskOverrides,
-      previousTasks,
-      affectedCandidates,
-    )
     saveMockProjectState(projectId, {
       ...state,
       baselineTasks,
-      tasks: result.tasks,
+      tasks: previousTasks,
       taskOverrides,
       dependencies,
       lastChangedTaskId: taskId,
-      affectedTaskIds: result.affectedTaskIds,
+      affectedTaskIds: affectedCandidates.filter((id) => previousTasks.some((candidate) => candidate.id === id && candidate.status !== 'completed')),
       lastChange: { kind: 'task-deleted', taskId, taskTitle: task.title },
     })
   },

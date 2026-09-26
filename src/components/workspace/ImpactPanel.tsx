@@ -1,10 +1,22 @@
-import { ArrowRight, GitBranch, Lightbulb, MoveRight, Sparkles, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, Sparkles, TriangleAlert } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import type { ProjectTask } from '../../types/task'
 import type { ProjectWorkspace } from '../../types/workspace'
+import type { ScheduleShiftPreview } from '../../types/schedule'
 import { formatAnalysisTime, formatShortDate } from '../../utils/date'
 
-export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
+interface ImpactPanelProps {
+  workspace: ProjectWorkspace
+  onPreviewScheduleShift: () => Promise<ScheduleShiftPreview>
+  onApplyScheduleShift: (preview: ScheduleShiftPreview) => Promise<void>
+}
+
+export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplyScheduleShift }: ImpactPanelProps) {
+  const [preview, setPreview] = useState<ScheduleShiftPreview | null>(null)
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null)
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [isApplying, setIsApplying] = useState(false)
   const { impact, tasks, recoveryScenarios } = workspace
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
@@ -12,6 +24,33 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
   const changeDescription = describeLastChange(impact.lastChange, tasks, workspace.assignees)
   const impactOutcome = describeImpactOutcome(impact)
   const best = recoveryScenarios[0]
+  const calculatePreview = async () => {
+    setIsCalculating(true)
+    setPreviewMessage(null)
+    try {
+      const result = await onPreviewScheduleShift()
+      setPreview(result.taskShifts.length > 0 ? result : null)
+      if (result.taskShifts.length === 0) setPreviewMessage('Конфликтов, требующих автоматического сдвига, не найдено.')
+    } catch {
+      setPreviewMessage('Не удалось рассчитать сдвиг. Попробуйте ещё раз.')
+    } finally {
+      setIsCalculating(false)
+    }
+  }
+
+  const applyPreview = async () => {
+    if (!preview) return
+    setIsApplying(true)
+    setPreviewMessage(null)
+    try {
+      await onApplyScheduleShift(preview)
+      setPreview(null)
+    } catch {
+      setPreviewMessage('Предпросмотр устарел или не удалось применить сдвиг. Выполните расчёт повторно.')
+    } finally {
+      setIsApplying(false)
+    }
+  }
   return (
     <aside className="space-y-3">
       <section className="overflow-hidden rounded-2xl border border-[#efc5b5] bg-white shadow-panel">
@@ -45,6 +84,29 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
             <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.projectEndChangeDays > 0 ? `+${impact.projectEndChangeDays} дн.` : impact.projectEndChangeDays < 0 ? `${impact.projectEndChangeDays} дн.` : 'Без изменений'}</div>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#e1ddec] bg-white p-4 shadow-panel">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Calculator size={18} /></span>
+          <div><h2 className="text-sm font-bold text-[#363247]">Автоматический сдвиг</h2><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">Даты изменятся только после подтверждения предложенного плана.</p></div>
+        </div>
+        {!preview && <button type="button" onClick={calculatePreview} disabled={isCalculating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#37334f] disabled:opacity-60">{isCalculating ? 'Расчёт…' : 'Рассчитать автоматический сдвиг'}</button>}
+        {preview && <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-[#faf9ff] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[.08em] text-[#7468bd]">Предпросмотр</p>
+          <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+            {preview.taskShifts.map((shift) => {
+              const task = tasks.find((candidate) => candidate.id === shift.taskId)
+              return <div key={shift.taskId} className="rounded-lg bg-white p-2.5 text-[10px] text-[#777181]">
+                <div className="flex items-center justify-between gap-2"><span className="truncate font-bold text-[#474252]">{task?.title ?? shift.taskId}</span><span className="shrink-0 font-bold text-[#c45b37]">+{shift.shiftDays} дн.</span></div>
+                <p className="mt-1">{formatShortDate(shift.currentStartDate)}–{formatShortDate(shift.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(shift.proposedStartDate)}–{formatShortDate(shift.proposedEndDate)}</p>
+              </div>
+            })}
+          </div>
+          <div className="mt-3 border-t border-[#e7e2fb] pt-2 text-[10px] text-[#777181]">Завершение проекта: <strong className="text-[#474252]">{formatShortDate(preview.currentProjectEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(preview.proposedProjectEndDate)}</strong> ({preview.projectEndShiftDays > 0 ? '+' : ''}{preview.projectEndShiftDays} дн.)</div>
+          <div className="mt-3 flex gap-2"><button type="button" disabled={isApplying} onClick={() => setPreview(null)} className="flex-1 rounded-xl border border-[#dedbe4] px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplying} onClick={applyPreview} className="flex-1 rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplying ? 'Применение…' : 'Подтвердить'}</button></div>
+        </div>}
+        {previewMessage && <p className="mt-3 rounded-lg bg-[#f5f3fa] px-3 py-2 text-[10px] leading-4 text-[#716b7b]" role="status">{previewMessage}</p>}
       </section>
 
       <section className="rounded-2xl border border-[#ded8fb] bg-gradient-to-br from-white to-[#f8f6ff] p-4 shadow-panel">

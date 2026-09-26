@@ -21,9 +21,9 @@ const previousTask: ProjectTask = {
 
 describe('change context', () => {
   it('описывает status и assignee без ложного изменения срока', () => {
-    const nextTask = { ...previousTask, status: 'blocked' as const, assigneeId: 'sam' }
+    const nextTask = { ...previousTask, status: 'delayed' as const, assigneeId: 'sam' }
     const change = buildTaskUpdateChange(previousTask, nextTask, {
-      status: 'blocked',
+      status: 'delayed',
       assigneeId: 'sam',
     })
     const description = describeLastChange(change, [nextTask], [
@@ -35,11 +35,11 @@ describe('change context', () => {
       kind: 'task-updated',
       changes: [
         { field: 'assigneeId', previousValue: 'lena', nextValue: 'sam' },
-        { field: 'status', previousValue: 'in-progress', nextValue: 'blocked' },
+        { field: 'status', previousValue: 'in-progress', nextValue: 'delayed' },
       ],
     })
     expect(description.details.join(' ')).toContain('Ответственный: Лена Ортис → Сэм Рид')
-    expect(description.details.join(' ')).toContain('Статус: В работе → Заблокировано')
+    expect(description.details.join(' ')).toContain('Статус: В работе → Задерживается')
     expect(description.details.join(' ')).not.toContain('Завершение')
     expect(describeImpactOutcome({
       sourceTaskId: nextTask.id,

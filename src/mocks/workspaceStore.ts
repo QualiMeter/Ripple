@@ -44,7 +44,6 @@ function createProjectState(projectId: string): MockProjectState {
       .map((task) => [task.id, {
         startDate: task.startDate,
         endDate: task.endDate,
-        durationDays: task.durationDays,
         status: task.status,
       }]),
   )

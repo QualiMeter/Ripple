@@ -5,7 +5,7 @@ import {
   addDependencyToGraph,
   DependencyValidationError,
 } from './dependencyGraph'
-import { recalculateSchedule } from './scheduleEngine'
+import { calculateScheduleShiftPreview, findScheduleConflicts } from './scheduleEngine'
 
 const projectId = 'test-project'
 
@@ -60,27 +60,17 @@ describe('dependencyGraph', () => {
       .toThrowError(expect.objectContaining<Partial<DependencyValidationError>>({ code: 'cycle' }))
   })
 
-  it('новая зависимость влияет на пересчёт расписания', () => {
+  it('новая зависимость выявляет конфликт, но не меняет даты до подтверждения', () => {
     const baseline = [
       task('analysis', '2026-01-05', '2026-01-07'),
       task('development', '2026-01-06', '2026-01-07'),
     ]
     const dependencies = addDependencyToGraph([], dependency('d1', 'analysis', 'development'))
 
-    const result = recalculateSchedule(
-      baseline,
-      dependencies,
-      {},
-      'analysis',
-      baseline,
-      ['development'],
-    )
-
-    expect(result.tasks.find((item) => item.id === 'development')).toMatchObject({
-      startDate: '2026-01-08',
-      endDate: '2026-01-09',
-      riskState: 'at-risk',
+    expect(findScheduleConflicts(baseline, dependencies, ['development'])).toHaveLength(1)
+    expect(baseline.find((item) => item.id === 'development')).toMatchObject({ startDate: '2026-01-06', endDate: '2026-01-07' })
+    expect(calculateScheduleShiftPreview(projectId, baseline, dependencies, 'analysis').taskShifts[0]).toMatchObject({
+      taskId: 'development', proposedStartDate: '2026-01-08', proposedEndDate: '2026-01-09',
     })
-    expect(result.affectedTaskIds).toEqual(['development'])
   })
 })

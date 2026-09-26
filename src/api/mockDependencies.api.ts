@@ -1,5 +1,5 @@
 import { addDependencyToGraph, removeDependencyFromGraph } from '../services/dependencyGraph'
-import { findDownstreamTaskIds, recalculateSchedule } from '../services/scheduleEngine'
+import { findDownstreamTaskIds } from '../services/scheduleEngine'
 import {
   findMockProjectIdForDependency,
   getMockProjectState,
@@ -21,7 +21,7 @@ function affectedCandidates(
   ])]
 }
 
-function recalculateAfterDependencyChange(
+function analyzeAfterDependencyChange(
   projectId: string,
   predecessorTaskId: string,
   previousDependencies: Dependency[],
@@ -30,20 +30,14 @@ function recalculateAfterDependencyChange(
   changeKind: 'dependency-created' | 'dependency-deleted',
 ): void {
   const state = getMockProjectState(projectId)
-  const result = recalculateSchedule(
-    state.baselineTasks,
-    nextDependencies,
-    state.taskOverrides,
-    predecessorTaskId,
-    state.tasks,
-    affectedCandidates(predecessorTaskId, previousDependencies, nextDependencies),
-  )
+  const affectedTaskIds = affectedCandidates(predecessorTaskId, previousDependencies, nextDependencies)
+    .filter((id) => state.tasks.some((task) => task.id === id && task.status !== 'completed'))
   saveMockProjectDependencies(
     projectId,
     nextDependencies,
-    result.tasks,
+    state.tasks,
     predecessorTaskId,
-    result.affectedTaskIds,
+    affectedTaskIds,
     {
       kind: changeKind,
       dependencyId: dependency.id,
@@ -63,7 +57,7 @@ export const mockDependenciesApi: DependenciesApi = {
       ...request,
     }
     const nextDependencies = addDependencyToGraph(state.dependencies, dependency)
-    recalculateAfterDependencyChange(
+    analyzeAfterDependencyChange(
       projectId,
       request.predecessorTaskId,
       state.dependencies,
@@ -81,7 +75,7 @@ export const mockDependenciesApi: DependenciesApi = {
     const dependency = state.dependencies.find((candidate) => candidate.id === dependencyId)
     if (!dependency) throw new Error('Зависимость не найдена.')
     const nextDependencies = removeDependencyFromGraph(state.dependencies, dependencyId)
-    recalculateAfterDependencyChange(
+    analyzeAfterDependencyChange(
       dependency.projectId,
       dependency.predecessorTaskId,
       state.dependencies,

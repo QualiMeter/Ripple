@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Dependency } from '../types/dependency'
-import type { Project } from '../types/project'
 import type { ProjectTask } from '../types/task'
-import { buildRecoveryScenarios } from './recoveryEngine'
-import { buildImpactAnalysis, differenceInDays, recalculateSchedule } from './scheduleEngine'
+import {
+  applyExplicitTaskUpdate,
+  applyScheduleShiftPreview,
+  calculateScheduleShiftPreview,
+  findScheduleConflicts,
+} from './scheduleEngine'
 
-function task(id: string, startDate: string, endDate: string): ProjectTask {
+function task(id: string, startDate: string, endDate: string, status: ProjectTask['status'] = 'not-started'): ProjectTask {
   return {
     id,
     projectId: 'test-project',
@@ -15,19 +18,19 @@ function task(id: string, startDate: string, endDate: string): ProjectTask {
     plannedStartDate: startDate,
     plannedEndDate: endDate,
     durationDays: 1,
-    progress: 0,
+    progress: status === 'completed' ? 100 : 0,
     assigneeId: 'owner',
-    status: 'not-started',
+    status,
     riskState: 'none',
     isCritical: id !== 'independent',
   }
 }
 
-const baselineTasks = [
-  task('source', '2026-01-05', '2026-01-07'),
+const tasks = [
+  task('source', '2026-01-05', '2026-01-09'),
   task('frontend', '2026-01-08', '2026-01-09'),
-  task('qa', '2026-01-12', '2026-01-13'),
-  task('release', '2026-01-14', '2026-01-14'),
+  task('qa', '2026-01-10', '2026-01-11'),
+  task('release', '2026-01-12', '2026-01-12'),
   task('independent', '2026-01-06', '2026-01-08'),
 ]
 
@@ -37,102 +40,50 @@ const dependencies: Dependency[] = [
   { id: 'd3', projectId: 'test-project', predecessorTaskId: 'qa', successorTaskId: 'release', type: 'finish-to-start' },
 ]
 
-const project: Project = {
-  id: 'test-project',
-  name: 'Тестовый проект',
-  description: '',
-  startDate: '2026-01-05',
-  targetEndDate: '2026-01-14',
-  projectedEndDate: '2026-01-14',
-  ownerName: 'Тест',
-  health: 'on-track',
-}
+describe('scheduleEngine explicit shift flow', () => {
+  it('обычное изменение меняет только исходную задачу и показывает конфликт', () => {
+    const source = tasks[0]
+    const updated = applyExplicitTaskUpdate(source, { endDate: '2026-01-10' })
+    const current = tasks.map((item) => item.id === source.id ? updated : item)
 
-describe('recalculateSchedule', () => {
-  it('сдвигает всю downstream-цепочку при увеличении срока source task', () => {
-    const result = recalculateSchedule(
-      baselineTasks,
-      dependencies,
-      { source: { endDate: '2026-01-09' } },
-      'source',
-      baselineTasks,
-    )
-
-    expect(result.affectedTaskIds).toEqual(['frontend', 'qa', 'release'])
-    expect(result.tasks.find((item) => item.id === 'frontend')).toMatchObject({ startDate: '2026-01-12', endDate: '2026-01-13' })
-    expect(result.tasks.find((item) => item.id === 'qa')).toMatchObject({ startDate: '2026-01-14', endDate: '2026-01-15' })
-    expect(result.tasks.find((item) => item.id === 'release')).toMatchObject({ startDate: '2026-01-16', endDate: '2026-01-16' })
+    expect(current.find((item) => item.id === 'frontend')).toEqual(tasks[1])
+    expect(findScheduleConflicts(current, dependencies, ['frontend', 'qa', 'release'])).not.toEqual([])
   })
 
-  it('восстанавливает downstream-цепочку после последующего сокращения срока', () => {
-    const delayed = recalculateSchedule(baselineTasks, dependencies, { source: { endDate: '2026-01-09' } }, 'source', baselineTasks)
-    const restored = recalculateSchedule(baselineTasks, dependencies, { source: { endDate: '2026-01-07' } }, 'source', delayed.tasks)
-    const delayedImpact = buildImpactAnalysis(project, delayed.tasks, dependencies, 'source', delayed.affectedTaskIds)
-    const restoredImpact = buildImpactAnalysis(project, restored.tasks, dependencies, 'source', restored.affectedTaskIds)
+  it('preview сдвигает downstream-цепочку по календарным дням, включая выходные', () => {
+    const preview = calculateScheduleShiftPreview('test-project', tasks, dependencies, 'source')
 
-    expect(restored.affectedTaskIds).toEqual(['frontend', 'qa', 'release'])
-    expect(restored.tasks.map(({ id, startDate, endDate }) => ({ id, startDate, endDate }))).toEqual(
-      baselineTasks.map(({ id, startDate, endDate }) => ({ id, startDate, endDate })),
-    )
-    expect(delayedImpact).toMatchObject({ projectedProjectEndDate: '2026-01-16', deadlineShiftDays: 2, requiresIntervention: true })
-    expect(restoredImpact).toMatchObject({ projectedProjectEndDate: '2026-01-14', deadlineShiftDays: 0, requiresIntervention: false })
-    expect(buildRecoveryScenarios(delayedImpact).every((scenario) => (
-      differenceInDays(delayedImpact.projectedProjectEndDate, scenario.expectedProjectEndDate) === scenario.recoveredDays
-    ))).toBe(true)
-    expect(buildRecoveryScenarios(restoredImpact)).toEqual([])
+    expect(preview.taskShifts).toEqual([
+      expect.objectContaining({ taskId: 'frontend', proposedStartDate: '2026-01-10', proposedEndDate: '2026-01-11', shiftDays: 2 }),
+      expect.objectContaining({ taskId: 'qa', proposedStartDate: '2026-01-12', proposedEndDate: '2026-01-13', shiftDays: 2 }),
+      expect.objectContaining({ taskId: 'release', proposedStartDate: '2026-01-14', proposedEndDate: '2026-01-14', shiftDays: 2 }),
+    ])
+    expect(preview.proposedProjectEndDate).toBe('2026-01-14')
   })
 
-  it('снимает риск после устранения задержки', () => {
-    const delayed = recalculateSchedule(baselineTasks, dependencies, { source: { endDate: '2026-01-09' } }, 'source', baselineTasks)
-    expect(delayed.tasks.filter((item) => item.id !== 'independent').every((item) => item.riskState === 'at-risk')).toBe(true)
+  it('не меняет даты до подтверждения и применяет их после него', () => {
+    const preview = calculateScheduleShiftPreview('test-project', tasks, dependencies, 'source')
+    expect(tasks.find((item) => item.id === 'frontend')?.startDate).toBe('2026-01-08')
 
-    const restored = recalculateSchedule(baselineTasks, dependencies, { source: { endDate: '2026-01-07' } }, 'source', delayed.tasks)
-    expect(restored.tasks.every((item) => item.riskState === 'none')).toBe(true)
+    const applied = applyScheduleShiftPreview(tasks, preview)
+    expect(applied.find((item) => item.id === 'frontend')?.startDate).toBe('2026-01-10')
   })
 
-  it('не сдвигает независимые задачи', () => {
-    const result = recalculateSchedule(baselineTasks, dependencies, { source: { endDate: '2026-01-09' } }, 'source', baselineTasks)
-    const independent = result.tasks.find((item) => item.id === 'independent')
+  it('не сдвигает завершённую downstream-задачу и независимые задачи', () => {
+    const withCompleted = tasks.map((item) => item.id === 'frontend'
+      ? { ...item, status: 'completed' as const, riskState: 'at-risk' as const }
+      : item)
+    const preview = calculateScheduleShiftPreview('test-project', withCompleted, dependencies, 'source')
 
-    expect(independent).toMatchObject({ startDate: '2026-01-06', endDate: '2026-01-08', riskState: 'none' })
-    expect(result.affectedTaskIds).not.toContain('independent')
-  })
-
-  it('не переносит завершённую downstream-задачу и снимает с неё текущий риск', () => {
-    const completedBaseline = {
-      ...baselineTasks.find((item) => item.id === 'frontend')!,
-      status: 'completed' as const,
-      progress: 100,
-    }
-    const baseline = baselineTasks.map((item) => item.id === completedBaseline.id ? completedBaseline : item)
-    const previousTasks = baseline.map((item) => item.id === 'frontend' ? {
-      ...item,
-      startDate: '2026-01-10',
-      endDate: '2026-01-11',
-      riskState: 'at-risk' as const,
-    } : item)
-    const result = recalculateSchedule(
-      baseline,
-      dependencies,
-      {
-        source: { endDate: '2026-01-09' },
-        frontend: {
-          startDate: '2026-01-10',
-          endDate: '2026-01-11',
-          durationDays: 2,
-          status: 'completed',
-        },
-      },
-      'source',
-      previousTasks,
-    )
-
-    expect(result.tasks.find((item) => item.id === 'frontend')).toMatchObject({
-      startDate: '2026-01-10',
-      endDate: '2026-01-11',
-      status: 'completed',
-      riskState: 'none',
+    expect(preview.taskShifts.map((shift) => shift.taskId)).not.toContain('frontend')
+    expect(preview.taskShifts.map((shift) => shift.taskId)).not.toContain('independent')
+    expect(applyScheduleShiftPreview(withCompleted, preview).find((item) => item.id === 'frontend')).toMatchObject({
+      startDate: '2026-01-08', endDate: '2026-01-09', status: 'completed', riskState: 'none',
     })
-    expect(result.affectedTaskIds).not.toContain('frontend')
+  })
+
+  it('изменение ответственного не меняет даты', () => {
+    const updated = applyExplicitTaskUpdate(tasks[0], { assigneeId: 'other' })
+    expect(updated).toMatchObject({ startDate: tasks[0].startDate, endDate: tasks[0].endDate, assigneeId: 'other' })
   })
 })

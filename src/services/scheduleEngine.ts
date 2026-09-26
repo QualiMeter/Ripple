@@ -1,11 +1,10 @@
 import type { Dependency } from '../types/dependency'
-import type { ImpactAnalysis, LastChange } from '../types/impact'
+import type { ImpactAnalysis, ImpactReason, LastChange } from '../types/impact'
 import type { Project } from '../types/project'
+import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 
 const dayMs = 86_400_000
-
-export type TaskScheduleOverrides = Record<string, TaskUpdateRequest>
 
 export function differenceInDays(later: string, earlier: string): number {
   return Math.round((Date.parse(later) - Date.parse(earlier)) / dayMs)
@@ -15,29 +14,24 @@ function addDays(date: string, days: number): string {
   return new Date(Date.parse(date) + days * dayMs).toISOString().slice(0, 10)
 }
 
-function nextWorkingDay(date: string): string {
-  let candidate = addDays(date, 1)
-  while ([0, 6].includes(new Date(`${candidate}T00:00:00Z`).getUTCDay())) {
-    candidate = addDays(candidate, 1)
-  }
-  return candidate
-}
-
-function inclusiveDuration(startDate: string, endDate: string): number {
+export function inclusiveDuration(startDate: string, endDate: string): number {
   return Math.max(1, differenceInDays(endDate, startDate) + 1)
 }
 
-function applyTaskOverride(task: ProjectTask, update: TaskUpdateRequest): ProjectTask {
-  const startDate = update.startDate ?? task.startDate
-  const currentDuration = inclusiveDuration(task.startDate, task.endDate)
-  const endDate = update.endDate
-    ?? (update.durationDays !== undefined
-      ? addDays(startDate, Math.max(1, update.durationDays) - 1)
-      : update.startDate
-        ? addDays(startDate, currentDuration - 1)
-        : task.endDate)
+function latestTaskEnd(tasks: ProjectTask[], fallback: string): string {
+  return tasks.reduce((latest, task) => task.endDate > latest ? task.endDate : latest, fallback)
+}
 
-  return {
+function deriveRiskState(task: ProjectTask): ProjectTask['riskState'] {
+  if (task.status === 'completed') return 'none'
+  if (task.endDate > task.plannedEndDate) return 'at-risk'
+  return task.riskState === 'watch' ? 'watch' : 'none'
+}
+
+export function applyExplicitTaskUpdate(task: ProjectTask, update: TaskUpdateRequest): ProjectTask {
+  const startDate = update.startDate ?? task.startDate
+  const endDate = update.endDate ?? task.endDate
+  const nextTask: ProjectTask = {
     ...task,
     ...update,
     startDate,
@@ -46,115 +40,12 @@ function applyTaskOverride(task: ProjectTask, update: TaskUpdateRequest): Projec
     progress: update.status === 'completed' ? 100 : task.progress,
     changeNote: undefined,
   }
-}
-
-function deriveRiskState(task: ProjectTask, baselineTask: ProjectTask): ProjectTask['riskState'] {
-  if (task.status === 'completed') return 'none'
-  if (task.endDate > task.plannedEndDate) return 'at-risk'
-  return baselineTask.riskState === 'watch' ? 'watch' : 'none'
-}
-
-export interface ScheduleRecalculationResult {
-  tasks: ProjectTask[]
-  updatedTask: ProjectTask
-  affectedTaskIds: string[]
-}
-
-export interface ScheduleBuildResult {
-  tasks: ProjectTask[]
-  affectedTaskIds: string[]
-}
-
-export function rebuildSchedule(
-  baselineTasks: ProjectTask[],
-  dependencies: Dependency[],
-  taskOverrides: TaskScheduleOverrides,
-  previousTasks: ProjectTask[] = baselineTasks,
-  affectedCandidateIds: string[] = [],
-): ScheduleBuildResult {
-  const tasksById = new Map(baselineTasks.map((task) => [
-    task.id,
-    applyTaskOverride({ ...task }, taskOverrides[task.id] ?? {}),
-  ]))
-
-  for (let iteration = 0; iteration < baselineTasks.length; iteration += 1) {
-    let changed = false
-
-    for (const dependency of dependencies) {
-      const predecessor = tasksById.get(dependency.predecessorTaskId)
-      const successor = tasksById.get(dependency.successorTaskId)
-      if (!predecessor || !successor || successor.status === 'completed') continue
-
-      const earliestStart = nextWorkingDay(predecessor.endDate)
-      if (successor.startDate >= earliestStart) continue
-
-      const shiftDays = differenceInDays(earliestStart, successor.startDate)
-      tasksById.set(successor.id, {
-        ...successor,
-        startDate: addDays(successor.startDate, shiftDays),
-        endDate: addDays(successor.endDate, shiftDays),
-      })
-      changed = true
-    }
-
-    if (!changed) break
-  }
-
-  const baselineById = new Map(baselineTasks.map((task) => [task.id, task]))
-  const previousById = new Map(previousTasks.map((task) => [task.id, task]))
-  const affectedTaskIds = affectedCandidateIds.filter((taskId) => {
-    const previousTask = previousById.get(taskId)
-    const nextTask = tasksById.get(taskId)
-    return Boolean(previousTask && nextTask && nextTask.status !== 'completed' && (
-      previousTask.startDate !== nextTask.startDate || previousTask.endDate !== nextTask.endDate
-    ))
-  })
-  const affectedTaskIdSet = new Set(affectedTaskIds)
-
-  const tasks = baselineTasks.map((baselineTask) => {
-    const task = tasksById.get(baselineTask.id) ?? baselineTask
-    const shiftDays = differenceInDays(task.startDate, baselineTask.plannedStartDate)
-    return {
-      ...task,
-      riskState: deriveRiskState(task, baselineById.get(task.id) ?? baselineTask),
-      changeNote: affectedTaskIdSet.has(task.id)
-        ? shiftDays === 0
-          ? 'Срок восстановлен после пересчёта зависимостей'
-          : `${shiftDays > 0 ? 'Сдвиг' : 'Возврат'} на ${Math.abs(shiftDays)} дн. после пересчёта зависимостей`
-        : undefined,
-    }
-  })
-
-  return { tasks, affectedTaskIds }
-}
-
-export function recalculateSchedule(
-  baselineTasks: ProjectTask[],
-  dependencies: Dependency[],
-  taskOverrides: TaskScheduleOverrides,
-  sourceTaskId: string,
-  previousTasks: ProjectTask[] = baselineTasks,
-  affectedCandidateIds = findDownstreamTaskIds(sourceTaskId, dependencies),
-): ScheduleRecalculationResult {
-  if (!baselineTasks.some((task) => task.id === sourceTaskId)) throw new Error('Задача не найдена')
-  const result = rebuildSchedule(
-    baselineTasks,
-    dependencies,
-    taskOverrides,
-    previousTasks,
-    affectedCandidateIds,
-  )
-
-  return {
-    ...result,
-    updatedTask: result.tasks.find((task) => task.id === sourceTaskId)!,
-  }
+  return { ...nextTask, riskState: deriveRiskState(nextTask) }
 }
 
 export function findDownstreamTaskIds(sourceTaskId: string, dependencies: Dependency[]): string[] {
   const visited = new Set<string>()
   const queue = [sourceTaskId]
-
   while (queue.length) {
     const current = queue.shift()!
     dependencies
@@ -166,8 +57,96 @@ export function findDownstreamTaskIds(sourceTaskId: string, dependencies: Depend
         }
       })
   }
-
   return [...visited]
+}
+
+export function findScheduleConflicts(
+  tasks: ProjectTask[],
+  dependencies: Dependency[],
+  candidateTaskIds: string[],
+): ImpactReason[] {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]))
+  const candidates = new Set(candidateTaskIds)
+  return dependencies.flatMap((dependency) => {
+    const predecessor = tasksById.get(dependency.predecessorTaskId)
+    const successor = tasksById.get(dependency.successorTaskId)
+    if (!predecessor || !successor || successor.status === 'completed' || !candidates.has(successor.id)) return []
+    const earliestStart = addDays(predecessor.endDate, 1)
+    if (successor.startDate >= earliestStart) return []
+    return [{
+      taskId: successor.id,
+      reason: `Начало задачи раньше допустимой даты ${earliestStart} после завершения предшественника «${predecessor.title}».`,
+      severity: 'warning' as const,
+    }]
+  })
+}
+
+export function calculateScheduleShiftPreview(
+  projectId: string,
+  tasks: ProjectTask[],
+  dependencies: Dependency[],
+  sourceTaskId: string,
+): ScheduleShiftPreview {
+  const proposedById = new Map(tasks.map((task) => [task.id, { ...task }]))
+  const downstreamIds = new Set(findDownstreamTaskIds(sourceTaskId, dependencies))
+  for (let iteration = 0; iteration < tasks.length; iteration += 1) {
+    let changed = false
+    for (const dependency of dependencies) {
+      const predecessor = proposedById.get(dependency.predecessorTaskId)
+      const successor = proposedById.get(dependency.successorTaskId)
+      if (!predecessor || !successor || successor.status === 'completed' || !downstreamIds.has(successor.id)) continue
+      const earliestStart = addDays(predecessor.endDate, 1)
+      if (successor.startDate >= earliestStart) continue
+      const shiftDays = differenceInDays(earliestStart, successor.startDate)
+      proposedById.set(successor.id, {
+        ...successor,
+        startDate: addDays(successor.startDate, shiftDays),
+        endDate: addDays(successor.endDate, shiftDays),
+      })
+      changed = true
+    }
+    if (!changed) break
+  }
+
+  const taskShifts: TaskScheduleShift[] = tasks.flatMap((task) => {
+    const proposed = proposedById.get(task.id)!
+    if (task.status === 'completed' || (task.startDate === proposed.startDate && task.endDate === proposed.endDate)) return []
+    return [{
+      taskId: task.id,
+      currentStartDate: task.startDate,
+      currentEndDate: task.endDate,
+      proposedStartDate: proposed.startDate,
+      proposedEndDate: proposed.endDate,
+      shiftDays: differenceInDays(proposed.startDate, task.startDate),
+    }]
+  })
+  const currentProjectEndDate = latestTaskEnd(tasks, '')
+  const proposedProjectEndDate = latestTaskEnd([...proposedById.values()], currentProjectEndDate)
+  return {
+    projectId,
+    sourceTaskId,
+    taskShifts,
+    currentProjectEndDate,
+    proposedProjectEndDate,
+    projectEndShiftDays: differenceInDays(proposedProjectEndDate, currentProjectEndDate),
+  }
+}
+
+export function applyScheduleShiftPreview(tasks: ProjectTask[], preview: ScheduleShiftPreview): ProjectTask[] {
+  const shifts = new Map(preview.taskShifts.map((shift) => [shift.taskId, shift]))
+  return tasks.map((task) => {
+    if (task.status === 'completed') return task.riskState === 'none' ? task : { ...task, riskState: 'none' }
+    const shift = shifts.get(task.id)
+    if (!shift) return task
+    const nextTask = {
+      ...task,
+      startDate: shift.proposedStartDate,
+      endDate: shift.proposedEndDate,
+      durationDays: inclusiveDuration(shift.proposedStartDate, shift.proposedEndDate),
+      changeNote: `Автоматический сдвиг на ${shift.shiftDays} дн. подтверждён`,
+    }
+    return { ...nextTask, riskState: deriveRiskState(nextTask) }
+  })
 }
 
 export function buildImpactAnalysis(
@@ -179,18 +158,12 @@ export function buildImpactAnalysis(
   lastChange?: LastChange,
   previousProjectedEndDate = project.targetEndDate,
 ): ImpactAnalysis {
-  const projectedProjectEndDate = tasks.length > 0
-    ? tasks.reduce((latest, task) => task.endDate > latest ? task.endDate : latest, tasks[0].endDate)
-    : project.targetEndDate
+  const projectedProjectEndDate = latestTaskEnd(tasks, project.targetEndDate)
   const sourceTask = tasks.find((task) => task.id === sourceTaskId)
-  const reasons = affectedTaskIds.map((taskId) => ({
-    taskId,
-    reason: 'Срок задачи изменён при пересчёте зависимостей.',
-    severity: 'warning' as const,
-  }))
+  const activeAffectedTaskIds = affectedTaskIds.filter((taskId) => tasks.some((task) => task.id === taskId && task.status !== 'completed'))
+  const reasons = findScheduleConflicts(tasks, dependencies, activeAffectedTaskIds)
   const deadlineShiftDays = differenceInDays(projectedProjectEndDate, project.targetEndDate)
   const projectEndChangeDays = differenceInDays(projectedProjectEndDate, previousProjectedEndDate)
-
   return {
     sourceTaskId,
     lastChange: lastChange ?? {
@@ -199,16 +172,14 @@ export function buildImpactAnalysis(
       taskTitle: sourceTask?.title ?? 'Изменённая задача',
       changes: [],
     },
-    affectedTaskIds,
+    affectedTaskIds: activeAffectedTaskIds,
     criticalTaskIds: tasks.filter((task) => task.isCritical).map((task) => task.id),
-    atRiskTaskIds: tasks
-      .filter((task) => task.status !== 'completed' && task.riskState === 'at-risk')
-      .map((task) => task.id),
+    atRiskTaskIds: tasks.filter((task) => task.status !== 'completed' && task.riskState === 'at-risk').map((task) => task.id),
     previousProjectEndDate: previousProjectedEndDate,
     projectedProjectEndDate,
     projectEndChangeDays,
     deadlineShiftDays,
-    requiresIntervention: deadlineShiftDays > 0,
+    requiresIntervention: deadlineShiftDays > 0 || reasons.length > 0,
     reasons,
     analyzedAt: new Date().toISOString(),
   }

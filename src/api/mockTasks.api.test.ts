@@ -12,7 +12,6 @@ describe('mockTasksApi', () => {
       title: 'Новая задача',
       startDate: '2026-02-02',
       endDate: '2026-02-05',
-      durationDays: 4,
       assigneeId,
       status: 'not-started',
     })
@@ -49,6 +48,11 @@ describe('mockTasksApi', () => {
       type: 'finish-to-start',
     })
 
+    expect(getMockProjectState(projectId).tasks.find((task) => task.id === successor.id)).toMatchObject({
+      startDate: '2026-02-04',
+      endDate: '2026-02-05',
+    })
+
     await mockTasksApi.deleteTask(predecessor.id)
 
     const state = getMockProjectState(projectId)
@@ -57,6 +61,10 @@ describe('mockTasksApi', () => {
       dependency.predecessorTaskId === predecessor.id
       || dependency.successorTaskId === predecessor.id
     ))).toBe(false)
+    expect(state.tasks.find((task) => task.id === successor.id)).toMatchObject({
+      startDate: '2026-02-04',
+      endDate: '2026-02-05',
+    })
   })
 
   it('сохраняет status и assignee в change context без изменения сроков', async () => {

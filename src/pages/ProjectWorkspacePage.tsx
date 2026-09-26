@@ -12,6 +12,7 @@ import { projectService } from '../services/projectService'
 import type { ProjectWorkspace } from '../types/workspace'
 import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { CreateDependencyRequest } from '../types/dependency'
+import type { ScheduleShiftPreview } from '../types/schedule'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -59,6 +60,12 @@ export function ProjectWorkspacePage() {
     setWorkspace(await projectService.deleteTask(projectId, selectedTaskId))
     setSelectedTaskId(null)
   }
+  const handleSchedulePreview = () => projectService.previewScheduleShift(projectId)
+  const handleScheduleApply = async (preview: ScheduleShiftPreview) => {
+    setWorkspace(await projectService.applyScheduleShift(projectId, preview))
+  }
+
+  const impactPanel = <ImpactPanel workspace={workspace} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} />
 
   const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} onTaskCreate={() => setIsCreatingTask(true)} showAll={showAllTasks} onShowAllChange={setShowAllTasks} />
   const timeline = <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
@@ -71,12 +78,12 @@ export function ProjectWorkspacePage() {
           <MetricCards workspace={workspace} />
           <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
             <div className="min-w-0 space-y-4">{timeline}{taskList}</div>
-            <ImpactPanel workspace={workspace} />
+            {impactPanel}
           </div>
         </>}
         {activeView === 'timeline' && <div className="space-y-4">{timeline}{taskList}</div>}
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} />}
-        {activeView === 'risks' && <><MetricCards workspace={workspace} /><div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">{taskList}<ImpactPanel workspace={workspace} /></div></>}
+        {activeView === 'risks' && <><MetricCards workspace={workspace} /><div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">{taskList}{impactPanel}</div></>}
       </div>
       {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} />}
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} />}

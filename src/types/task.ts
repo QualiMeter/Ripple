@@ -1,4 +1,4 @@
-export type TaskStatus = 'completed' | 'in-progress' | 'blocked' | 'not-started'
+export type TaskStatus = 'completed' | 'in-progress' | 'delayed' | 'not-started'
 export type RiskState = 'none' | 'watch' | 'at-risk'
 
 export interface Assignee {
@@ -30,7 +30,6 @@ export interface TaskUpdateRequest {
   title?: string
   startDate?: string
   endDate?: string
-  durationDays?: number
   assigneeId?: string
   status?: TaskStatus
 }
@@ -39,7 +38,6 @@ export interface TaskCreateRequest {
   title: string
   startDate: string
   endDate: string
-  durationDays?: number
   assigneeId: string
   status: TaskStatus
 }

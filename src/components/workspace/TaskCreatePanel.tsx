@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, Clock3, Plus, X } from 'lucide-react'
+import { CalendarDays, Plus, X } from 'lucide-react'
 import type { Assignee, TaskCreateRequest, TaskStatus } from '../../types/task'
-import { calendarDaysBetween } from '../../utils/date'
 import { Avatar } from '../common/Avatar'
 
 interface TaskCreatePanelProps {
@@ -12,22 +11,15 @@ interface TaskCreatePanelProps {
 }
 
 const statusOptions: Array<{ value: TaskStatus; label: string }> = [
-  { value: 'not-started', label: 'Не начато' },
+  { value: 'not-started', label: 'Не в работе' },
   { value: 'in-progress', label: 'В работе' },
-  { value: 'blocked', label: 'Заблокировано' },
-  { value: 'completed', label: 'Завершено' },
+  { value: 'delayed', label: 'Задерживается' },
+  { value: 'completed', label: 'Закончено' },
 ]
-
-const dayMs = 86_400_000
-
-function endDateFromDuration(startDate: string, durationDays: number): string {
-  return new Date(Date.parse(startDate) + (Math.max(1, durationDays) - 1) * dayMs).toISOString().slice(0, 10)
-}
 
 export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate }: TaskCreatePanelProps) {
   const [title, setTitle] = useState('')
   const [startDate, setStartDate] = useState(initialStartDate)
-  const [durationDays, setDurationDays] = useState(1)
   const [endDate, setEndDate] = useState(initialStartDate)
   const [assigneeId, setAssigneeId] = useState(assignees[0]?.id ?? '')
   const [status, setStatus] = useState<TaskStatus>('not-started')
@@ -41,24 +33,6 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isSaving, onClose])
-
-  const handleStartDateChange = (value: string) => {
-    setStartDate(value)
-    if (value) setEndDate(endDateFromDuration(value, durationDays))
-  }
-
-  const handleEndDateChange = (value: string) => {
-    setEndDate(value)
-    if (value && startDate && value >= startDate) {
-      setDurationDays(calendarDaysBetween(startDate, value) + 1)
-    }
-  }
-
-  const handleDurationChange = (value: number) => {
-    const normalizedDuration = Math.max(1, value || 1)
-    setDurationDays(normalizedDuration)
-    if (startDate) setEndDate(endDateFromDuration(startDate, normalizedDuration))
-  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -81,7 +55,6 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
         title: title.trim(),
         startDate,
         endDate,
-        durationDays,
         assigneeId,
         status,
       })
@@ -114,10 +87,9 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
               <div className="mb-3 flex items-center gap-2 text-xs font-bold text-[#494456]"><CalendarDays size={15} className="text-[#6d5dfb]" /> Сроки</div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="text-xs font-semibold text-[#716c7c]">Начало<input type="date" className={inputClassName} value={startDate} onChange={(event) => handleStartDateChange(event.target.value)} /></label>
-                <label className="text-xs font-semibold text-[#716c7c]">Завершение<input type="date" className={inputClassName} value={endDate} min={startDate} onChange={(event) => handleEndDateChange(event.target.value)} /></label>
+                <label className="text-xs font-semibold text-[#716c7c]">Начало<input type="date" className={inputClassName} value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+                <label className="text-xs font-semibold text-[#716c7c]">Завершение<input type="date" className={inputClassName} value={endDate} min={startDate} onChange={(event) => setEndDate(event.target.value)} /></label>
               </div>
-              <label className="mt-3 block text-xs font-semibold text-[#716c7c]">Длительность, календарных дней<div className="relative"><Clock3 size={15} className="absolute left-3 top-1/2 mt-0.5 -translate-y-1/2 text-[#9994a3]" /><input type="number" min="1" className={`${inputClassName} pl-9`} value={durationDays} onChange={(event) => handleDurationChange(Number(event.target.value))} /></div></label>
               <p className="mt-3 rounded-lg bg-[#f5f3fa] px-3 py-2 text-[11px] leading-4 text-[#85808f]">Введённые даты станут исходным планом новой задачи.</p>
             </div>
 
