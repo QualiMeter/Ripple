@@ -167,7 +167,6 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
               <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-[#433e54]">{best.title}</p><p className="mt-1 text-[10px] leading-4 text-[#878292]">{best.description}</p></div><span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700">Вернуть {best.recoveredDays} дн.</span></div>
               <div className="mt-3 flex items-center justify-between border-t border-[#eeebf3] pt-3"><span className="text-[10px] text-[#918c9c]">Ожидаемое завершение</span><span className="text-xs font-bold text-[#494358]">{formatShortDate(impact.projectedProjectEndDate)} <ArrowRight size={11} className="mx-1 inline" /> {formatShortDate(best.expectedProjectEndDate)}</span></div>
             </div>
-            <button className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6d5dfb] px-3 py-2.5 text-xs font-bold text-white shadow-[0_8px_18px_rgba(109,93,251,.2)] transition hover:bg-[#5f4fe8]">Посмотреть план восстановления <ArrowRight size={14} /></button>
           </>
         ) : (
           <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-white p-3">

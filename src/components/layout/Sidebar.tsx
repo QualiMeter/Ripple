@@ -1,11 +1,5 @@
 import {
-  Boxes,
-  ChevronDown,
-  CircleHelp,
-  FolderKanban,
-  LayoutDashboard,
   Plus,
-  Settings,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -32,12 +26,6 @@ function initials(name: string) {
 }
 
 export function Sidebar({ projects, loading, onCreateProject, mobile = false, onClose }: SidebarProps) {
-  const defaultProjectPath = `/projects/${projects[0]?.id ?? 'aurora-launch'}`
-  const navItems = [
-    { label: 'Обзор', icon: LayoutDashboard, to: defaultProjectPath },
-    { label: 'Проекты', icon: FolderKanban, to: defaultProjectPath },
-    { label: 'Портфель', icon: Boxes, to: '/portfolio' },
-  ]
   return (
     <aside className={mobile ? 'flex h-full w-[280px] max-w-[86vw] shrink-0 flex-col bg-[#17152b] text-white shadow-[24px_0_60px_rgba(23,21,43,.28)]' : 'hidden h-screen w-[244px] shrink-0 flex-col bg-[#17152b] text-white lg:fixed lg:flex'} aria-label={mobile ? 'Мобильная навигация' : undefined}>
       <div className="flex h-[72px] items-center gap-3 px-6">
@@ -49,24 +37,7 @@ export function Sidebar({ projects, loading, onCreateProject, mobile = false, on
         {mobile && <button type="button" onClick={onClose} className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Закрыть навигацию"><X size={19} /></button>}
       </div>
 
-      <nav className="mt-5 px-3" aria-label="Основная навигация">
-        <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[#858198]">Рабочая область</p>
-        <div className="space-y-1">
-          {navItems.map(({ label, icon: Icon, to }, index) => (
-            <NavLink
-              key={label}
-              to={to}
-              onClick={onClose}
-              className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${isActive && index === 1 ? 'bg-white/[.09] text-white' : 'text-[#aaa6ba] hover:bg-white/[.06] hover:text-white'}`}
-            >
-              <Icon size={18} strokeWidth={1.8} />
-              {label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-
-      <div className="mx-3 mt-7 rounded-2xl border border-white/[.08] bg-white/[.045] p-3">
+      <div className="mx-3 mt-5 rounded-2xl border border-white/[.08] bg-white/[.045] p-3">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <span className="h-2 w-2 rounded-full bg-[#8b7fff]" />
@@ -94,16 +65,6 @@ export function Sidebar({ projects, loading, onCreateProject, mobile = false, on
           <Sparkles size={17} className="mb-2.5 text-[#f1b971]" />
           <p className="text-xs font-semibold">Анализ влияния активен</p>
           <p className="mt-1 text-[11px] leading-4 text-[#9e99ae]">Ripple анализирует изменения и зависимости в ваших проектах.</p>
-        </div>
-        <a href="#help" onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><CircleHelp size={17} /> Центр помощи</a>
-        <a href="#settings" onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><Settings size={17} /> Настройки</a>
-        <div className="mt-3 flex items-center gap-3 border-t border-white/[.08] px-2 pt-4">
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-[#e7b4a6] text-[10px] font-bold text-[#512e2a]">МЧ</div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold">Майя Чен</p>
-            <p className="text-[10px] text-[#858198]">Руководитель продукта</p>
-          </div>
-          <ChevronDown size={15} className="text-[#858198]" />
         </div>
       </div>
     </aside>

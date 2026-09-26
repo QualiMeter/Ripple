@@ -1,4 +1,3 @@
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectSummary } from '../../types/project'
 import type { Assignee, ProjectTask } from '../../types/task'
@@ -27,18 +26,10 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
   ))
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ebe9ef] px-5 py-4">
+      <div className="border-b border-[#ebe9ef] px-5 py-4">
         <div>
           <h2 className="text-sm font-bold text-[#302d40]">План проекта</h2>
           <p className="mt-0.5 text-[11px] text-[#918d9b]">Критический путь и сдвиг зависимостей</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="rounded-lg border border-[#e1dfe6] p-2 text-[#777382] hover:bg-[#f6f5f8]" aria-label="Фильтры плана"><SlidersHorizontal size={14} /></button>
-          <div className="flex rounded-lg border border-[#e1dfe6]">
-            <button className="border-r border-[#e1dfe6] p-2 text-[#777382]" aria-label="Предыдущий период"><ChevronLeft size={14} /></button>
-            <button className="p-2 text-[#777382]" aria-label="Следующий период"><ChevronRight size={14} /></button>
-          </div>
-          <button className="rounded-lg border border-[#e1dfe6] px-2.5 py-2 text-[11px] font-semibold text-[#625e6f]">Сегодня</button>
         </div>
       </div>
       {tasks.length === 0 ? <div className="grid min-h-48 place-items-center px-6 py-12 text-center"><div><p className="text-sm font-semibold text-[#4b4658]">В проекте пока нет задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Добавьте задачу, чтобы сформировать план проекта.</p></div></div> : <>
