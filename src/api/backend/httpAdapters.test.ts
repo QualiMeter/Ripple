@@ -59,8 +59,24 @@ describe('HTTP adapters', () => {
       return Promise.resolve(new Response(JSON.stringify(projectDetails), { status: 200 }))
     })
     vi.stubGlobal('fetch', fetchMock)
-    await httpScheduleApi.applyShift('project-1', { projectId: 'project-1', sourceTaskId: 'task-a', taskShifts: [], currentProjectEndDate: '2026-10-20', proposedProjectEndDate: '2026-10-20', projectEndShiftDays: 0 })
+    await httpScheduleApi.applyShift('project-1', { projectId: 'project-1', sourceTaskId: 'task-a', taskShifts: [], currentProjectEndDate: '2026-10-20', proposedProjectEndDate: '2026-10-20', projectEndShiftDays: 0 }, { confirmProjectEndDate: false })
     const confirmCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/api/v1/projects/project-1/tasks/task-a/shift-confirm'))
     expect(confirmCall?.[1]).toMatchObject({ method: 'POST', body: JSON.stringify({ confirmProjectEndDate: false }) })
+  })
+
+  it('sends confirmProjectEndDate=true only when explicitly requested', async () => {
+    const fetchMock = vi.fn((input: string | URL | Request, _init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/shift-confirm')) return Promise.resolve(new Response(JSON.stringify({
+        preview: { rootTaskId: 'task-a', items: [], currentProjectEndDate: '2026-10-20', proposedProjectEndDate: '2026-10-23', projectEndIncreaseCalendarDays: 3, analysis: [] },
+        projectEndDateChanged: true,
+      }), { status: 200 }))
+      return Promise.resolve(new Response(JSON.stringify(projectDetails), { status: 200 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const preview = { projectId: 'project-1', sourceTaskId: 'task-a', taskShifts: [], currentProjectEndDate: '2026-10-20', proposedProjectEndDate: '2026-10-23', projectEndShiftDays: 3 }
+    await httpScheduleApi.applyShift('project-1', preview, { confirmProjectEndDate: true })
+    const confirmCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/shift-confirm'))
+    expect(JSON.parse(String(confirmCall?.[1]?.body))).toEqual({ confirmProjectEndDate: true })
   })
 })

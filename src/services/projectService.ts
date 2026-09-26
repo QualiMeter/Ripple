@@ -24,7 +24,7 @@ export interface ProjectService {
   createDependency(projectId: string, request: CreateDependencyRequest): Promise<ProjectWorkspace>
   deleteDependency(projectId: string, dependencyId: string): Promise<ProjectWorkspace>
   previewScheduleShift(projectId: string, sourceTaskId: string): Promise<ScheduleShiftPreview>
-  applyScheduleShift(projectId: string, preview: ScheduleShiftPreview): Promise<ProjectWorkspace>
+  applyScheduleShift(projectId: string, preview: ScheduleShiftPreview, confirmProjectEndDate: boolean): Promise<ProjectWorkspace>
 }
 
 export const projectService: ProjectService = {
@@ -73,8 +73,8 @@ export const projectService: ProjectService = {
     return projectsApi.getWorkspace(projectId)
   },
   previewScheduleShift: (projectId, sourceTaskId) => scheduleApi.previewShift(projectId, { sourceTaskId }),
-  async applyScheduleShift(projectId, preview) {
-    await scheduleApi.applyShift(projectId, preview)
+  async applyScheduleShift(projectId, preview, confirmProjectEndDate) {
+    await scheduleApi.applyShift(projectId, preview, { confirmProjectEndDate })
     return projectsApi.getWorkspace(projectId)
   },
 }

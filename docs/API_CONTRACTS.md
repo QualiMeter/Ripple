@@ -70,7 +70,7 @@ The POST body contains only `predecessorTaskId` and `successorTaskId`; the only 
 - `POST /api/v1/projects/{projectId}/tasks/{taskId}/shift-preview` (no request body)
 - `POST /api/v1/projects/{projectId}/tasks/{taskId}/shift-confirm`
 
-The preview route always uses the conflict/source task explicitly selected by the UI. Confirmation sends `{ "confirmProjectEndDate": false }`. Completed tasks returned with `completedRequiresManualResolution` are displayed as manual-resolution warnings, not silently shifted.
+The preview route always uses the conflict/source task explicitly selected by the UI. Confirmation sends `{ "confirmProjectEndDate": false }` by default. If the preview changes the project end date, the UI offers a separate explicit confirmation action; only that action sends `{ "confirmProjectEndDate": true }`. After a successful confirmation the workspace is fetched again. Completed tasks returned with `completedRequiresManualResolution` are displayed as manual-resolution warnings, not silently shifted.
 
 ## Local analytics and session state
 

@@ -18,8 +18,12 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     const responseBody = await response.text().catch(() => '')
     if (responseBody.trim()) {
       try {
-        const body = JSON.parse(responseBody) as { detail?: string; title?: string; message?: string; errors?: Record<string, string[]> }
-        message = body.detail ?? body.message ?? body.title ?? Object.values(body.errors ?? {}).flat()[0] ?? message
+        const body = JSON.parse(responseBody) as {
+          detail?: string; Detail?: string; title?: string; Title?: string; message?: string; Message?: string
+          errors?: Record<string, string[]>; Errors?: Record<string, string[]>
+        }
+        message = body.detail ?? body.Detail ?? body.message ?? body.Message ?? body.title ?? body.Title
+          ?? Object.values(body.errors ?? body.Errors ?? {}).flat()[0] ?? message
       } catch {
         message = responseBody.trim()
       }

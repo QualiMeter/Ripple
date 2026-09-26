@@ -76,8 +76,8 @@ export function ProjectWorkspacePage() {
     setSelectedTaskId(null)
   }
   const handleSchedulePreview = (sourceTaskId: string) => projectService.previewScheduleShift(projectId, sourceTaskId)
-  const handleScheduleApply = async (preview: ScheduleShiftPreview) => {
-    setWorkspace(await projectService.applyScheduleShift(projectId, preview))
+  const handleScheduleApply = async (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => {
+    setWorkspace(await projectService.applyScheduleShift(projectId, preview, confirmProjectEndDate))
   }
   const handleEmployeeCreate = async (name: string): Promise<Employee> => {
     const employee = await projectService.createEmployee(projectId, { name })

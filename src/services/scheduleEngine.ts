@@ -5,6 +5,7 @@ import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 import { analyzeStatusChange } from './statusAnalysis'
 import { analyzeCriticalPath } from './criticalPath'
+import { formatFullDate } from '../utils/date'
 
 const dayMs = 86_400_000
 
@@ -88,7 +89,7 @@ export function findScheduleConflicts(
     return [{
       sourceTaskId: predecessor.id,
       affectedTaskIds: [successor.id],
-      reason: `Начало задачи раньше допустимой даты ${earliestStart} после завершения предшественника «${predecessor.title}».`,
+      reason: `Начало задачи раньше допустимой даты ${formatFullDate(earliestStart)} после завершения предшественника «${predecessor.title}».`,
       consequence: `Без ручного решения или подтверждённого сдвига задача «${successor.title}» нарушает finish-to-start зависимость.`,
       severity: 'warning' as const,
       action: { type: 'preview-shift' as const },

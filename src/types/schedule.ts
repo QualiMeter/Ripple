@@ -21,3 +21,7 @@ export interface ScheduleShiftPreview {
 export interface ScheduleShiftPreviewRequest {
   sourceTaskId: string
 }
+
+export interface ScheduleShiftConfirmationOptions {
+  confirmProjectEndDate: boolean
+}

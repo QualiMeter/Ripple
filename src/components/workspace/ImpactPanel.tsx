@@ -6,11 +6,12 @@ import type { ProjectTask } from '../../types/task'
 import type { ProjectWorkspace } from '../../types/workspace'
 import type { ScheduleShiftPreview } from '../../types/schedule'
 import { formatAnalysisTime, formatShortDate } from '../../utils/date'
+import { getErrorMessage } from '../../utils/error'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
   onPreviewScheduleShift: (sourceTaskId: string) => Promise<ScheduleShiftPreview>
-  onApplyScheduleShift: (preview: ScheduleShiftPreview) => Promise<void>
+  onApplyScheduleShift: (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => Promise<void>
   onTaskSelect: (taskId: string) => void
 }
 
@@ -39,22 +40,22 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
       const result = await onPreviewScheduleShift(sourceTaskId)
       setPreview(result.taskShifts.length > 0 ? result : null)
       if (result.taskShifts.length === 0) setPreviewMessage('Конфликтов, требующих автоматического сдвига, не найдено.')
-    } catch {
-      setPreviewMessage('Не удалось рассчитать сдвиг. Попробуйте ещё раз.')
+    } catch (error) {
+      setPreviewMessage(getErrorMessage(error, 'Не удалось рассчитать сдвиг. Попробуйте ещё раз.'))
     } finally {
       setIsCalculating(false)
     }
   }
 
-  const applyPreview = async () => {
+  const applyPreview = async (confirmProjectEndDate: boolean) => {
     if (!preview) return
     setIsApplying(true)
     setPreviewMessage(null)
     try {
-      await onApplyScheduleShift(preview)
+      await onApplyScheduleShift(preview, confirmProjectEndDate)
       setPreview(null)
-    } catch {
-      setPreviewMessage('Предпросмотр устарел или не удалось применить сдвиг. Выполните расчёт повторно.')
+    } catch (error) {
+      setPreviewMessage(getErrorMessage(error, 'Предпросмотр устарел или не удалось применить сдвиг. Выполните расчёт повторно.'))
     } finally {
       setIsApplying(false)
     }
@@ -151,7 +152,8 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
             })}
           </div>
           <div className="mt-3 border-t border-[#e7e2fb] pt-2 text-[10px] text-[#777181]">Завершение проекта: <strong className="text-[#474252]">{formatShortDate(preview.currentProjectEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(preview.proposedProjectEndDate)}</strong> ({preview.projectEndShiftDays > 0 ? '+' : ''}{preview.projectEndShiftDays} дн.)</div>
-          <div className="mt-3 flex gap-2"><button type="button" disabled={isApplying} onClick={() => setPreview(null)} className="flex-1 rounded-xl border border-[#dedbe4] px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplying} onClick={applyPreview} className="flex-1 rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplying ? 'Применение…' : 'Подтвердить'}</button></div>
+          {preview.projectEndShiftDays > 0 && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-4 text-amber-800">Предлагаемый сдвиг выходит за текущий срок проекта. Изменить плановый срок можно только отдельным явным подтверждением.</p>}
+          <div className={`mt-3 grid gap-2 ${preview.projectEndShiftDays > 0 ? 'sm:grid-cols-3' : 'grid-cols-2'}`}><button type="button" disabled={isApplying} onClick={() => setPreview(null)} className="rounded-xl border border-[#dedbe4] px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplying} onClick={() => applyPreview(false)} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplying ? 'Применение…' : preview.projectEndShiftDays > 0 ? 'Сдвинуть без изменения срока' : 'Подтвердить'}</button>{preview.projectEndShiftDays > 0 && <button type="button" disabled={isApplying} onClick={() => applyPreview(true)} className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 disabled:opacity-60">Сдвинуть и изменить срок проекта</button>}</div>
         </div>}
         {previewMessage && <p className="mt-3 rounded-lg bg-[#f5f3fa] px-3 py-2 text-[10px] leading-4 text-[#716b7b]" role="status">{previewMessage}</p>}
       </section>

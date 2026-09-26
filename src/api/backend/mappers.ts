@@ -9,6 +9,7 @@ import type {
   BackendUpdateProjectRequest, BackendUpdateTaskRequest, DependencyDto, EmployeeDto,
   ProjectDetailsDto, ProjectListItemDto, ShiftPreviewDto, TaskListItemDto,
 } from './types'
+import { formatIsoDatesInText } from '../../utils/date'
 
 const plannedDates = new Map<string, { startDate: string; endDate: string }>()
 
@@ -87,8 +88,8 @@ export function mapAnalysisMessage(dto: AnalysisMessageDto): ImpactReason {
   const severityNumber = Number(dto.severity)
   const action = dto.actions?.[0]
   return {
-    sourceTaskId: dto.triggerTaskId, affectedTaskIds: dto.affectedTaskIds ?? [], reason: dto.description,
-    consequence: action?.label ?? 'Проверьте связанные задачи и примите решение вручную.',
+    sourceTaskId: dto.triggerTaskId, affectedTaskIds: dto.affectedTaskIds ?? [], reason: formatIsoDatesInText(dto.description),
+    consequence: formatIsoDatesInText(action?.label ?? 'Проверьте связанные задачи и примите решение вручную.'),
     severity: severityNumber >= 2 ? 'error' : severityNumber === 1 ? 'warning' : 'info',
     action: action?.code.toLowerCase().includes('shift')
       ? { type: 'preview-shift' }
@@ -103,7 +104,7 @@ export function mapShiftPreview(projectId: string, dto: ShiftPreviewDto): Schedu
       taskId: item.taskId, currentStartDate: item.originalStartDate, currentEndDate: item.originalEndDate,
       proposedStartDate: item.proposedStartDate, proposedEndDate: item.proposedEndDate,
       shiftDays: Number(item.shiftCalendarDays), completedRequiresManualResolution: item.completedRequiresManualResolution,
-      reason: item.reason,
+      reason: item.reason ? formatIsoDatesInText(item.reason) : item.reason,
     })),
     currentProjectEndDate: dto.currentProjectEndDate, proposedProjectEndDate: dto.proposedProjectEndDate,
     projectEndShiftDays: Number(dto.projectEndIncreaseCalendarDays),

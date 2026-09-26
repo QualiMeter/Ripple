@@ -1,4 +1,4 @@
-import type { ScheduleShiftPreview, ScheduleShiftPreviewRequest } from '../types/schedule'
+import type { ScheduleShiftConfirmationOptions, ScheduleShiftPreview, ScheduleShiftPreviewRequest } from '../types/schedule'
 import { apiRequest } from './client'
 import type { ShiftConfirmationResponse, ShiftPreviewDto } from './backend/types'
 import { mapShiftPreview } from './backend/mappers'
@@ -7,7 +7,7 @@ import { composeHttpWorkspace } from './backend/workspace'
 
 export interface ScheduleApi {
   previewShift(projectId: string, request: ScheduleShiftPreviewRequest): Promise<ScheduleShiftPreview>
-  applyShift(projectId: string, preview: ScheduleShiftPreview): Promise<void>
+  applyShift(projectId: string, preview: ScheduleShiftPreview, options: ScheduleShiftConfirmationOptions): Promise<void>
 }
 
 export const httpScheduleApi: ScheduleApi = {
@@ -15,10 +15,10 @@ export const httpScheduleApi: ScheduleApi = {
     const dto = await apiRequest<ShiftPreviewDto>(`/api/v1/projects/${projectId}/tasks/${request.sourceTaskId}/shift-preview`, { method: 'POST' })
     return mapShiftPreview(projectId, dto)
   },
-  async applyShift(projectId, preview) {
+  async applyShift(projectId, preview, options) {
     const before = await composeHttpWorkspace(projectId)
     const response = await apiRequest<ShiftConfirmationResponse>(`/api/v1/projects/${projectId}/tasks/${preview.sourceTaskId}/shift-confirm`, {
-      method: 'POST', body: JSON.stringify({ confirmProjectEndDate: false }),
+      method: 'POST', body: JSON.stringify(options),
     })
     const confirmed = mapShiftPreview(projectId, response.preview)
     setHttpProjectSession(projectId, {
@@ -39,8 +39,8 @@ export const scheduleApi: ScheduleApi = mode === 'http'
         const { mockScheduleApi } = await import('./mockSchedule.api')
         return mockScheduleApi.previewShift(projectId, request)
       },
-      applyShift: async (projectId, preview) => {
+      applyShift: async (projectId, preview, options) => {
         const { mockScheduleApi } = await import('./mockSchedule.api')
-        return mockScheduleApi.applyShift(projectId, preview)
+        return mockScheduleApi.applyShift(projectId, preview, options)
       },
     }
