@@ -40,6 +40,7 @@ export function ProjectWorkspacePage() {
     setSelectedTaskId(null)
     setIsCreatingTask(false)
     setIsEditingProject(false)
+    setActiveView('overview')
     projectService.getWorkspace(projectId)
       .then((result) => active && setWorkspace(result))
       .catch(() => active && setError('Не удалось загрузить проект. Попробуйте ещё раз.'))
