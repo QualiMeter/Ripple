@@ -86,7 +86,10 @@ export function describeLastChange(
 
 export function describeImpactOutcome(impact: ImpactAnalysis): string {
   if (impact.reasons.length > 0) {
-    return `Обнаружено конфликтов расписания: ${impact.reasons.length}. Даты зависимых задач пока не изменены.`
+    const actionable = impact.reasons.filter((reason) => reason.severity !== 'info').length
+    return actionable > 0
+      ? `Анализ выявил предупреждений: ${actionable}. Даты и статусы связанных задач не изменены.`
+      : `Анализ сформировал информационных сообщений: ${impact.reasons.length}. Связанные задачи не изменены.`
   }
   if (impact.projectEndChangeDays === 0) {
     return 'Изменение не повлияло на сроки проекта.'

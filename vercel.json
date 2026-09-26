@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/backend/:path*", "destination": "https://crmbackend-hw.up.railway.app/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

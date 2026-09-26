@@ -50,7 +50,7 @@ export const mockTasksApi: TasksApi = {
     const updatedTask = applyExplicitTaskUpdate(previousTask, update)
     const affectsSchedule = update.startDate !== undefined || update.endDate !== undefined || update.status !== undefined
     const affectedTaskIds = affectsSchedule
-      ? findDownstreamTaskIds(taskId, state.dependencies).filter((id) => state.tasks.some((task) => task.id === id && task.status !== 'completed'))
+      ? findDownstreamTaskIds(taskId, state.dependencies)
       : []
     saveMockProjectState(projectId, {
       ...state,
@@ -86,7 +86,7 @@ export const mockTasksApi: TasksApi = {
       taskOverrides,
       dependencies,
       lastChangedTaskId: taskId,
-      affectedTaskIds: affectedCandidates.filter((id) => previousTasks.some((candidate) => candidate.id === id && candidate.status !== 'completed')),
+      affectedTaskIds: affectedCandidates.filter((id) => previousTasks.some((candidate) => candidate.id === id)),
       lastChange: { kind: 'task-deleted', taskId, taskTitle: task.title },
     })
   },

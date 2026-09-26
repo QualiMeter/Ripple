@@ -14,9 +14,14 @@ export type LastChange =
   | { kind: 'schedule-shift-applied'; sourceTaskId: string; shiftedTaskIds: string[] }
 
 export interface ImpactReason {
-  taskId: string
+  sourceTaskId: string
+  affectedTaskIds: string[]
   reason: string
-  severity: 'info' | 'warning' | 'critical'
+  consequence: string
+  severity: 'info' | 'warning' | 'error'
+  action?:
+    | { type: 'open-task'; taskId: string }
+    | { type: 'preview-shift' }
 }
 
 export interface ImpactAnalysis {

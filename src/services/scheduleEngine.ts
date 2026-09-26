@@ -3,6 +3,7 @@ import type { ImpactAnalysis, ImpactReason, LastChange } from '../types/impact'
 import type { Project } from '../types/project'
 import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
+import { analyzeStatusChange } from './statusAnalysis'
 
 const dayMs = 86_400_000
 
@@ -67,16 +68,29 @@ export function findScheduleConflicts(
 ): ImpactReason[] {
   const tasksById = new Map(tasks.map((task) => [task.id, task]))
   const candidates = new Set(candidateTaskIds)
-  return dependencies.flatMap((dependency) => {
+  return dependencies.flatMap((dependency): ImpactReason[] => {
     const predecessor = tasksById.get(dependency.predecessorTaskId)
     const successor = tasksById.get(dependency.successorTaskId)
-    if (!predecessor || !successor || successor.status === 'completed' || !candidates.has(successor.id)) return []
+    if (!predecessor || !successor || !candidates.has(successor.id)) return []
     const earliestStart = addDays(predecessor.endDate, 1)
     if (successor.startDate >= earliestStart) return []
+    if (successor.status === 'completed') {
+      return [{
+        sourceTaskId: predecessor.id,
+        affectedTaskIds: [successor.id],
+        reason: `Фактические даты законченной задачи «${successor.title}» конфликтуют с зависимостью от «${predecessor.title}».`,
+        consequence: 'Законченную задачу нельзя сдвинуть автоматически — требуется ручное решение и проверка фактических дат.',
+        severity: 'warning' as const,
+        action: { type: 'open-task' as const, taskId: successor.id },
+      }]
+    }
     return [{
-      taskId: successor.id,
+      sourceTaskId: predecessor.id,
+      affectedTaskIds: [successor.id],
       reason: `Начало задачи раньше допустимой даты ${earliestStart} после завершения предшественника «${predecessor.title}».`,
+      consequence: `Без ручного решения или подтверждённого сдвига задача «${successor.title}» нарушает finish-to-start зависимость.`,
       severity: 'warning' as const,
+      action: { type: 'preview-shift' as const },
     }]
   })
 }
@@ -160,8 +174,14 @@ export function buildImpactAnalysis(
 ): ImpactAnalysis {
   const projectedProjectEndDate = latestTaskEnd(tasks, project.targetEndDate)
   const sourceTask = tasks.find((task) => task.id === sourceTaskId)
-  const activeAffectedTaskIds = affectedTaskIds.filter((taskId) => tasks.some((task) => task.id === taskId && task.status !== 'completed'))
-  const reasons = findScheduleConflicts(tasks, dependencies, activeAffectedTaskIds)
+  const candidateTaskIds = affectedTaskIds.filter((taskId) => tasks.some((task) => task.id === taskId))
+  const scheduleReasons = findScheduleConflicts(tasks, dependencies, candidateTaskIds)
+  const statusReasons = lastChange ? analyzeStatusChange(tasks, dependencies, lastChange) : []
+  const reasons = [...statusReasons, ...scheduleReasons]
+  const activeAffectedTaskIds = [...new Set([
+    ...candidateTaskIds,
+    ...reasons.flatMap((reason) => reason.affectedTaskIds),
+  ])]
   const deadlineShiftDays = differenceInDays(projectedProjectEndDate, project.targetEndDate)
   const projectEndChangeDays = differenceInDays(projectedProjectEndDate, previousProjectedEndDate)
   return {
@@ -179,7 +199,7 @@ export function buildImpactAnalysis(
     projectedProjectEndDate,
     projectEndChangeDays,
     deadlineShiftDays,
-    requiresIntervention: deadlineShiftDays > 0 || reasons.length > 0,
+    requiresIntervention: deadlineShiftDays > 0 || reasons.some((reason) => reason.severity !== 'info'),
     reasons,
     analyzedAt: new Date().toISOString(),
   }

@@ -1,4 +1,4 @@
-import { addDependencyToGraph, removeDependencyFromGraph } from '../services/dependencyGraph'
+import { addDependencyToGraph, removeDependencyFromGraph, validateDependencyTasks } from '../services/dependencyGraph'
 import { findDownstreamTaskIds } from '../services/scheduleEngine'
 import {
   findMockProjectIdForDependency,
@@ -31,7 +31,7 @@ function analyzeAfterDependencyChange(
 ): void {
   const state = getMockProjectState(projectId)
   const affectedTaskIds = affectedCandidates(predecessorTaskId, previousDependencies, nextDependencies)
-    .filter((id) => state.tasks.some((task) => task.id === id && task.status !== 'completed'))
+    .filter((id) => state.tasks.some((task) => task.id === id))
   saveMockProjectDependencies(
     projectId,
     nextDependencies,
@@ -51,6 +51,7 @@ export const mockDependenciesApi: DependenciesApi = {
   async createDependency(projectId, request) {
     await new Promise((resolve) => setTimeout(resolve, 180))
     const state = getMockProjectState(projectId)
+    validateDependencyTasks(projectId, state.tasks, request)
     const dependency: Dependency = {
       id: `dependency-${dependencySequence++}`,
       projectId,

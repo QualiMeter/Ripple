@@ -10,9 +10,10 @@ interface ImpactPanelProps {
   workspace: ProjectWorkspace
   onPreviewScheduleShift: () => Promise<ScheduleShiftPreview>
   onApplyScheduleShift: (preview: ScheduleShiftPreview) => Promise<void>
+  onTaskSelect: (taskId: string) => void
 }
 
-export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplyScheduleShift }: ImpactPanelProps) {
+export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect }: ImpactPanelProps) {
   const [preview, setPreview] = useState<ScheduleShiftPreview | null>(null)
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -69,12 +70,30 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
             </div>
           </div>
           <div className="mt-3 rounded-xl border border-[#f0ded6] bg-[#fffaf7] px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-[.08em] text-[#aa7867]">Последствия</p><p className="mt-1 text-[11px] leading-4 text-[#756f7d]">{impactOutcome}</p></div>
+          {impact.reasons.length > 0 && <div className="mt-3 space-y-2">
+            {impact.reasons.map((reason, index) => {
+              const source = tasks.find((task) => task.id === reason.sourceTaskId)
+              const affectedTitles = reason.affectedTaskIds.map((taskId) => tasks.find((task) => task.id === taskId)?.title ?? taskId)
+              const tone = reason.severity === 'error'
+                ? 'border-rose-200 bg-rose-50 text-rose-800'
+                : reason.severity === 'warning'
+                  ? 'border-amber-200 bg-amber-50 text-amber-900'
+                  : 'border-sky-200 bg-sky-50 text-sky-900'
+              return <div key={`${reason.sourceTaskId}-${index}`} className={`rounded-xl border p-3 ${tone}`}>
+                <div className="flex items-center justify-between gap-2"><span className="text-[9px] font-bold uppercase tracking-[.08em]">{reason.severity === 'error' ? 'Ошибка' : reason.severity === 'warning' ? 'Предупреждение' : 'Информация'}</span><span className="truncate text-[9px] opacity-70">Источник: {source?.title ?? reason.sourceTaskId}</span></div>
+                <p className="mt-1.5 text-[11px] font-semibold leading-4">{reason.reason}</p>
+                <p className="mt-1 text-[10px] leading-4 opacity-80">{reason.consequence}</p>
+                <p className="mt-1 text-[9px] opacity-65">Затронуто: {affectedTitles.join(', ')}</p>
+                {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview()} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
+              </div>
+            })}
+          </div>}
           <div className="my-3 flex items-center gap-2 text-[10px] font-semibold text-[#a29daa]"><GitBranch size={13} /><span>Задач под влиянием: {affected.length}</span><span className="h-px flex-1 bg-[#ebe8ee]" /></div>
           <div className="space-y-2">
             {affected.map((task, index) => (
               <div key={task.id} className="flex items-center gap-2.5">
                 <span className="grid h-5 w-5 place-items-center rounded-full bg-[#fff0e8] text-[9px] font-bold text-[#c45b37]">{index + 1}</span>
-                <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold text-[#514c5e]">{task.title}</p><p className="text-[10px] text-[#9995a2]">{task.changeNote ?? 'Срок сдвинут из-за зависимости'}</p></div>
+                <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold text-[#514c5e]">{task.title}</p><p className="text-[10px] text-[#9995a2]">{task.changeNote ?? 'Задача учтена в анализе последнего изменения'}</p></div>
                 <MoveRight size={13} className="text-[#c6c2cc]" />
               </div>
             ))}

@@ -82,6 +82,21 @@ describe('scheduleEngine explicit shift flow', () => {
     })
   })
 
+  it('показывает ручное предупреждение при date conflict завершённой задачи', () => {
+    const completedTasks = tasks.map((item) => item.id === 'frontend'
+      ? { ...item, status: 'completed' as const }
+      : item)
+
+    expect(findScheduleConflicts(completedTasks, dependencies, ['frontend'])).toEqual([
+      expect.objectContaining({
+        severity: 'warning',
+        sourceTaskId: 'source',
+        affectedTaskIds: ['frontend'],
+        action: { type: 'open-task', taskId: 'frontend' },
+      }),
+    ])
+  })
+
   it('изменение ответственного не меняет даты', () => {
     const updated = applyExplicitTaskUpdate(tasks[0], { assigneeId: 'other' })
     expect(updated).toMatchObject({ startDate: tasks[0].startDate, endDate: tasks[0].endDate, assigneeId: 'other' })

@@ -1,11 +1,33 @@
 import type { CreateDependencyRequest, Dependency } from '../types/dependency'
+import type { ProjectTask } from '../types/task'
 
-export type DependencyValidationCode = 'self-dependency' | 'duplicate' | 'cycle'
+export type DependencyValidationCode = 'self-dependency' | 'duplicate' | 'cycle' | 'task-not-found' | 'cross-project'
 
 export class DependencyValidationError extends Error {
   constructor(public readonly code: DependencyValidationCode, message: string) {
     super(message)
     this.name = 'DependencyValidationError'
+  }
+}
+
+export function validateDependencyTasks(
+  projectId: string,
+  tasks: ProjectTask[],
+  request: CreateDependencyRequest,
+): void {
+  const predecessor = tasks.find((task) => task.id === request.predecessorTaskId)
+  const successor = tasks.find((task) => task.id === request.successorTaskId)
+  if (!predecessor || !successor) {
+    throw new DependencyValidationError(
+      'task-not-found',
+      'Нельзя создать зависимость: одна или обе задачи не найдены.',
+    )
+  }
+  if (predecessor.projectId !== projectId || successor.projectId !== projectId || predecessor.projectId !== successor.projectId) {
+    throw new DependencyValidationError(
+      'cross-project',
+      'Зависимость можно создать только между задачами одного проекта.',
+    )
   }
 }
 

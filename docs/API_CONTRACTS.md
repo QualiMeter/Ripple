@@ -44,6 +44,15 @@ The frontend then reloads `GET /api/projects/{projectId}/workspace` so the UI re
 
 `ImpactAnalysis.affectedTaskIds` describes the downstream tasks considered by the latest analysis; it is independent from persistent task `riskState`. Conflicting finish-to-start dates are returned as reasons, without silently correcting the schedule.
 
+Each analysis reason is a structured result with `severity` (`info`, `warning`, or `error`), `sourceTaskId`, `affectedTaskIds`, `reason`, `consequence`, and an optional action (`open-task` or `preview-shift`). Status analysis uses the same result model:
+
+- completing a task reports immediately available successors when all their predecessors are complete and distinguishes whether their planned start date has arrived;
+- delaying a task warns its unfinished direct successors without changing or stopping them;
+- starting a task reports unfinished predecessors;
+- reopening a completed task warns its unfinished direct successors.
+
+Completed tasks are immutable for automatic schedule shifts. A finish-to-start/date conflict involving a completed task remains visible as a manual-resolution warning.
+
 `POST /api/projects/{projectId}/tasks` accepts `TaskCreateRequest` with `title`, `startDate`, `endDate`, `assigneeId`, and `status`. It returns the created task. The entered dates become both its current and immutable planned dates.
 
 `DELETE /api/tasks/{taskId}` returns `204 No Content`. The backend must remove every dependency whose predecessor or successor is the deleted task, analyze the remaining graph, and leave every remaining task date unchanged.
@@ -71,5 +80,7 @@ Completed tasks represent recorded work: schedule propagation must not move them
 MVP task statuses are `not-started` (Не в работе), `in-progress` (В работе), `completed` (Закончено), and `delayed` (Задерживается). `delayed` is a manual status and is not equivalent to computed `riskState`.
 
 The domain validation rejects self-dependencies, duplicate edges, and any edge that would create a directed cycle. The HTTP backend must enforce the same invariants and return a structured validation error whose message can be shown to the user.
+
+Before graph validation, both dependency endpoints must verify that the predecessor and successor exist and belong to the project named in the route. Cross-project and missing-task references are rejected. The task edit panel and dependency graph both call the same `DependenciesApi`; neither mutates the workspace directly.
 
 TypeScript contracts live in `src/types/`. Once Swagger is available, generated backend DTOs should be mapped to these stable UI-facing models rather than imported throughout presentation components.

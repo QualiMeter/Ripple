@@ -4,6 +4,7 @@ import type { ProjectTask } from '../types/task'
 import {
   addDependencyToGraph,
   DependencyValidationError,
+  validateDependencyTasks,
 } from './dependencyGraph'
 import { calculateScheduleShiftPreview, findScheduleConflicts } from './scheduleEngine'
 
@@ -58,6 +59,22 @@ describe('dependencyGraph', () => {
 
     expect(() => addDependencyToGraph(existing, dependency('d3', 'qa', 'analysis')))
       .toThrowError(expect.objectContaining<Partial<DependencyValidationError>>({ code: 'cycle' }))
+  })
+
+  it('запрещает зависимость с несуществующей задачей', () => {
+    expect(() => validateDependencyTasks(projectId, [task('analysis', '2026-01-05', '2026-01-07')], {
+      predecessorTaskId: 'analysis', successorTaskId: 'missing', type: 'finish-to-start',
+    })).toThrowError(expect.objectContaining<Partial<DependencyValidationError>>({ code: 'task-not-found' }))
+  })
+
+  it('запрещает зависимость между задачами разных проектов', () => {
+    const tasks = [
+      task('analysis', '2026-01-05', '2026-01-07'),
+      { ...task('external', '2026-01-08', '2026-01-09'), projectId: 'other-project' },
+    ]
+    expect(() => validateDependencyTasks(projectId, tasks, {
+      predecessorTaskId: 'analysis', successorTaskId: 'external', type: 'finish-to-start',
+    })).toThrowError(expect.objectContaining<Partial<DependencyValidationError>>({ code: 'cross-project' }))
   })
 
   it('новая зависимость выявляет конфликт, но не меняет даты до подтверждения', () => {
