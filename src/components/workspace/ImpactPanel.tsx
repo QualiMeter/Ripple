@@ -8,7 +8,7 @@ import { formatAnalysisTime, formatShortDate } from '../../utils/date'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
-  onPreviewScheduleShift: () => Promise<ScheduleShiftPreview>
+  onPreviewScheduleShift: (sourceTaskId: string) => Promise<ScheduleShiftPreview>
   onApplyScheduleShift: (preview: ScheduleShiftPreview) => Promise<void>
   onTaskSelect: (taskId: string) => void
 }
@@ -18,18 +18,18 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
-  const { impact, tasks, recoveryScenarios } = workspace
+  const { impact, currentIssues, tasks, recoveryScenarios } = workspace
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
     .filter((task): task is ProjectTask => Boolean(task))
   const changeDescription = describeLastChange(impact.lastChange, tasks, workspace.assignees)
   const impactOutcome = describeImpactOutcome(impact)
   const best = recoveryScenarios[0]
-  const calculatePreview = async () => {
+  const calculatePreview = async (sourceTaskId = impact.sourceTaskId) => {
     setIsCalculating(true)
     setPreviewMessage(null)
     try {
-      const result = await onPreviewScheduleShift()
+      const result = await onPreviewScheduleShift(sourceTaskId)
       setPreview(result.taskShifts.length > 0 ? result : null)
       if (result.taskShifts.length === 0) setPreviewMessage('Конфликтов, требующих автоматического сдвига, не найдено.')
     } catch {
@@ -84,7 +84,7 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
                 <p className="mt-1.5 text-[11px] font-semibold leading-4">{reason.reason}</p>
                 <p className="mt-1 text-[10px] leading-4 opacity-80">{reason.consequence}</p>
                 <p className="mt-1 text-[9px] opacity-65">Затронуто: {affectedTitles.join(', ')}</p>
-                {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview()} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
+                {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview(reason.sourceTaskId)} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
               </div>
             })}
           </div>}
@@ -105,12 +105,27 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
         </div>
       </section>
 
+      <section className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#363247]">Текущие проблемы проекта</h2><p className="mt-0.5 text-[10px] text-[#8c8798]">Нерешённые конфликты актуального графика, независимо от последнего изменения.</p></div><span className="rounded-full bg-[#fff0e8] px-2 py-1 text-[10px] font-bold text-[#b85a36]">{currentIssues.scheduleConflicts.length}</span></div>
+        {currentIssues.scheduleConflicts.length === 0 ? <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-[11px] text-emerald-700">Конфликтов расписания не обнаружено.</p> : <div className="mt-3 space-y-2">
+          {currentIssues.scheduleConflicts.map((reason, index) => {
+            const source = tasks.find((task) => task.id === reason.sourceTaskId)
+            return <div key={`${reason.sourceTaskId}-${index}`} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <p className="text-[9px] font-bold uppercase tracking-[.08em]">Источник: {source?.title ?? reason.sourceTaskId}</p>
+              <p className="mt-1 text-[11px] font-semibold leading-4">{reason.reason}</p>
+              <p className="mt-1 text-[10px] leading-4 opacity-80">{reason.consequence}</p>
+              {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview(reason.sourceTaskId)} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
+            </div>
+          })}
+        </div>}
+      </section>
+
       <section className="rounded-2xl border border-[#e1ddec] bg-white p-4 shadow-panel">
         <div className="flex items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Calculator size={18} /></span>
           <div><h2 className="text-sm font-bold text-[#363247]">Автоматический сдвиг</h2><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">Даты изменятся только после подтверждения предложенного плана.</p></div>
         </div>
-        {!preview && <button type="button" onClick={calculatePreview} disabled={isCalculating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#37334f] disabled:opacity-60">{isCalculating ? 'Расчёт…' : 'Рассчитать автоматический сдвиг'}</button>}
+        {!preview && <button type="button" onClick={() => calculatePreview(impact.sourceTaskId)} disabled={isCalculating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#37334f] disabled:opacity-60">{isCalculating ? 'Расчёт…' : 'Рассчитать автоматический сдвиг'}</button>}
         {preview && <div className="mt-3 rounded-xl border border-[#e7e2fb] bg-[#faf9ff] p-3">
           <p className="text-[10px] font-bold uppercase tracking-[.08em] text-[#7468bd]">Предпросмотр</p>
           <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">

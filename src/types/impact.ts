@@ -39,6 +39,11 @@ export interface ImpactAnalysis {
   analyzedAt: string
 }
 
+export interface CurrentProjectIssues {
+  scheduleConflicts: ImpactReason[]
+  affectedTaskIds: string[]
+}
+
 export interface RecoveryScenario {
   id: string
   title: string

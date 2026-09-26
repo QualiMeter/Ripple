@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { getMockProjectState } from '../mocks/workspaceStore'
 import { mockDependenciesApi } from './mockDependencies.api'
 import { mockTasksApi } from './mockTasks.api'
+import { mockScheduleApi } from './mockSchedule.api'
+import { buildCurrentProjectIssues } from '../services/scheduleEngine'
 
 const assigneeId = 'owner'
 
@@ -92,5 +94,35 @@ describe('mockTasksApi', () => {
       startDate: '2026-03-02',
       endDate: '2026-03-04',
     })
+  })
+
+  it('рассчитывает preview для явного source после создания независимой задачи', async () => {
+    const projectId = 'explicit-shift-source-test'
+    const source = await mockTasksApi.createTask(projectId, {
+      title: 'Задача A', startDate: '2026-04-01', endDate: '2026-04-02', assigneeId, status: 'in-progress',
+    })
+    const successor = await mockTasksApi.createTask(projectId, {
+      title: 'Зависимая задача B', startDate: '2026-04-03', endDate: '2026-04-04', assigneeId, status: 'not-started',
+    })
+    await mockDependenciesApi.createDependency(projectId, {
+      predecessorTaskId: source.id, successorTaskId: successor.id, type: 'finish-to-start',
+    })
+    await mockTasksApi.updateTask(source.id, { endDate: '2026-04-05' })
+
+    const stateWithConflict = getMockProjectState(projectId)
+    expect(buildCurrentProjectIssues(stateWithConflict.tasks, stateWithConflict.dependencies).scheduleConflicts).toHaveLength(1)
+
+    const independent = await mockTasksApi.createTask(projectId, {
+      title: 'Независимая задача X', startDate: '2026-04-01', endDate: '2026-04-01', assigneeId, status: 'not-started',
+    })
+    const currentState = getMockProjectState(projectId)
+    expect(currentState.lastChangedTaskId).toBe(independent.id)
+    expect(buildCurrentProjectIssues(currentState.tasks, currentState.dependencies).scheduleConflicts).toHaveLength(1)
+
+    const preview = await mockScheduleApi.previewShift(projectId, { sourceTaskId: source.id })
+    expect(preview.sourceTaskId).toBe(source.id)
+    expect(preview.taskShifts).toEqual([
+      expect.objectContaining({ taskId: successor.id, proposedStartDate: '2026-04-06', proposedEndDate: '2026-04-07' }),
+    ])
   })
 })

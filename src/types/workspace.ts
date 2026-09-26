@@ -1,5 +1,5 @@
 import type { Dependency } from './dependency'
-import type { ImpactAnalysis, RecoveryScenario } from './impact'
+import type { CurrentProjectIssues, ImpactAnalysis, RecoveryScenario } from './impact'
 import type { ProjectSummary } from './project'
 import type { Assignee, ProjectTask } from './task'
 
@@ -9,5 +9,6 @@ export interface ProjectWorkspace {
   dependencies: Dependency[]
   assignees: Assignee[]
   impact: ImpactAnalysis
+  currentIssues: CurrentProjectIssues
   recoveryScenarios: RecoveryScenario[]
 }

@@ -3,16 +3,17 @@ import { applyScheduleShiftPreview, calculateScheduleShiftPreview } from '../ser
 import type { ScheduleApi } from './schedule.api'
 
 export const mockScheduleApi: ScheduleApi = {
-  async previewShift(projectId) {
+  async previewShift(projectId, request) {
     await new Promise((resolve) => setTimeout(resolve, 180))
     const state = getMockProjectState(projectId)
-    return calculateScheduleShiftPreview(projectId, state.tasks, state.dependencies, state.lastChangedTaskId)
+    if (!state.tasks.some((task) => task.id === request.sourceTaskId)) throw new Error('Исходная задача для расчёта не найдена.')
+    return calculateScheduleShiftPreview(projectId, state.tasks, state.dependencies, request.sourceTaskId)
   },
 
   async applyShift(projectId, preview) {
     await new Promise((resolve) => setTimeout(resolve, 220))
     const state = getMockProjectState(projectId)
-    const currentPreview = calculateScheduleShiftPreview(projectId, state.tasks, state.dependencies, state.lastChangedTaskId)
+    const currentPreview = calculateScheduleShiftPreview(projectId, state.tasks, state.dependencies, preview.sourceTaskId)
     if (JSON.stringify(preview) !== JSON.stringify(currentPreview)) throw new Error('Предпросмотр устарел. Рассчитайте сдвиг повторно.')
     const tasks = applyScheduleShiftPreview(state.tasks, currentPreview)
     const taskOverrides = { ...state.taskOverrides }

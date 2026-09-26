@@ -7,6 +7,7 @@ import {
   Plus,
   Settings,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
@@ -16,15 +17,21 @@ const navItems = [
   { label: 'Портфель', icon: Boxes, to: '/portfolio' },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  mobile?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ mobile = false, onClose }: SidebarProps) {
   return (
-    <aside className="hidden h-screen w-[244px] shrink-0 flex-col bg-[#17152b] text-white lg:fixed lg:flex">
+    <aside className={mobile ? 'flex h-full w-[280px] max-w-[86vw] shrink-0 flex-col bg-[#17152b] text-white shadow-[24px_0_60px_rgba(23,21,43,.28)]' : 'hidden h-screen w-[244px] shrink-0 flex-col bg-[#17152b] text-white lg:fixed lg:flex'} aria-label={mobile ? 'Мобильная навигация' : undefined}>
       <div className="flex h-[72px] items-center gap-3 px-6">
         <div className="relative grid h-8 w-8 place-items-center rounded-xl bg-[#7667ff] shadow-[0_8px_24px_rgba(118,103,255,.35)]">
           <span className="h-3.5 w-3.5 rounded-full border-[3px] border-white" />
           <span className="absolute right-[5px] top-[5px] h-1.5 w-1.5 rounded-full bg-[#f6bb72]" />
         </div>
         <span className="text-xl font-semibold tracking-[-.04em]">Ripple</span>
+        {mobile && <button type="button" onClick={onClose} className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Закрыть навигацию"><X size={19} /></button>}
       </div>
 
       <nav className="mt-5 px-3" aria-label="Основная навигация">
@@ -34,6 +41,7 @@ export function Sidebar() {
             <NavLink
               key={label}
               to={to}
+              onClick={onClose}
               className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${isActive && index === 1 ? 'bg-white/[.09] text-white' : 'text-[#aaa6ba] hover:bg-white/[.06] hover:text-white'}`}
             >
               <Icon size={18} strokeWidth={1.8} />
@@ -68,8 +76,8 @@ export function Sidebar() {
           <p className="text-xs font-semibold">Анализ влияния активен</p>
           <p className="mt-1 text-[11px] leading-4 text-[#9e99ae]">Ripple отслеживает 11 зависимостей в этом проекте.</p>
         </div>
-        <a href="#help" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><CircleHelp size={17} /> Центр помощи</a>
-        <a href="#settings" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><Settings size={17} /> Настройки</a>
+        <a href="#help" onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><CircleHelp size={17} /> Центр помощи</a>
+        <a href="#settings" onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#aaa6ba] hover:text-white"><Settings size={17} /> Настройки</a>
         <div className="mt-3 flex items-center gap-3 border-t border-white/[.08] px-2 pt-4">
           <div className="grid h-8 w-8 place-items-center rounded-full bg-[#e7b4a6] text-[10px] font-bold text-[#512e2a]">МЧ</div>
           <div className="min-w-0 flex-1">

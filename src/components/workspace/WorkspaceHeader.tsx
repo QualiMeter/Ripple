@@ -23,12 +23,12 @@ const projectViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: 'risks', label: 'Риски и последствия' },
 ]
 
-export function WorkspaceHeader({ project, impact, activeView, onViewChange }: { project: ProjectSummary; impact: ImpactAnalysis; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void }) {
+export function WorkspaceHeader({ project, impact, activeView, onViewChange, onOpenNavigation }: { project: ProjectSummary; impact: ImpactAnalysis; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void }) {
   const healthStyle = healthStyles[project.health]
   return (
     <>
       <header className="flex h-[72px] items-center gap-4 border-b border-[#e8e7ed] bg-white px-4 sm:px-7">
-        <button className="rounded-lg p-2 text-slate-500 lg:hidden" aria-label="Открыть навигацию"><Menu size={20} /></button>
+        <button type="button" onClick={onOpenNavigation} className="rounded-lg p-2 text-slate-500 lg:hidden" aria-label="Открыть навигацию"><Menu size={20} /></button>
         <div className="hidden items-center gap-2 text-sm text-[#817d8f] sm:flex">
           <span>Проекты</span><span className="text-[#c2bfca]">/</span><span className="font-medium text-[#353244]">{project.name}</span>
         </div>

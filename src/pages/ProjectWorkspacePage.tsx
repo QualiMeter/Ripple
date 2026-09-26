@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useOutletContext, useParams } from 'react-router-dom'
+import type { AppShellContext } from '../components/layout/AppShell'
 import { ImpactPanel } from '../components/workspace/ImpactPanel'
 import { DependenciesView } from '../components/workspace/DependenciesView'
 import { MetricCards } from '../components/workspace/MetricCards'
@@ -19,6 +20,7 @@ function WorkspaceSkeleton() {
 }
 
 export function ProjectWorkspacePage() {
+  const { openMobileSidebar } = useOutletContext<AppShellContext>()
   const { projectId = 'aurora-launch' } = useParams()
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +62,7 @@ export function ProjectWorkspacePage() {
     setWorkspace(await projectService.deleteTask(projectId, selectedTaskId))
     setSelectedTaskId(null)
   }
-  const handleSchedulePreview = () => projectService.previewScheduleShift(projectId)
+  const handleSchedulePreview = (sourceTaskId: string) => projectService.previewScheduleShift(projectId, sourceTaskId)
   const handleScheduleApply = async (preview: ScheduleShiftPreview) => {
     setWorkspace(await projectService.applyScheduleShift(projectId, preview))
   }
@@ -72,7 +74,7 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} impact={workspace.impact} activeView={activeView} onViewChange={setActiveView} />
+      <WorkspaceHeader project={workspace.project} impact={workspace.impact} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} />
       <div className="space-y-4 p-4 sm:p-7">
         {activeView === 'overview' && <>
           <MetricCards workspace={workspace} />

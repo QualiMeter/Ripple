@@ -2,7 +2,7 @@ import { demoAssignees } from '../mocks/assignees'
 import { demoProjects } from '../mocks/projects'
 import { getMockProjectState } from '../mocks/workspaceStore'
 import { buildRecoveryScenarios } from '../services/recoveryEngine'
-import { buildImpactAnalysis } from '../services/scheduleEngine'
+import { buildCurrentProjectIssues, buildImpactAnalysis } from '../services/scheduleEngine'
 import type { ProjectWorkspace } from '../types/workspace'
 import type { ProjectsApi } from './projects.api'
 
@@ -24,11 +24,12 @@ export const mockProjectsApi: ProjectsApi = {
       state.lastChange,
       state.previousProjectedEndDate,
     )
+    const currentIssues = buildCurrentProjectIssues(tasks, dependencies)
     return {
       project: {
         ...project,
         projectedEndDate: impact.projectedProjectEndDate,
-        health: impact.requiresIntervention || impact.atRiskTaskIds.length > 0 ? 'at-risk' : 'on-track',
+        health: currentIssues.scheduleConflicts.length > 0 || impact.requiresIntervention || impact.atRiskTaskIds.length > 0 ? 'at-risk' : 'on-track',
         progress: tasks.length > 0
           ? Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
           : 0,
@@ -39,6 +40,7 @@ export const mockProjectsApi: ProjectsApi = {
       dependencies,
       assignees: demoAssignees,
       impact,
+      currentIssues,
       recoveryScenarios: buildRecoveryScenarios(impact),
     }
   },

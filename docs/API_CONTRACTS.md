@@ -20,6 +20,7 @@ Returns one `ProjectWorkspace` containing:
 - `dependencies`: finish-to-start edges;
 - `assignees`: people referenced by tasks;
 - `impact`: current impact analysis;
+- `currentIssues`: unresolved schedule conflicts recomputed from the complete current graph;
 - `recoveryScenarios`: deadline recovery candidates.
 
 The combined workspace route is a frontend read-model proposal. The final ASP.NET API may expose separate endpoints; mapping/composition must remain inside `api/` or `services/`.
@@ -43,6 +44,8 @@ The combined workspace route is a frontend read-model proposal. The final ASP.NE
 The frontend then reloads `GET /api/projects/{projectId}/workspace` so the UI receives a single consistent read model containing the saved task, project dates, warnings, and impact analysis. An ordinary mutation never changes any other task dates. Assignee changes do not run schedule analysis.
 
 `ImpactAnalysis.affectedTaskIds` describes the downstream tasks considered by the latest analysis; it is independent from persistent task `riskState`. Conflicting finish-to-start dates are returned as reasons, without silently correcting the schedule.
+
+`CurrentProjectIssues` is a separate computed read model. Its `scheduleConflicts` and `affectedTaskIds` describe unresolved problems in the complete current graph, not only consequences of the latest mutation. Creating an unrelated task can produce an empty last-change impact while existing current issues remain visible.
 
 Each analysis reason is a structured result with `severity` (`info`, `warning`, or `error`), `sourceTaskId`, `affectedTaskIds`, `reason`, `consequence`, and an optional action (`open-task` or `preview-shift`). Status analysis uses the same result model:
 
@@ -73,7 +76,7 @@ Completed tasks represent recorded work: schedule propagation must not move them
 
 ### Explicit schedule shift flow
 
-`POST /api/projects/{projectId}/schedule-shift/preview` performs a non-mutating finish-to-start calculation from the current graph. It returns `ScheduleShiftPreview` with current and proposed dates, calendar-day shifts for each affected task, and current/proposed project finish dates. Weekends and holidays are not special cases. Completed tasks are never proposed for movement.
+`POST /api/projects/{projectId}/schedule-shift/preview` accepts `ScheduleShiftPreviewRequest` with an explicit `sourceTaskId` and performs a non-mutating finish-to-start calculation from that source in the current graph. It must not infer the source from the latest workspace mutation. It returns `ScheduleShiftPreview` with current and proposed dates, calendar-day shifts for each affected task, and current/proposed project finish dates. Weekends and holidays are not special cases. Completed tasks are never proposed for movement.
 
 `POST /api/projects/{projectId}/schedule-shift/apply` accepts the preview and applies it only after user confirmation. The backend should validate that the preview still matches current project state and reject stale input. Canceling the preview performs no write.
 

@@ -1,5 +1,5 @@
 import type { Dependency } from '../types/dependency'
-import type { ImpactAnalysis, ImpactReason, LastChange } from '../types/impact'
+import type { CurrentProjectIssues, ImpactAnalysis, ImpactReason, LastChange } from '../types/impact'
 import type { Project } from '../types/project'
 import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
@@ -93,6 +93,17 @@ export function findScheduleConflicts(
       action: { type: 'preview-shift' as const },
     }]
   })
+}
+
+export function buildCurrentProjectIssues(
+  tasks: ProjectTask[],
+  dependencies: Dependency[],
+): CurrentProjectIssues {
+  const scheduleConflicts = findScheduleConflicts(tasks, dependencies, tasks.map((task) => task.id))
+  return {
+    scheduleConflicts,
+    affectedTaskIds: [...new Set(scheduleConflicts.flatMap((reason) => reason.affectedTaskIds))],
+  }
 }
 
 export function calculateScheduleShiftPreview(

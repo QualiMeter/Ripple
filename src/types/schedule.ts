@@ -15,3 +15,7 @@ export interface ScheduleShiftPreview {
   proposedProjectEndDate: string
   projectEndShiftDays: number
 }
+
+export interface ScheduleShiftPreviewRequest {
+  sourceTaskId: string
+}
