@@ -3,6 +3,8 @@ import { CalendarDays, Link2, Plus, Save, Trash2, TriangleAlert, Unlink, X } fro
 import type { Assignee, ProjectTask, TaskStatus, TaskUpdateRequest } from '../../types/task'
 import type { CreateDependencyRequest, Dependency } from '../../types/dependency'
 import { Avatar } from '../common/Avatar'
+import type { Employee } from '../../types/employee'
+import { EmployeeCreateAction } from '../employees/EmployeeCreateAction'
 
 interface TaskEditPanelProps {
   task: ProjectTask
@@ -14,6 +16,7 @@ interface TaskEditPanelProps {
   onDelete: () => Promise<void>
   onCreateDependency: (request: CreateDependencyRequest) => Promise<void>
   onDeleteDependency: (dependencyId: string) => Promise<void>
+  onCreateEmployee: (name: string) => Promise<Employee>
 }
 
 const statusOptions: Array<{ value: TaskStatus; label: string }> = [
@@ -23,7 +26,7 @@ const statusOptions: Array<{ value: TaskStatus; label: string }> = [
   { value: 'completed', label: 'Закончено' },
 ]
 
-export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, onSave, onDelete, onCreateDependency, onDeleteDependency }: TaskEditPanelProps) {
+export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, onSave, onDelete, onCreateDependency, onDeleteDependency, onCreateEmployee }: TaskEditPanelProps) {
   const [title, setTitle] = useState(task.title)
   const [startDate, setStartDate] = useState(task.startDate)
   const [endDate, setEndDate] = useState(task.endDate)
@@ -55,6 +58,10 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, o
     }
     if (!startDate || !endDate || endDate < startDate) {
       setError('Дата завершения не может быть раньше даты начала.')
+      return
+    }
+    if (!assigneeId) {
+      setError('Выберите ответственного.')
       return
     }
 
@@ -156,11 +163,11 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, onClose, o
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
               <label className="block text-xs font-semibold text-[#615c6d]">
                 Ответственный
-                <select className={inputClassName} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>
-                  {assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name} · {assignee.role}</option>)}
-                </select>
+                {assignees.length > 0 && <select className={inputClassName} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}{assignee.role ? ` · ${assignee.role}` : ''}</option>)}</select>}
               </label>
               {selectedAssignee && <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-[#f7f6f9] p-2.5"><Avatar assignee={selectedAssignee} /><div><p className="text-xs font-semibold text-[#4c4758]">{selectedAssignee.name}</p><p className="text-[10px] text-[#918c9a]">{selectedAssignee.role}</p></div></div>}
+              {assignees.length === 0 && <p className="mt-2 rounded-xl border border-dashed border-[#d9d5e0] bg-[#faf9fb] p-3 text-[11px] text-[#777180]">Добавьте сотрудника, чтобы выбрать ответственного.</p>}
+              <EmployeeCreateAction onCreate={onCreateEmployee} onCreated={(employee) => setAssigneeId(employee.id)} />
               <label className="mt-4 block text-xs font-semibold text-[#615c6d]">
                 Статус
                 <select className={inputClassName} value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)}>

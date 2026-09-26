@@ -34,6 +34,32 @@ interface UpdateProjectRequest {
 
 The name is required and `startDate` must not be later than `targetEndDate`. Changing project dates never changes task dates and never starts schedule shift. The returned workspace contains `projectBoundaryIssues` for tasks that start before the project or end after its target date; these are non-blocking warnings.
 
+## Employees
+
+- `GET /api/projects/{projectId}/employees` returns only employees of the project in the route.
+- `POST /api/projects/{projectId}/employees` creates an employee in that project.
+- `PATCH /api/employees/{employeeId}` updates an employee.
+
+```ts
+interface Employee {
+  id: string
+  projectId: string
+  name: string
+}
+
+interface CreateEmployeeRequest {
+  name: string
+}
+
+interface UpdateEmployeeRequest {
+  name?: string
+}
+```
+
+`name` is the only required business field, is trimmed, and cannot be empty. The frontend read model may also contain optional presentation fields such as `role`, `initials`, and `color`. Employees are project-scoped: a task mutation must reject an unknown employee and an employee whose `projectId` differs from the task's `projectId`. A new project has an empty employee collection; the prepared `aurora-launch` project retains its seeded employees.
+
+Changing only `assigneeId` updates task ownership without changing dates, status, dependencies, or triggering schedule/dependency analysis.
+
 ## Workspace read model
 
 `GET /api/projects/{projectId}/workspace`
@@ -43,7 +69,7 @@ Returns one `ProjectWorkspace` containing:
 - `project`: summary, dates, health, progress;
 - `tasks`: typed task records;
 - `dependencies`: finish-to-start edges;
-- `assignees`: people referenced by tasks;
+- `assignees`: project-scoped employees available for task assignment (the compatibility field name is retained for the current UI);
 - `impact`: current impact analysis;
 - `currentIssues`: unresolved schedule conflicts recomputed from the complete current graph;
 - `projectBoundaryIssues`: tasks outside the editable project date boundaries;

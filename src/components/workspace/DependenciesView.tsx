@@ -34,6 +34,7 @@ interface DependenciesViewProps {
   onTaskSelect: (task: ProjectTask) => void
   onCreateDependency: (request: CreateDependencyRequest) => Promise<void>
   onDeleteDependency: (dependencyId: string) => Promise<void>
+  onTaskCreate: () => void
 }
 
 interface Point {
@@ -155,6 +156,7 @@ export function DependenciesView({
   onTaskSelect,
   onCreateDependency,
   onDeleteDependency,
+  onTaskCreate,
 }: DependenciesViewProps) {
   const projectId = tasks[0]?.projectId ?? 'empty-project'
   const storageKey = `ripple:dependency-layout:${projectId}`
@@ -359,7 +361,7 @@ export function DependenciesView({
   }
 
   if (tasks.length === 0) {
-    return <section className="rounded-2xl border border-[#e5e3eb] bg-white px-6 py-16 text-center shadow-panel"><GitBranch size={24} className="mx-auto text-[#8378dd]" /><p className="mt-3 text-sm font-semibold text-[#4b4658]">Добавьте задачи, чтобы настроить зависимости</p><p className="mt-1 text-[11px] text-[#918d9b]">Граф появится после создания первой задачи.</p></section>
+    return <section className="rounded-2xl border border-[#e5e3eb] bg-white px-6 py-16 text-center shadow-panel"><GitBranch size={24} className="mx-auto text-[#8378dd]" /><p className="mt-3 text-sm font-semibold text-[#4b4658]">Добавьте задачи, чтобы настроить зависимости</p><p className="mt-1 text-[11px] text-[#918d9b]">Граф появится после создания первой задачи.</p><button type="button" onClick={onTaskCreate} className="mt-4 rounded-xl bg-[#6d5dfb] px-4 py-2.5 text-xs font-bold text-white">Добавить задачу</button></section>
   }
 
   return (

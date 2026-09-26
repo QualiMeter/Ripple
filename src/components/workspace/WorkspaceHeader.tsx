@@ -15,12 +15,13 @@ const healthStyles: Record<ProjectSummary['health'], { badge: string; dot: strin
   'off-track': { badge: 'bg-rose-50 text-rose-700', dot: 'bg-rose-500' },
 }
 
-export type WorkspaceView = 'overview' | 'timeline' | 'dependencies' | 'risks'
+export type WorkspaceView = 'overview' | 'timeline' | 'dependencies' | 'employees' | 'risks'
 
 const projectViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: 'overview', label: 'Обзор' },
   { id: 'timeline', label: 'План' },
   { id: 'dependencies', label: 'Зависимости' },
+  { id: 'employees', label: 'Сотрудники' },
   { id: 'risks', label: 'Риски и последствия' },
 ]
 

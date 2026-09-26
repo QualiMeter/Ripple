@@ -3,16 +3,20 @@ import { projectsApi } from '../api/projects.api'
 import { tasksApi } from '../api/tasks.api'
 import { dependenciesApi } from '../api/dependencies.api'
 import { scheduleApi } from '../api/schedule.api'
+import { employeesApi } from '../api/employees.api'
 import type { CreateDependencyRequest } from '../types/dependency'
 import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { ScheduleShiftPreview } from '../types/schedule'
 import type { CreateProjectRequest, Project, ProjectSummary, UpdateProjectRequest } from '../types/project'
 import { validateProjectInput } from './projectValidation'
+import type { CreateEmployeeRequest, Employee, UpdateEmployeeRequest } from '../types/employee'
 
 export interface ProjectService {
   listProjects(): Promise<ProjectSummary[]>
   createProject(request: CreateProjectRequest): Promise<Project>
   updateProject(projectId: string, request: UpdateProjectRequest): Promise<ProjectWorkspace>
+  createEmployee(projectId: string, request: CreateEmployeeRequest): Promise<Employee>
+  updateEmployee(employeeId: string, request: UpdateEmployeeRequest): Promise<Employee>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
   updateTask(projectId: string, taskId: string, update: TaskUpdateRequest): Promise<ProjectWorkspace>
   createTask(projectId: string, request: TaskCreateRequest): Promise<ProjectWorkspace>
@@ -39,6 +43,8 @@ export const projectService: ProjectService = {
     await projectsApi.updateProject(projectId, request)
     return projectsApi.getWorkspace(projectId)
   },
+  createEmployee: (projectId, request) => employeesApi.createEmployee(projectId, request),
+  updateEmployee: (employeeId, request) => employeesApi.updateEmployee(employeeId, request),
   getWorkspace: (projectId) => projectsApi.getWorkspace(projectId),
   async updateTask(projectId, taskId, update) {
     await tasksApi.updateTask(taskId, update)

@@ -2,12 +2,15 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { CalendarDays, Plus, X } from 'lucide-react'
 import type { Assignee, TaskCreateRequest, TaskStatus } from '../../types/task'
 import { Avatar } from '../common/Avatar'
+import type { Employee } from '../../types/employee'
+import { EmployeeCreateAction } from '../employees/EmployeeCreateAction'
 
 interface TaskCreatePanelProps {
   assignees: Assignee[]
   initialStartDate: string
   onClose: () => void
   onCreate: (request: TaskCreateRequest) => Promise<void>
+  onCreateEmployee: (name: string) => Promise<Employee>
 }
 
 const statusOptions: Array<{ value: TaskStatus; label: string }> = [
@@ -17,7 +20,7 @@ const statusOptions: Array<{ value: TaskStatus; label: string }> = [
   { value: 'completed', label: 'Закончено' },
 ]
 
-export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate }: TaskCreatePanelProps) {
+export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate, onCreateEmployee }: TaskCreatePanelProps) {
   const [title, setTitle] = useState('')
   const [startDate, setStartDate] = useState(initialStartDate)
   const [endDate, setEndDate] = useState(initialStartDate)
@@ -94,8 +97,9 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
             </div>
 
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
-              <label className="block text-xs font-semibold text-[#615c6d]">Ответственный<select className={inputClassName} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name} · {assignee.role}</option>)}</select></label>
+              {assignees.length > 0 ? <label className="block text-xs font-semibold text-[#615c6d]">Ответственный<select className={inputClassName} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}{assignee.role ? ` · ${assignee.role}` : ''}</option>)}</select></label> : <div className="rounded-xl border border-dashed border-[#d9d5e0] bg-[#faf9fb] p-3"><p className="text-xs font-semibold text-[#5c5766]">В проекте пока нет сотрудников</p><p className="mt-1 text-[10px] leading-4 text-[#918c9a]">Добавьте сотрудника, чтобы назначить ответственного.</p></div>}
               {selectedAssignee && <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-[#f7f6f9] p-2.5"><Avatar assignee={selectedAssignee} /><div><p className="text-xs font-semibold text-[#4c4758]">{selectedAssignee.name}</p><p className="text-[10px] text-[#918c9a]">{selectedAssignee.role}</p></div></div>}
+              <EmployeeCreateAction onCreate={onCreateEmployee} onCreated={(employee) => setAssigneeId(employee.id)} />
               <label className="mt-4 block text-xs font-semibold text-[#615c6d]">Статус<select className={inputClassName} value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             </div>
 

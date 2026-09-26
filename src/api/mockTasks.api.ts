@@ -7,11 +7,19 @@ import { buildTaskUpdateChange } from '../services/changeContext'
 import { applyExplicitTaskUpdate, findDownstreamTaskIds, inclusiveDuration } from '../services/scheduleEngine'
 import type { ProjectTask } from '../types/task'
 import type { TasksApi } from './tasks.api'
+import { getMockEmployee } from '../mocks/employeeStore'
+
+function validateAssignee(projectId: string, employeeId: string): void {
+  const employee = getMockEmployee(employeeId)
+  if (!employee) throw new Error('Выбранный сотрудник не найден.')
+  if (employee.projectId !== projectId) throw new Error('Нельзя назначить задачу сотруднику другого проекта.')
+}
 
 let taskSequence = 100
 export const mockTasksApi: TasksApi = {
   async createTask(projectId, request) {
     await new Promise((resolve) => setTimeout(resolve, 220))
+    validateAssignee(projectId, request.assigneeId)
     const state = getMockProjectState(projectId)
     const task: ProjectTask = {
       id: `task-${taskSequence++}`,
@@ -47,6 +55,7 @@ export const mockTasksApi: TasksApi = {
     const state = getMockProjectState(projectId)
     const previousTask = state.tasks.find((task) => task.id === taskId)
     if (!previousTask) throw new Error('Задача не найдена')
+    if (update.assigneeId !== undefined) validateAssignee(projectId, update.assigneeId)
     const updatedTask = applyExplicitTaskUpdate(previousTask, update)
     const affectsSchedule = update.startDate !== undefined || update.endDate !== undefined || update.status !== undefined
     const affectedTaskIds = affectsSchedule

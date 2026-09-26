@@ -1,4 +1,4 @@
-import { demoAssignees } from '../mocks/assignees'
+import { listMockEmployees } from '../mocks/employeeStore'
 import { createMockProject, getMockProject, listMockProjects, updateMockProject } from '../mocks/projectStore'
 import { getMockProjectState } from '../mocks/workspaceStore'
 import { analyzeProjectBoundaries } from '../services/projectBoundaryAnalysis'
@@ -41,7 +41,7 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
     },
     tasks,
     dependencies,
-    assignees: demoAssignees,
+    assignees: listMockEmployees(projectId),
     impact,
     currentIssues,
     projectBoundaryIssues: analyzeProjectBoundaries(project, tasks),

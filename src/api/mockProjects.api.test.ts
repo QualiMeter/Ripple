@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { mockDependenciesApi } from './mockDependencies.api'
 import { mockProjectsApi } from './mockProjects.api'
 import { mockTasksApi } from './mockTasks.api'
-
-const assigneeId = 'elena'
+import { mockEmployeesApi } from './mockEmployees.api'
 
 async function createProject(name: string, startDate = '2027-01-05', targetEndDate = '2027-01-20') {
   return mockProjectsApi.createProject({ name, startDate, targetEndDate })
+}
+
+async function createEmployee(projectId: string) {
+  return mockEmployeesApi.createEmployee(projectId, { name: 'Тестовый сотрудник' })
 }
 
 describe('mockProjectsApi', () => {
@@ -21,6 +24,7 @@ describe('mockProjectsApi', () => {
     expect(workspace.project.projectedEndDate).toBe('2027-01-20')
     expect(workspace.tasks).toEqual([])
     expect(workspace.dependencies).toEqual([])
+    expect(workspace.assignees).toEqual([])
     expect(workspace.impact.criticalTaskIds).toEqual([])
     expect(workspace.impact.atRiskTaskIds).toEqual([])
     expect(Number.isFinite(workspace.impact.projectEndChangeDays)).toBe(true)
@@ -39,11 +43,12 @@ describe('mockProjectsApi', () => {
 
   it('редактирование границ проекта не меняет даты задач', async () => {
     const project = await createProject('Проект неизменных задач')
+    const employee = await createEmployee(project.id)
     const task = await mockTasksApi.createTask(project.id, {
       title: 'Зафиксированная задача',
       startDate: '2027-01-07',
       endDate: '2027-01-10',
-      assigneeId,
+      assigneeId: employee.id,
       status: 'not-started',
     })
 
@@ -57,11 +62,12 @@ describe('mockProjectsApi', () => {
 
   it('возвращает warnings для задач вне новых границ проекта', async () => {
     const project = await createProject('Проект с границами', '2027-03-05', '2027-03-10')
+    const employee = await createEmployee(project.id)
     const task = await mockTasksApi.createTask(project.id, {
       title: 'Задача за границами',
       startDate: '2027-03-02',
       endDate: '2027-03-14',
-      assigneeId,
+      assigneeId: employee.id,
       status: 'not-started',
     })
 
@@ -80,9 +86,11 @@ describe('mockProjectsApi', () => {
   it('хранит задачи, зависимости и состояние разных проектов независимо', async () => {
     const first = await createProject('Первый независимый проект', '2027-04-01', '2027-04-30')
     const second = await createProject('Второй независимый проект', '2027-05-01', '2027-05-31')
-    const firstSource = await mockTasksApi.createTask(first.id, { title: 'A', startDate: '2027-04-01', endDate: '2027-04-03', assigneeId, status: 'not-started' })
-    const firstSuccessor = await mockTasksApi.createTask(first.id, { title: 'B', startDate: '2027-04-04', endDate: '2027-04-06', assigneeId, status: 'not-started' })
-    await mockTasksApi.createTask(second.id, { title: 'X', startDate: '2027-05-01', endDate: '2027-05-02', assigneeId, status: 'not-started' })
+    const firstEmployee = await createEmployee(first.id)
+    const secondEmployee = await createEmployee(second.id)
+    const firstSource = await mockTasksApi.createTask(first.id, { title: 'A', startDate: '2027-04-01', endDate: '2027-04-03', assigneeId: firstEmployee.id, status: 'not-started' })
+    const firstSuccessor = await mockTasksApi.createTask(first.id, { title: 'B', startDate: '2027-04-04', endDate: '2027-04-06', assigneeId: firstEmployee.id, status: 'not-started' })
+    await mockTasksApi.createTask(second.id, { title: 'X', startDate: '2027-05-01', endDate: '2027-05-02', assigneeId: secondEmployee.id, status: 'not-started' })
     await mockDependenciesApi.createDependency(first.id, {
       predecessorTaskId: firstSource.id,
       successorTaskId: firstSuccessor.id,

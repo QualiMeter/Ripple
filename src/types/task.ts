@@ -1,13 +1,9 @@
+import type { Employee } from './employee'
+
 export type TaskStatus = 'completed' | 'in-progress' | 'delayed' | 'not-started'
 export type RiskState = 'none' | 'watch' | 'at-risk'
 
-export interface Assignee {
-  id: string
-  name: string
-  role: string
-  initials: string
-  color: string
-}
+export type Assignee = Employee
 
 export interface ProjectTask {
   id: string

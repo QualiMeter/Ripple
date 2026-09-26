@@ -27,8 +27,8 @@ describe('change context', () => {
       assigneeId: 'sam',
     })
     const description = describeLastChange(change, [nextTask], [
-      { id: 'lena', name: 'Лена Ортис', role: 'Разработчик', initials: 'ЛО', color: '' },
-      { id: 'sam', name: 'Сэм Рид', role: 'Разработчик', initials: 'СР', color: '' },
+      { id: 'lena', projectId: 'project', name: 'Лена Ортис', role: 'Разработчик', initials: 'ЛО', color: '' },
+      { id: 'sam', projectId: 'project', name: 'Сэм Рид', role: 'Разработчик', initials: 'СР', color: '' },
     ])
 
     expect(change).toMatchObject({

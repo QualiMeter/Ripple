@@ -17,6 +17,8 @@ import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { CreateDependencyRequest } from '../types/dependency'
 import type { ScheduleShiftPreview } from '../types/schedule'
 import type { CreateProjectRequest } from '../types/project'
+import type { Employee } from '../types/employee'
+import { EmployeesView } from '../components/employees/EmployeesView'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -76,6 +78,16 @@ export function ProjectWorkspacePage() {
   const handleScheduleApply = async (preview: ScheduleShiftPreview) => {
     setWorkspace(await projectService.applyScheduleShift(projectId, preview))
   }
+  const handleEmployeeCreate = async (name: string): Promise<Employee> => {
+    const employee = await projectService.createEmployee(projectId, { name })
+    setWorkspace(await projectService.getWorkspace(projectId))
+    return employee
+  }
+  const handleEmployeeUpdate = async (employeeId: string, name: string): Promise<Employee> => {
+    const employee = await projectService.updateEmployee(employeeId, { name })
+    setWorkspace(await projectService.getWorkspace(projectId))
+    return employee
+  }
   const handleProjectUpdate = async (request: CreateProjectRequest) => {
     const updatedWorkspace = await projectService.updateProject(projectId, request)
     setWorkspace(updatedWorkspace)
@@ -101,11 +113,12 @@ export function ProjectWorkspacePage() {
           </div>
         </>}
         {activeView === 'timeline' && <div className="space-y-4">{timeline}{taskList}</div>}
-        {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} />}
+        {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
+        {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
         {activeView === 'risks' && <><MetricCards workspace={workspace} /><div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">{taskList}{impactPanel}</div></>}
       </div>
-      {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} />}
-      {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} />}
+      {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onCreateEmployee={handleEmployeeCreate} />}
+      {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} onCreateEmployee={handleEmployeeCreate} />}
       {isEditingProject && <ProjectFormPanel title="Редактирование проекта" submitLabel="Сохранить" initialValues={{ name: workspace.project.name, startDate: workspace.project.startDate, targetEndDate: workspace.project.targetEndDate }} onClose={() => setIsEditingProject(false)} onSubmit={handleProjectUpdate} />}
     </div>
   )
