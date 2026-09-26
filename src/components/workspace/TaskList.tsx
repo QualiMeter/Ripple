@@ -10,15 +10,16 @@ interface TaskListProps {
   tasks: ProjectTask[]
   assignees: Assignee[]
   affectedTaskIds: string[]
+  criticalTaskIds: string[]
   onTaskSelect: (task: ProjectTask) => void
   onTaskCreate: () => void
   showAll: boolean
   onShowAllChange: (showAll: boolean) => void
 }
 
-export function TaskList({ tasks, assignees, affectedTaskIds, onTaskSelect, onTaskCreate, showAll, onShowAllChange }: TaskListProps) {
+export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, onTaskSelect, onTaskCreate, showAll, onShowAllChange }: TaskListProps) {
   const affectedTaskIdSet = new Set(affectedTaskIds)
-  const attentionTasks = selectTasksRequiringAttention(tasks, affectedTaskIds)
+  const attentionTasks = selectTasksRequiringAttention(tasks, affectedTaskIds, criticalTaskIds)
   const visibleTasks = showAll ? tasks : attentionTasks
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">

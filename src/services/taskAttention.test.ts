@@ -22,16 +22,16 @@ function task(overrides: Partial<ProjectTask>): ProjectTask {
 }
 
 describe('selectTasksRequiringAttention', () => {
-  it('не включает завершённую задачу, даже если она critical, at-risk и affected', () => {
+  it('не включает завершённую задачу, даже если она вычислена как critical, at-risk и affected', () => {
     const completed = task({
       id: 'completed',
       status: 'completed',
       riskState: 'at-risk',
-      isCritical: true,
+      isCritical: false,
     })
-    const active = task({ id: 'active', isCritical: true })
+    const active = task({ id: 'active', isCritical: false })
 
-    expect(selectTasksRequiringAttention([completed, active], ['completed']).map((item) => item.id))
+    expect(selectTasksRequiringAttention([completed, active], ['completed'], ['completed', 'active']).map((item) => item.id))
       .toEqual(['active'])
   })
 })

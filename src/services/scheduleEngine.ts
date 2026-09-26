@@ -4,6 +4,7 @@ import type { Project } from '../types/project'
 import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 import { analyzeStatusChange } from './statusAnalysis'
+import { analyzeCriticalPath } from './criticalPath'
 
 const dayMs = 86_400_000
 
@@ -195,6 +196,7 @@ export function buildImpactAnalysis(
   ])]
   const deadlineShiftDays = differenceInDays(projectedProjectEndDate, project.targetEndDate)
   const projectEndChangeDays = differenceInDays(projectedProjectEndDate, previousProjectedEndDate)
+  const criticalPath = analyzeCriticalPath(tasks, dependencies)
   return {
     sourceTaskId,
     lastChange: lastChange ?? {
@@ -204,7 +206,7 @@ export function buildImpactAnalysis(
       changes: [],
     },
     affectedTaskIds: activeAffectedTaskIds,
-    criticalTaskIds: tasks.filter((task) => task.isCritical).map((task) => task.id),
+    criticalTaskIds: criticalPath.criticalTaskIds,
     atRiskTaskIds: tasks.filter((task) => task.status !== 'completed' && task.riskState === 'at-risk').map((task) => task.id),
     previousProjectEndDate: previousProjectedEndDate,
     projectedProjectEndDate,

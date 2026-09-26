@@ -45,7 +45,7 @@ This should allow switching from mocks to the real backend without rewriting pag
 - assigneeId
 - status
 - riskState
-- isCritical
+- isCritical (legacy DTO compatibility only; analytics must not read it)
 
 ### Dependency
 - id
@@ -79,6 +79,8 @@ Recommended response model:
 - deadlineShiftDays
 - requiresIntervention
 - optional explanations/reasons
+
+`criticalTaskIds` is computed from current task dates and finish-to-start dependencies with a CPM-style backward pass. The current latest task end is the project end for this analysis. Existing calendar gaps become positive slack; all tasks with `slackDays <= 0` are critical. The mutable legacy `Task.isCritical` field is ignored.
 
 ## Frontend layers
 

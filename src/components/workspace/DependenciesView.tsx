@@ -187,6 +187,7 @@ export function DependenciesView({
   const suppressClickRef = useRef(false)
   const taskById = new Map(tasks.map((task) => [task.id, task]))
   const affectedTaskIdSet = new Set(impact.affectedTaskIds)
+  const criticalTaskIdSet = new Set(impact.criticalTaskIds)
 
   const fitToView = useCallback((nextPositions: Map<string, Point>) => {
     const viewport = viewportRef.current
@@ -377,6 +378,7 @@ export function DependenciesView({
             <span className="flex items-center gap-1.5"><i className="h-0.5 w-5 rounded-full bg-[#e46f42]" /> Цепочка изменения</span>
             <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded border border-[#e7774d] bg-[#fff0e8]" /> Затронутая задача</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#df5e64]" /> Под риском</span>
+            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#6d5dfb]" /> Критическая</span>
           </div>
         </div>
         <div className="relative">
@@ -433,6 +435,7 @@ export function DependenciesView({
                 const assignee = assignees.find((candidate) => candidate.id === task.assigneeId)
                 const affected = affectedTaskIdSet.has(task.id)
                 const atRisk = task.riskState === 'at-risk'
+                const critical = criticalTaskIdSet.has(task.id)
                 const selected = selectedTaskId === task.id
                 return (
                   <button
@@ -450,7 +453,7 @@ export function DependenciesView({
                     {affected && <span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[#e7774d]" aria-hidden="true" />}
                     <div className="flex items-start justify-between gap-2">
                       <p className="line-clamp-2 text-xs font-bold leading-4 text-[#403b4d]">{task.title}</p>
-                      {affected && <span className="shrink-0 rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold text-[#b9542f]">Затронуто</span>}
+                      <span className="flex shrink-0 flex-col items-end gap-1">{affected && <span className="rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold text-[#b9542f]">Затронуто</span>}{critical && <span className="rounded-full bg-[#efedff] px-1.5 py-0.5 text-[8px] font-bold text-[#5e50c5]">Критическая</span>}</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-1.5"><Avatar assignee={assignee} size="sm" /><span className="truncate text-[10px] text-[#6f6a78]">{assignee?.name}</span></div>

@@ -99,6 +99,8 @@ The frontend then reloads `GET /api/projects/{projectId}/workspace` so the UI re
 
 `ImpactAnalysis.affectedTaskIds` describes the downstream tasks considered by the latest analysis; it is independent from persistent task `riskState`. Conflicting finish-to-start dates are returned as reasons, without silently correcting the schedule.
 
+`ImpactAnalysis.criticalTaskIds` is also computed, not persisted. The mock engine performs a calendar-day CPM-style backward calculation from the latest current task end, preserves task durations, and accounts for existing gaps before successors. Tasks with zero or negative slack are critical. The legacy `ProjectTask.isCritical` field may remain in transport DTOs for compatibility but must not affect analysis or UI decisions.
+
 `CurrentProjectIssues` is a separate computed read model. Its `scheduleConflicts` and `affectedTaskIds` describe unresolved problems in the complete current graph, not only consequences of the latest mutation. Creating an unrelated task can produce an empty last-change impact while existing current issues remain visible.
 
 Each analysis reason is a structured result with `severity` (`info`, `warning`, or `error`), `sourceTaskId`, `affectedTaskIds`, `reason`, `consequence`, and an optional action (`open-task` or `preview-shift`). Status analysis uses the same result model:
