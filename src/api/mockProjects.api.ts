@@ -2,6 +2,7 @@ import { listMockEmployees } from '../mocks/employeeStore'
 import { createMockProject, getMockProject, listMockProjects, updateMockProject } from '../mocks/projectStore'
 import { getMockProjectState } from '../mocks/workspaceStore'
 import { analyzeProjectBoundaries } from '../services/projectBoundaryAnalysis'
+import { calculateProjectProgress } from '../services/projectProgress'
 import { validateProjectInput } from '../services/projectValidation'
 import { buildRecoveryScenarios } from '../services/recoveryEngine'
 import { buildCurrentProjectIssues, buildImpactAnalysis } from '../services/scheduleEngine'
@@ -33,9 +34,7 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
       projectedEndDate: impact.projectedProjectEndDate,
       ownerName: 'Майя Чен',
       health: currentIssues.scheduleConflicts.length > 0 || impact.requiresIntervention || impact.atRiskTaskIds.length > 0 ? 'at-risk' : 'on-track',
-      progress: tasks.length > 0
-        ? Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
-        : 0,
+      progress: calculateProjectProgress(completedTaskCount, tasks.length),
       taskCount: tasks.length,
       completedTaskCount,
     },

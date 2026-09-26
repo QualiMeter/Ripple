@@ -28,8 +28,8 @@ export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, o
         <button type="button" onClick={onTaskCreate} className="flex items-center gap-1.5 rounded-lg bg-[#25223b] px-3 py-2 text-[11px] font-semibold text-white"><Plus size={14} /> Добавить задачу</button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[700px] border-collapse text-left">
-          <thead><tr className="bg-[#faf9fb] text-[10px] font-bold uppercase tracking-[.08em] text-[#9b97a4]"><th className="px-5 py-2.5">Задача</th><th className="px-3 py-2.5">Ответственный</th><th className="px-3 py-2.5">Статус</th><th className="px-3 py-2.5">Срок</th><th className="px-3 py-2.5">Прогресс</th><th className="w-10 px-3 py-2.5" /></tr></thead>
+        <table className="w-full min-w-[620px] border-collapse text-left">
+          <thead><tr className="bg-[#faf9fb] text-[10px] font-bold uppercase tracking-[.08em] text-[#9b97a4]"><th className="px-5 py-2.5">Задача</th><th className="px-3 py-2.5">Ответственный</th><th className="px-3 py-2.5">Статус</th><th className="px-3 py-2.5">Срок</th><th className="w-10 px-3 py-2.5" /></tr></thead>
           <tbody>
             {visibleTasks.map((task) => {
               const assignee = assignees.find((person) => person.id === task.assigneeId)
@@ -40,7 +40,6 @@ export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, o
                   <td className="px-3 py-3"><div className="flex items-center gap-2"><Avatar assignee={assignee} size="sm" /><span className="text-[11px] text-[#6f6a79]">{assignee?.name}</span></div></td>
                   <td className="px-3 py-3"><StatusBadge status={task.status} risk={task.riskState} /></td>
                   <td className={`px-3 py-3 text-[11px] font-semibold ${task.riskState === 'at-risk' ? 'text-[#c15a37]' : 'text-[#696474]'}`}>{formatShortDate(task.endDate)}</td>
-                  <td className="px-3 py-3"><div className="flex items-center gap-2"><div className="h-1.5 w-16 overflow-hidden rounded-full bg-[#eceaf0]"><div className={`h-full rounded-full ${task.riskState === 'at-risk' ? 'bg-[#e47a52]' : 'bg-[#6e60e7]'}`} style={{ width: `${task.progress}%` }} /></div><span className="text-[10px] font-semibold text-[#8f8a98]">{task.progress}%</span></div></td>
                   <td className="px-3 py-3"><button type="button" onClick={(event) => { event.stopPropagation(); onTaskSelect(task) }} className="rounded-lg p-1.5 text-[#aaa6b2] opacity-40 group-hover:opacity-100 group-focus-within:opacity-100" aria-label={`Открыть задачу «${task.title}»`}><MoreHorizontal size={16} /></button></td>
                 </tr>
               )

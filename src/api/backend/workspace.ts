@@ -1,5 +1,6 @@
 import { apiRequest } from '../client'
 import { analyzeProjectBoundaries } from '../../services/projectBoundaryAnalysis'
+import { calculateProjectProgress } from '../../services/projectProgress'
 import { buildCurrentProjectIssues, buildImpactAnalysis, differenceInDays } from '../../services/scheduleEngine'
 import type { ProjectSummary } from '../../types/project'
 import type { ProjectWorkspace } from '../../types/workspace'
@@ -55,7 +56,7 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
     projectedEndDate: currentEnd,
     ownerName: users.get(project.creatorId) ?? 'Менеджер',
     health: currentIssues.scheduleConflicts.length > 0 || impact.atRiskTaskIds.length > 0 || impact.deadlineShiftDays > 0 ? 'at-risk' : 'on-track',
-    progress: tasks.length === 0 ? 0 : Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length),
+    progress: calculateProjectProgress(completedTaskCount, tasks.length),
     taskCount: tasks.length,
     completedTaskCount,
   }

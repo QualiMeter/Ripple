@@ -21,12 +21,12 @@ const workspace = {
 } satisfies ProjectWorkspace
 
 describe('MetricCards', () => {
-  it('shows honest completion count without a guessed project percentage', () => {
+  it('shows project progress based on equally weighted completed tasks', () => {
     const markup = renderToStaticMarkup(<MetricCards workspace={workspace} />)
-    expect(markup).not.toContain('Общий прогресс')
-    expect(markup).not.toContain('25%')
-    expect(markup).toContain('Завершено:')
-    expect(markup).toContain('2 из 8 задач')
+    expect(markup).toContain('Общий прогресс')
+    expect(markup).toContain('25%')
+    expect(markup).toContain('2 из 8 задач завершено')
+    expect(markup).toContain('width:25%')
   })
 
   it('uses the computed critical task metric wording', () => {

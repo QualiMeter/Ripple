@@ -1,4 +1,4 @@
-import { CalendarDays, CircleAlert, Route } from 'lucide-react'
+import { CalendarDays, CheckCircle2, CircleAlert, Route } from 'lucide-react'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { calendarDaysBetween, formatShortDate } from '../../utils/date'
 import { formatTaskCount } from '../../utils/plural'
@@ -10,14 +10,15 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
   }
   const plannedDays = calendarDaysBetween(project.startDate, project.targetEndDate) + 1
   const cards = [
+    { icon: CheckCircle2, label: 'Общий прогресс', value: `${project.progress}%`, detail: `${project.completedTaskCount} из ${formatTaskCount(project.taskCount)} завершено`, accent: 'text-emerald-600', progress: project.progress },
     { icon: CalendarDays, label: 'Плановый срок', value: formatShortDate(project.targetEndDate), detail: `${plannedDays} календарных дней по плану`, accent: 'text-[#6d5dfb]' },
     { icon: CircleAlert, label: 'Прогноз завершения', value: formatShortDate(impact.projectedProjectEndDate), detail: impact.deadlineShiftDays > 0 ? `На ${impact.deadlineShiftDays} дн. позже плана` : impact.deadlineShiftDays < 0 ? `На ${Math.abs(impact.deadlineShiftDays)} дн. раньше плана` : 'В пределах плана', accent: 'text-[#d9653f]', danger: impact.requiresIntervention },
     { icon: Route, label: 'Критические задачи', value: formatTaskCount(impact.criticalTaskIds.length), detail: 'Задачи без запаса по срокам', accent: 'text-[#4e46b5]' },
   ]
   return (
     <div className="space-y-2">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {cards.map(({ icon: Icon, label, value, detail, accent, danger }) => (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map(({ icon: Icon, label, value, detail, accent, danger, progress }) => (
           <section key={label} className={`rounded-2xl border bg-white p-4 shadow-panel ${danger ? 'border-[#f2c8b9]' : 'border-[#e7e5ec]'}`}>
           <div className="mb-3 flex items-center justify-between">
             <span className={`grid h-8 w-8 place-items-center rounded-lg bg-[#f4f3f8] ${accent}`}><Icon size={17} strokeWidth={2} /></span>
@@ -28,11 +29,11 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
             <p className="text-[22px] font-bold tracking-[-.035em] text-[#29263b]">{value}</p>
           </div>
           <p className={`mt-1 text-[11px] ${danger ? 'font-medium text-[#c55b37]' : 'text-[#9692a0]'}`}>{detail}</p>
+          {progress !== undefined && <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ecebf1]" aria-label={`Прогресс проекта: ${progress}%`}><div className="h-full rounded-full bg-[#42a782]" style={{ width: `${progress}%` }} /></div>}
           </section>
         ))}
       </div>
       <div className="flex flex-wrap gap-2 text-[11px]">
-        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-800">Завершено: <strong>{project.completedTaskCount} из {formatTaskCount(project.taskCount)}</strong></span>
         <span className="rounded-full border border-[#e4e1ea] bg-white px-3 py-1.5 text-[#716c7b]">Затронуто последним изменением: <strong className="text-[#403a50]">{impact.affectedTaskIds.length}</strong></span>
         <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800">Текущие конфликты расписания: <strong>{workspace.currentIssues.scheduleConflicts.length}</strong></span>
       </div>

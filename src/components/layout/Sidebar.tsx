@@ -38,7 +38,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, mobile = fa
         {mobile && <button type="button" onClick={onClose} className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Закрыть навигацию"><X size={19} /></button>}
       </div>
 
-      <div className="mx-3 mt-5 rounded-2xl border border-white/[.08] bg-white/[.045] p-3">
+      <div className="mx-3 mt-5 flex min-h-0 flex-1 flex-col rounded-2xl border border-white/[.08] bg-white/[.045] p-3">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <span className="h-2 w-2 rounded-full bg-[#8b7fff]" />
@@ -46,7 +46,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, mobile = fa
           </div>
           <button type="button" onClick={onCreateProject} className="grid h-7 w-7 place-items-center rounded-lg text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Создать проект"><Plus size={15} /></button>
         </div>
-        <div className="max-h-[260px] space-y-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain">
           {loading && <div className="h-14 animate-pulse rounded-xl bg-white/[.06]" aria-label="Загрузка проектов" />}
           {!loading && error && <p className="rounded-xl bg-rose-400/[.08] p-3 text-[11px] leading-4 text-rose-200">{error}</p>}
           {!loading && projects.length === 0 && <p className="rounded-xl bg-white/[.04] p-3 text-[11px] leading-4 text-[#9691a6]">Проектов пока нет. Создайте первый проект.</p>}
@@ -62,7 +62,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, mobile = fa
         </div>
       </div>
 
-      <div className="mt-auto px-3 pb-4">
+      <div className="mt-4 px-3 pb-4">
         <div className="mb-3 rounded-2xl bg-gradient-to-br from-[#292545] to-[#211e39] p-4">
           <Sparkles size={17} className="mb-2.5 text-[#f1b971]" />
           <p className="text-xs font-semibold">Анализ влияния активен</p>

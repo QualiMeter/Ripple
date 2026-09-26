@@ -55,9 +55,7 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
                   </div>
                 </button>
                 <div className="relative min-h-[48px] bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
-                  <button type="button" onClick={() => onTaskSelect(task)} className={`absolute top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-md text-left ${affected ? 'impact-pulse bg-[#e7774d]' : atRisk ? 'bg-[#df5e64]' : task.status === 'completed' ? 'bg-[#55ad89]' : 'bg-[#7768ed]'}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`}>
-                    <div className="h-full bg-white/20" style={{ width: `${task.progress}%` }} />
-                  </button>
+                  <button type="button" onClick={() => onTaskSelect(task)} className={`absolute top-1/2 h-6 -translate-y-1/2 rounded-md text-left ${affected ? 'impact-pulse bg-[#e7774d]' : atRisk || task.status === 'delayed' ? 'bg-[#df5e64]' : task.status === 'completed' ? 'bg-[#55ad89]' : task.status === 'in-progress' ? 'bg-[#7768ed]' : 'bg-[#aaa5b6]'}`} style={barPosition(task, rangeStart, rangeEnd)} aria-label={`Редактировать задачу «${task.title}»`} />
                   {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)} дн.</span>}
                 </div>
               </div>
@@ -69,6 +67,7 @@ export function Timeline({ project, tasks, assignees, impact, onTaskSelect }: { 
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#e7774d]" /> Затронуто</span>
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#df5e64]" /> Под риском</span>
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#7768ed]" /> В работе</span>
+        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#aaa5b6]" /> Не в работе</span>
         <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#55ad89]" /> Закончено</span>
       </div>
       </>}
