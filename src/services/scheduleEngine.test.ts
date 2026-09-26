@@ -97,4 +97,42 @@ describe('recalculateSchedule', () => {
     expect(independent).toMatchObject({ startDate: '2026-01-06', endDate: '2026-01-08', riskState: 'none' })
     expect(result.affectedTaskIds).not.toContain('independent')
   })
+
+  it('не переносит завершённую downstream-задачу и снимает с неё текущий риск', () => {
+    const completedBaseline = {
+      ...baselineTasks.find((item) => item.id === 'frontend')!,
+      status: 'completed' as const,
+      progress: 100,
+    }
+    const baseline = baselineTasks.map((item) => item.id === completedBaseline.id ? completedBaseline : item)
+    const previousTasks = baseline.map((item) => item.id === 'frontend' ? {
+      ...item,
+      startDate: '2026-01-10',
+      endDate: '2026-01-11',
+      riskState: 'at-risk' as const,
+    } : item)
+    const result = recalculateSchedule(
+      baseline,
+      dependencies,
+      {
+        source: { endDate: '2026-01-09' },
+        frontend: {
+          startDate: '2026-01-10',
+          endDate: '2026-01-11',
+          durationDays: 2,
+          status: 'completed',
+        },
+      },
+      'source',
+      previousTasks,
+    )
+
+    expect(result.tasks.find((item) => item.id === 'frontend')).toMatchObject({
+      startDate: '2026-01-10',
+      endDate: '2026-01-11',
+      status: 'completed',
+      riskState: 'none',
+    })
+    expect(result.affectedTaskIds).not.toContain('frontend')
+  })
 })

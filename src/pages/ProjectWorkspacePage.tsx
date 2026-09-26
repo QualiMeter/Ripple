@@ -5,11 +5,12 @@ import { DependenciesView } from '../components/workspace/DependenciesView'
 import { MetricCards } from '../components/workspace/MetricCards'
 import { TaskList } from '../components/workspace/TaskList'
 import { TaskEditPanel } from '../components/workspace/TaskEditPanel'
+import { TaskCreatePanel } from '../components/workspace/TaskCreatePanel'
 import { Timeline } from '../components/workspace/Timeline'
 import { WorkspaceHeader, type WorkspaceView } from '../components/workspace/WorkspaceHeader'
 import { projectService } from '../services/projectService'
 import type { ProjectWorkspace } from '../types/workspace'
-import type { TaskUpdateRequest } from '../types/task'
+import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { CreateDependencyRequest } from '../types/dependency'
 
 function WorkspaceSkeleton() {
@@ -21,6 +22,8 @@ export function ProjectWorkspacePage() {
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [isCreatingTask, setIsCreatingTask] = useState(false)
+  const [showAllTasks, setShowAllTasks] = useState(false)
   const [activeView, setActiveView] = useState<WorkspaceView>('overview')
 
   useEffect(() => {
@@ -46,8 +49,18 @@ export function ProjectWorkspacePage() {
   const handleDependencyDelete = async (dependencyId: string) => {
     setWorkspace(await projectService.deleteDependency(projectId, dependencyId))
   }
+  const handleTaskCreate = async (request: TaskCreateRequest) => {
+    setWorkspace(await projectService.createTask(projectId, request))
+    setShowAllTasks(true)
+    setIsCreatingTask(false)
+  }
+  const handleTaskDelete = async () => {
+    if (!selectedTaskId) return
+    setWorkspace(await projectService.deleteTask(projectId, selectedTaskId))
+    setSelectedTaskId(null)
+  }
 
-  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
+  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} onTaskSelect={(task) => setSelectedTaskId(task.id)} onTaskCreate={() => setIsCreatingTask(true)} showAll={showAllTasks} onShowAllChange={setShowAllTasks} />
   const timeline = <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
 
   return (
@@ -65,7 +78,8 @@ export function ProjectWorkspacePage() {
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} />}
         {activeView === 'risks' && <><MetricCards workspace={workspace} /><div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">{taskList}<ImpactPanel workspace={workspace} /></div></>}
       </div>
-      {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} />}
+      {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} />}
+      {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} />}
     </div>
   )
 }

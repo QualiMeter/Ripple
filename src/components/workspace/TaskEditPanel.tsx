@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, Clock3, Save, X } from 'lucide-react'
+import { CalendarDays, Clock3, Save, Trash2, TriangleAlert, X } from 'lucide-react'
 import type { Assignee, ProjectTask, TaskStatus, TaskUpdateRequest } from '../../types/task'
 import { calendarDaysBetween } from '../../utils/date'
 import { Avatar } from '../common/Avatar'
@@ -9,6 +9,7 @@ interface TaskEditPanelProps {
   assignees: Assignee[]
   onClose: () => void
   onSave: (update: TaskUpdateRequest) => Promise<void>
+  onDelete: () => Promise<void>
 }
 
 const statusOptions: Array<{ value: TaskStatus; label: string }> = [
@@ -24,23 +25,26 @@ function endDateFromDuration(startDate: string, durationDays: number): string {
   return new Date(Date.parse(startDate) + (Math.max(1, durationDays) - 1) * dayMs).toISOString().slice(0, 10)
 }
 
-export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPanelProps) {
+export function TaskEditPanel({ task, assignees, onClose, onSave, onDelete }: TaskEditPanelProps) {
   const [title, setTitle] = useState(task.title)
   const [startDate, setStartDate] = useState(task.startDate)
   const [endDate, setEndDate] = useState(task.endDate)
   const [durationDays, setDurationDays] = useState(calendarDaysBetween(task.startDate, task.endDate) + 1)
+  const [endDateEdit, setEndDateEdit] = useState<'end' | 'duration' | null>(null)
   const [assigneeId, setAssigneeId] = useState(task.assigneeId)
   const [status, setStatus] = useState<TaskStatus>(task.status)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isSaving) onClose()
+      if (event.key === 'Escape' && !isSaving && !isDeleting) onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isSaving, onClose])
+  }, [isDeleting, isSaving, onClose])
 
   const handleStartDateChange = (value: string) => {
     setStartDate(value)
@@ -48,6 +52,7 @@ export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPane
   }
 
   const handleEndDateChange = (value: string) => {
+    setEndDateEdit('end')
     setEndDate(value)
     if (value && startDate && value >= startDate) {
       setDurationDays(calendarDaysBetween(startDate, value) + 1)
@@ -55,6 +60,7 @@ export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPane
   }
 
   const handleDurationChange = (value: number) => {
+    setEndDateEdit('duration')
     const normalizedDuration = Math.max(1, value || 1)
     setDurationDays(normalizedDuration)
     if (startDate) setEndDate(endDateFromDuration(startDate, normalizedDuration))
@@ -77,10 +83,8 @@ export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPane
       const update: TaskUpdateRequest = {}
       if (title.trim() !== task.title) update.title = title.trim()
       if (startDate !== task.startDate) update.startDate = startDate
-      if (endDate !== task.endDate) {
-        update.endDate = endDate
-        update.durationDays = durationDays
-      }
+      if (endDateEdit === 'duration' && durationDays !== task.durationDays) update.durationDays = durationDays
+      else if (endDateEdit === 'end' && endDate !== task.endDate) update.endDate = endDate
       if (assigneeId !== task.assigneeId) update.assigneeId = assigneeId
       if (status !== task.status) update.status = status
       await onSave(update)
@@ -90,18 +94,29 @@ export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPane
     }
   }
 
+  const handleDelete = async () => {
+    setError(null)
+    setIsDeleting(true)
+    try {
+      await onDelete()
+    } catch {
+      setError('Не удалось удалить задачу. Попробуйте ещё раз.')
+      setIsDeleting(false)
+    }
+  }
+
   const selectedAssignee = assignees.find((assignee) => assignee.id === assigneeId)
   const inputClassName = 'mt-1.5 w-full rounded-xl border border-[#dedce6] bg-white px-3 py-2.5 text-sm text-[#363244] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10'
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#17152b]/25 backdrop-blur-[1px]" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !isSaving && onClose()}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#17152b]/25 backdrop-blur-[1px]" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !isSaving && !isDeleting && onClose()}>
       <aside className="flex h-full w-full max-w-[440px] flex-col border-l border-[#e2dfe8] bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.14)]" role="dialog" aria-modal="true" aria-labelledby="task-edit-title">
         <div className="flex items-start justify-between border-b border-[#e5e3ea] bg-white px-6 py-5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#8d8898]">Редактирование задачи</p>
             <h2 id="task-edit-title" className="mt-1 text-lg font-bold tracking-[-.025em] text-[#2d293f]">Параметры и сроки</h2>
           </div>
-          <button type="button" onClick={onClose} disabled={isSaving} className="grid h-9 w-9 place-items-center rounded-xl text-[#777281] transition hover:bg-[#f2f0f5] disabled:opacity-50" aria-label="Закрыть панель"><X size={19} /></button>
+          <button type="button" onClick={onClose} disabled={isSaving || isDeleting} className="grid h-9 w-9 place-items-center rounded-xl text-[#777281] transition hover:bg-[#f2f0f5] disabled:opacity-50" aria-label="Закрыть панель"><X size={19} /></button>
         </div>
 
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
@@ -143,11 +158,22 @@ export function TaskEditPanel({ task, assignees, onClose, onSave }: TaskEditPane
             </div>
 
             {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700" role="alert">{error}</p>}
+
+            <div className="rounded-2xl border border-rose-100 bg-white p-4 shadow-panel">
+              {confirmDelete ? (
+                <div>
+                  <div className="flex items-start gap-2.5"><TriangleAlert size={17} className="mt-0.5 shrink-0 text-rose-600" /><div><p className="text-xs font-bold text-rose-800">Удалить задачу?</p><p className="mt-1 text-[11px] leading-4 text-[#817b89]">Также будут удалены все связанные зависимости. Это действие нельзя отменить в текущей сессии.</p></div></div>
+                  <div className="mt-3 flex gap-2"><button type="button" disabled={isDeleting} onClick={() => setConfirmDelete(false)} className="flex-1 rounded-xl border border-[#dedbe4] px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isDeleting} onClick={handleDelete} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><Trash2 size={14} />{isDeleting ? 'Удаление…' : 'Удалить'}</button></div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 text-xs font-semibold text-rose-600 hover:text-rose-700"><Trash2 size={15} /> Удалить задачу</button>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-3 border-t border-[#e2dfe8] bg-white p-4">
-            <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 rounded-xl border border-[#dcd9e3] px-4 py-2.5 text-sm font-semibold text-[#5f5a69] transition hover:bg-[#f6f5f8] disabled:opacity-50">Отмена</button>
-            <button type="submit" disabled={isSaving} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#6d5dfb] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(109,93,251,.2)] transition hover:bg-[#5f4fe8] disabled:cursor-wait disabled:opacity-65"><Save size={16} />{isSaving ? 'Сохранение…' : 'Сохранить'}</button>
+            <button type="button" onClick={onClose} disabled={isSaving || isDeleting} className="flex-1 rounded-xl border border-[#dcd9e3] px-4 py-2.5 text-sm font-semibold text-[#5f5a69] transition hover:bg-[#f6f5f8] disabled:opacity-50">Отмена</button>
+            <button type="submit" disabled={isSaving || isDeleting} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#6d5dfb] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(109,93,251,.2)] transition hover:bg-[#5f4fe8] disabled:cursor-wait disabled:opacity-65"><Save size={16} />{isSaving ? 'Сохранение…' : 'Сохранить'}</button>
           </div>
         </form>
       </aside>

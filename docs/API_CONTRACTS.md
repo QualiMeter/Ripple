@@ -27,6 +27,7 @@ The combined workspace route is a frontend read-model proposal. The final ASP.NE
 ## Draft mutation and analysis routes
 
 - `PATCH /api/tasks/{taskId}`
+- `POST /api/projects/{projectId}/tasks`
 - `DELETE /api/tasks/{taskId}`
 - `POST /api/projects/{projectId}/dependencies`
 - `DELETE /api/dependencies/{dependencyId}`
@@ -40,6 +41,18 @@ The combined workspace route is a frontend read-model proposal. The final ASP.NE
 The frontend then reloads `GET /api/projects/{projectId}/workspace` so the UI receives a single consistent read model containing recalculated tasks, project dates, and impact analysis. In mock mode the same sequence is preserved: `TasksApi` updates the in-memory store, `scheduleEngine` propagates finish-to-start shifts, and `ProjectsApi` rebuilds the workspace. The React layer does not invoke schedule calculations directly.
 
 Mock schedule recalculation keeps immutable planned dates (`plannedStartDate` and `plannedEndDate`) separate from user overrides and derived dates. Every update rebuilds the dependency graph from that baseline, allowing both delay propagation and recovery. `ImpactAnalysis.affectedTaskIds` describes tasks whose dates changed because of the latest update; it is independent from persistent task `riskState`.
+
+`POST /api/projects/{projectId}/tasks` accepts `TaskCreateRequest` with `title`, `startDate`, `endDate`, optional `durationDays`, `assigneeId`, and `status`. It returns the created task. The entered dates become both its current and immutable planned dates.
+
+`DELETE /api/tasks/{taskId}` returns `204 No Content`. The backend must remove every dependency whose predecessor or successor is the deleted task before recalculating and returning the next workspace read model.
+
+Completed tasks represent recorded work: schedule propagation must not move them, and they cannot be returned as current `at-risk` tasks.
+
+### Last change context
+
+`ImpactAnalysis.lastChange` is a typed discriminated union. It distinguishes task field updates, task creation/deletion, and dependency creation/deletion. Task updates contain only fields whose values actually changed, including dates, duration, status, and assignee. This context describes the user action; `affectedTaskIds`, deadline fields, and reasons describe its calculated consequences separately.
+
+`previousProjectEndDate` and `projectEndChangeDays` compare the forecast immediately before and after the latest mutation. `deadlineShiftDays` remains the current deviation from the project's target date; these values must not be conflated when a non-schedule edit occurs on an already delayed project.
 
 ### Dependency mutation flow
 

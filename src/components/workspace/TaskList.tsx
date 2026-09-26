@@ -1,27 +1,36 @@
 import { ArrowUpRight, MoreHorizontal, Plus } from 'lucide-react'
+import { selectTasksRequiringAttention } from '../../services/taskAttention'
 import type { Assignee, ProjectTask } from '../../types/task'
 import { formatShortDate } from '../../utils/date'
 import { formatTaskCount } from '../../utils/plural'
 import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
 
-export function TaskList({ tasks, assignees, affectedTaskIds, onTaskSelect }: { tasks: ProjectTask[]; assignees: Assignee[]; affectedTaskIds: string[]; onTaskSelect: (task: ProjectTask) => void }) {
+interface TaskListProps {
+  tasks: ProjectTask[]
+  assignees: Assignee[]
+  affectedTaskIds: string[]
+  onTaskSelect: (task: ProjectTask) => void
+  onTaskCreate: () => void
+  showAll: boolean
+  onShowAllChange: (showAll: boolean) => void
+}
+
+export function TaskList({ tasks, assignees, affectedTaskIds, onTaskSelect, onTaskCreate, showAll, onShowAllChange }: TaskListProps) {
   const affectedTaskIdSet = new Set(affectedTaskIds)
-  const priorityTasks = tasks
-    .filter((task) => task.isCritical || task.riskState !== 'none' || affectedTaskIdSet.has(task.id))
-    .sort((left, right) => Number(affectedTaskIdSet.has(right.id)) - Number(affectedTaskIdSet.has(left.id)))
-    .slice(0, 5)
+  const attentionTasks = selectTasksRequiringAttention(tasks, affectedTaskIds)
+  const visibleTasks = showAll ? tasks : attentionTasks
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
       <div className="flex items-center justify-between border-b border-[#ebe9ef] px-5 py-4">
-        <div><h2 className="text-sm font-bold text-[#302d40]">Приоритетные задачи</h2><p className="mt-0.5 text-[11px] text-[#918d9b]">Критические и недавно изменённые работы</p></div>
-        <button className="flex items-center gap-1.5 rounded-lg bg-[#25223b] px-3 py-2 text-[11px] font-semibold text-white"><Plus size={14} /> Добавить задачу</button>
+        <div><h2 className="text-sm font-bold text-[#302d40]">{showAll ? 'Все задачи' : 'Требуют внимания'}</h2><p className="mt-0.5 text-[11px] text-[#918d9b]">{showAll ? 'Полный список задач проекта' : 'Незавершённые критические, рискованные и затронутые задачи'}</p></div>
+        <button type="button" onClick={onTaskCreate} className="flex items-center gap-1.5 rounded-lg bg-[#25223b] px-3 py-2 text-[11px] font-semibold text-white"><Plus size={14} /> Добавить задачу</button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px] border-collapse text-left">
           <thead><tr className="bg-[#faf9fb] text-[10px] font-bold uppercase tracking-[.08em] text-[#9b97a4]"><th className="px-5 py-2.5">Задача</th><th className="px-3 py-2.5">Ответственный</th><th className="px-3 py-2.5">Статус</th><th className="px-3 py-2.5">Срок</th><th className="px-3 py-2.5">Прогресс</th><th className="w-10 px-3 py-2.5" /></tr></thead>
           <tbody>
-            {priorityTasks.map((task) => {
+            {visibleTasks.map((task) => {
               const assignee = assignees.find((person) => person.id === task.assigneeId)
               const affected = affectedTaskIdSet.has(task.id)
               return (
@@ -37,8 +46,9 @@ export function TaskList({ tasks, assignees, affectedTaskIds, onTaskSelect }: { 
             })}
           </tbody>
         </table>
+        {visibleTasks.length === 0 && <p className="px-5 py-8 text-center text-xs text-[#8f8a98]">Нет незавершённых задач, требующих внимания.</p>}
       </div>
-      <button className="flex w-full items-center justify-center gap-1.5 border-t border-[#ebe9ef] py-3 text-[11px] font-semibold text-[#6658d7] hover:bg-[#faf9ff]">Показать все {formatTaskCount(tasks.length)} <ArrowUpRight size={13} /></button>
+      <button type="button" onClick={() => onShowAllChange(!showAll)} className="flex w-full items-center justify-center gap-1.5 border-t border-[#ebe9ef] py-3 text-[11px] font-semibold text-[#6658d7] hover:bg-[#faf9ff]">{showAll ? 'Показать только требующие внимания' : `Показать все ${formatTaskCount(tasks.length)}`} <ArrowUpRight size={13} className={showAll ? 'rotate-180' : ''} /></button>
     </section>
   )
 }

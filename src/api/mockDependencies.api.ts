@@ -26,6 +26,8 @@ function recalculateAfterDependencyChange(
   predecessorTaskId: string,
   previousDependencies: Dependency[],
   nextDependencies: Dependency[],
+  dependency: Dependency,
+  changeKind: 'dependency-created' | 'dependency-deleted',
 ): void {
   const state = getMockProjectState(projectId)
   const result = recalculateSchedule(
@@ -42,6 +44,12 @@ function recalculateAfterDependencyChange(
     result.tasks,
     predecessorTaskId,
     result.affectedTaskIds,
+    {
+      kind: changeKind,
+      dependencyId: dependency.id,
+      predecessorTaskId: dependency.predecessorTaskId,
+      successorTaskId: dependency.successorTaskId,
+    },
   )
 }
 
@@ -55,7 +63,14 @@ export const mockDependenciesApi: DependenciesApi = {
       ...request,
     }
     const nextDependencies = addDependencyToGraph(state.dependencies, dependency)
-    recalculateAfterDependencyChange(projectId, request.predecessorTaskId, state.dependencies, nextDependencies)
+    recalculateAfterDependencyChange(
+      projectId,
+      request.predecessorTaskId,
+      state.dependencies,
+      nextDependencies,
+      dependency,
+      'dependency-created',
+    )
     return dependency
   },
   async deleteDependency(dependencyId) {
@@ -71,6 +86,8 @@ export const mockDependenciesApi: DependenciesApi = {
       dependency.predecessorTaskId,
       state.dependencies,
       nextDependencies,
+      dependency,
+      'dependency-deleted',
     )
   },
 }

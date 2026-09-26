@@ -21,6 +21,8 @@ export const mockProjectsApi: ProjectsApi = {
       dependencies,
       state.lastChangedTaskId,
       state.affectedTaskIds ?? undefined,
+      state.lastChange,
+      state.previousProjectedEndDate,
     )
     return {
       project: {

@@ -1,5 +1,5 @@
 import type { Dependency } from '../types/dependency'
-import type { ImpactAnalysis } from '../types/impact'
+import type { ImpactAnalysis, LastChange } from '../types/impact'
 import type { Project } from '../types/project'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 
@@ -43,11 +43,13 @@ function applyTaskOverride(task: ProjectTask, update: TaskUpdateRequest): Projec
     startDate,
     endDate,
     durationDays: inclusiveDuration(startDate, endDate),
+    progress: update.status === 'completed' ? 100 : task.progress,
     changeNote: undefined,
   }
 }
 
 function deriveRiskState(task: ProjectTask, baselineTask: ProjectTask): ProjectTask['riskState'] {
+  if (task.status === 'completed') return 'none'
   if (task.endDate > task.plannedEndDate) return 'at-risk'
   return baselineTask.riskState === 'watch' ? 'watch' : 'none'
 }
@@ -58,16 +60,18 @@ export interface ScheduleRecalculationResult {
   affectedTaskIds: string[]
 }
 
-export function recalculateSchedule(
+export interface ScheduleBuildResult {
+  tasks: ProjectTask[]
+  affectedTaskIds: string[]
+}
+
+export function rebuildSchedule(
   baselineTasks: ProjectTask[],
   dependencies: Dependency[],
   taskOverrides: TaskScheduleOverrides,
-  sourceTaskId: string,
   previousTasks: ProjectTask[] = baselineTasks,
-  affectedCandidateIds = findDownstreamTaskIds(sourceTaskId, dependencies),
-): ScheduleRecalculationResult {
-  if (!baselineTasks.some((task) => task.id === sourceTaskId)) throw new Error('Задача не найдена')
-
+  affectedCandidateIds: string[] = [],
+): ScheduleBuildResult {
   const tasksById = new Map(baselineTasks.map((task) => [
     task.id,
     applyTaskOverride({ ...task }, taskOverrides[task.id] ?? {}),
@@ -79,7 +83,7 @@ export function recalculateSchedule(
     for (const dependency of dependencies) {
       const predecessor = tasksById.get(dependency.predecessorTaskId)
       const successor = tasksById.get(dependency.successorTaskId)
-      if (!predecessor || !successor) continue
+      if (!predecessor || !successor || successor.status === 'completed') continue
 
       const earliestStart = nextWorkingDay(predecessor.endDate)
       if (successor.startDate >= earliestStart) continue
@@ -101,7 +105,7 @@ export function recalculateSchedule(
   const affectedTaskIds = affectedCandidateIds.filter((taskId) => {
     const previousTask = previousById.get(taskId)
     const nextTask = tasksById.get(taskId)
-    return Boolean(previousTask && nextTask && (
+    return Boolean(previousTask && nextTask && nextTask.status !== 'completed' && (
       previousTask.startDate !== nextTask.startDate || previousTask.endDate !== nextTask.endDate
     ))
   })
@@ -121,10 +125,29 @@ export function recalculateSchedule(
     }
   })
 
+  return { tasks, affectedTaskIds }
+}
+
+export function recalculateSchedule(
+  baselineTasks: ProjectTask[],
+  dependencies: Dependency[],
+  taskOverrides: TaskScheduleOverrides,
+  sourceTaskId: string,
+  previousTasks: ProjectTask[] = baselineTasks,
+  affectedCandidateIds = findDownstreamTaskIds(sourceTaskId, dependencies),
+): ScheduleRecalculationResult {
+  if (!baselineTasks.some((task) => task.id === sourceTaskId)) throw new Error('Задача не найдена')
+  const result = rebuildSchedule(
+    baselineTasks,
+    dependencies,
+    taskOverrides,
+    previousTasks,
+    affectedCandidateIds,
+  )
+
   return {
-    tasks,
-    updatedTask: tasks.find((task) => task.id === sourceTaskId)!,
-    affectedTaskIds,
+    ...result,
+    updatedTask: result.tasks.find((task) => task.id === sourceTaskId)!,
   }
 }
 
@@ -153,37 +176,37 @@ export function buildImpactAnalysis(
   dependencies: Dependency[],
   sourceTaskId: string,
   affectedTaskIds = findDownstreamTaskIds(sourceTaskId, dependencies),
+  lastChange?: LastChange,
+  previousProjectedEndDate = project.targetEndDate,
 ): ImpactAnalysis {
   const projectedProjectEndDate = tasks.length > 0
     ? tasks.reduce((latest, task) => task.endDate > latest ? task.endDate : latest, tasks[0].endDate)
     : project.targetEndDate
   const sourceTask = tasks.find((task) => task.id === sourceTaskId)
-  const sourceShiftDays = sourceTask ? differenceInDays(sourceTask.endDate, sourceTask.plannedEndDate) : 0
-  const reasons = [
-    {
-      taskId: sourceTaskId,
-      reason: sourceShiftDays > 0
-        ? `Завершение задачи сдвинуто на ${sourceShiftDays} дн. относительно исходного плана.`
-        : sourceShiftDays < 0
-          ? `Задача завершается на ${Math.abs(sourceShiftDays)} дн. раньше исходного плана.`
-          : 'Задача возвращена к исходному плановому сроку.',
-      severity: sourceShiftDays > 0 ? 'critical' as const : 'info' as const,
-    },
-    ...affectedTaskIds.map((taskId) => ({
-      taskId,
-      reason: 'Срок задачи изменён при пересчёте зависимостей.',
-      severity: 'warning' as const,
-    })),
-  ]
+  const reasons = affectedTaskIds.map((taskId) => ({
+    taskId,
+    reason: 'Срок задачи изменён при пересчёте зависимостей.',
+    severity: 'warning' as const,
+  }))
   const deadlineShiftDays = differenceInDays(projectedProjectEndDate, project.targetEndDate)
+  const projectEndChangeDays = differenceInDays(projectedProjectEndDate, previousProjectedEndDate)
 
   return {
     sourceTaskId,
+    lastChange: lastChange ?? {
+      kind: 'task-updated',
+      taskId: sourceTaskId,
+      taskTitle: sourceTask?.title ?? 'Изменённая задача',
+      changes: [],
+    },
     affectedTaskIds,
     criticalTaskIds: tasks.filter((task) => task.isCritical).map((task) => task.id),
-    atRiskTaskIds: tasks.filter((task) => task.riskState === 'at-risk').map((task) => task.id),
-    previousProjectEndDate: project.targetEndDate,
+    atRiskTaskIds: tasks
+      .filter((task) => task.status !== 'completed' && task.riskState === 'at-risk')
+      .map((task) => task.id),
+    previousProjectEndDate: previousProjectedEndDate,
     projectedProjectEndDate,
+    projectEndChangeDays,
     deadlineShiftDays,
     requiresIntervention: deadlineShiftDays > 0,
     reasons,

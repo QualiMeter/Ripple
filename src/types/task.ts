@@ -34,3 +34,12 @@ export interface TaskUpdateRequest {
   assigneeId?: string
   status?: TaskStatus
 }
+
+export interface TaskCreateRequest {
+  title: string
+  startDate: string
+  endDate: string
+  durationDays?: number
+  assigneeId: string
+  status: TaskStatus
+}

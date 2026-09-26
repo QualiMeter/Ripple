@@ -1,15 +1,16 @@
 import { ArrowRight, GitBranch, Lightbulb, MoveRight, Sparkles, TriangleAlert } from 'lucide-react'
+import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import type { ProjectTask } from '../../types/task'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { formatAnalysisTime, formatShortDate } from '../../utils/date'
 
 export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
   const { impact, tasks, recoveryScenarios } = workspace
-  const source = tasks.find((task) => task.id === impact.sourceTaskId)
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
     .filter((task): task is ProjectTask => Boolean(task))
-  const sourceReason = impact.reasons.find((reason) => reason.taskId === impact.sourceTaskId)?.reason
+  const changeDescription = describeLastChange(impact.lastChange, tasks, workspace.assignees)
+  const impactOutcome = describeImpactOutcome(impact)
   const best = recoveryScenarios[0]
   return (
     <aside className="space-y-3">
@@ -17,7 +18,7 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
         <div className="border-b border-[#f1d8ce] bg-gradient-to-r from-[#fff4ee] to-[#fffaf7] px-4 py-3.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f9dfd2] text-[#c45a34]"><TriangleAlert size={17} /></span><div><h2 className="text-sm font-bold text-[#412e2a]">Последствия изменения</h2><p className="text-[10px] text-[#a17769]">Расчёт: {formatAnalysisTime(impact.analyzedAt)}</p></div></div>
-            <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-[#bb5834] shadow-sm">{impact.requiresIntervention ? 'Требуется вмешательство' : 'Вмешательство не требуется'}</span>
+            <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-[#bb5834] shadow-sm">{impact.requiresIntervention ? 'Проект требует вмешательства' : 'Вмешательство не требуется'}</span>
           </div>
         </div>
         <div className="p-4">
@@ -25,9 +26,10 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
           <div className="mt-2 rounded-xl border border-[#eeeaf0] bg-[#faf9fb] p-3">
             <div className="flex items-start gap-2.5">
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#e37149]" />
-              <div><p className="text-xs font-bold text-[#3b3748]">{source?.title ?? 'Изменённая задача'}</p><p className="mt-1 text-[11px] leading-4 text-[#827d8d]">{source && <>Завершение сдвинулось: <strong className="font-bold text-[#c45b37]">{formatShortDate(source.plannedEndDate)} → {formatShortDate(source.endDate)}</strong>. </>}{sourceReason}</p></div>
+              <div><p className="text-xs font-bold text-[#3b3748]">{changeDescription.title}</p><div className="mt-1 space-y-0.5 text-[11px] leading-4 text-[#827d8d]">{changeDescription.details.map((detail) => <p key={detail}>{detail}</p>)}</div></div>
             </div>
           </div>
+          <div className="mt-3 rounded-xl border border-[#f0ded6] bg-[#fffaf7] px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-[.08em] text-[#aa7867]">Последствия</p><p className="mt-1 text-[11px] leading-4 text-[#756f7d]">{impactOutcome}</p></div>
           <div className="my-3 flex items-center gap-2 text-[10px] font-semibold text-[#a29daa]"><GitBranch size={13} /><span>Задач под влиянием: {affected.length}</span><span className="h-px flex-1 bg-[#ebe8ee]" /></div>
           <div className="space-y-2">
             {affected.map((task, index) => (
@@ -40,7 +42,7 @@ export function ImpactPanel({ workspace }: { workspace: ProjectWorkspace }) {
           </div>
           <div className="mt-4 flex items-center justify-between rounded-xl bg-[#29263e] p-3 text-white">
             <div><p className="text-[10px] text-[#b7b3c5]">Завершение проекта</p><p className="mt-0.5 text-sm font-bold">{formatShortDate(impact.previousProjectEndDate)} <ArrowRight size={12} className="mx-1 inline" /> {formatShortDate(impact.projectedProjectEndDate)}</p></div>
-            <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.deadlineShiftDays > 0 ? `+${impact.deadlineShiftDays} дн.` : impact.deadlineShiftDays < 0 ? `${impact.deadlineShiftDays} дн.` : 'По плану'}</div>
+            <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.projectEndChangeDays > 0 ? `+${impact.projectEndChangeDays} дн.` : impact.projectEndChangeDays < 0 ? `${impact.projectEndChangeDays} дн.` : 'Без изменений'}</div>
           </div>
         </div>
       </section>
