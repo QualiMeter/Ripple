@@ -21,9 +21,10 @@ interface TaskListProps {
   onTaskCreate: () => void
   showAll: boolean
   onShowAllChange: (showAll: boolean) => void
+  allowModeToggle?: boolean
 }
 
-export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, slackDaysByTaskId, projectedProjectEndDate, currentIssues, onTaskSelect, onTaskCreate, showAll, onShowAllChange }: TaskListProps) {
+export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, slackDaysByTaskId, projectedProjectEndDate, currentIssues, onTaskSelect, onTaskCreate, showAll, onShowAllChange, allowModeToggle = true }: TaskListProps) {
   const affectedTaskIdSet = new Set(affectedTaskIds)
   const criticalTaskIdSet = new Set(criticalTaskIds)
   const attentionTasks = selectTasksRequiringAttention(tasks, affectedTaskIds, criticalTaskIds, currentIssues)
@@ -57,7 +58,7 @@ export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, s
         </table>
         {visibleTasks.length === 0 && <p className="px-5 py-8 text-center text-xs text-[#8f8a98]">{tasks.length === 0 ? 'В проекте пока нет задач. Добавьте первую задачу.' : 'Нет незавершённых задач, требующих внимания.'}</p>}
       </div>
-      {tasks.length > 0 && <button type="button" onClick={() => onShowAllChange(!showAll)} className="flex w-full items-center justify-center gap-1.5 border-t border-[#ebe9ef] py-3 text-[11px] font-semibold text-[#6658d7] hover:bg-[#faf9ff]">{showAll ? 'Показать только требующие внимания' : `Показать все ${formatTaskCount(tasks.length)}`} <ArrowUpRight size={13} className={showAll ? 'rotate-180' : ''} /></button>}
+      {allowModeToggle && tasks.length > 0 && <button type="button" onClick={() => onShowAllChange(!showAll)} className="flex w-full items-center justify-center gap-1.5 border-t border-[#ebe9ef] py-3 text-[11px] font-semibold text-[#6658d7] hover:bg-[#faf9ff]">{showAll ? 'Показать только требующие внимания' : `Показать все ${formatTaskCount(tasks.length)}`} <ArrowUpRight size={13} className={showAll ? 'rotate-180' : ''} /></button>}
     </section>
   )
 }
