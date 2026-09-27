@@ -19,6 +19,7 @@ export interface ProjectService {
   deleteProject(projectId: string): Promise<void>
   createEmployee(projectId: string, request: CreateEmployeeRequest): Promise<Employee>
   updateEmployee(projectId: string, employeeId: string, request: UpdateEmployeeRequest): Promise<Employee>
+  deleteEmployee(projectId: string, employeeId: string): Promise<ProjectWorkspace>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
   updateTask(projectId: string, taskId: string, update: TaskUpdateRequest): Promise<ProjectWorkspace>
   createTask(projectId: string, request: TaskCreateRequest): Promise<ProjectWorkspace>
@@ -48,6 +49,17 @@ export const projectService: ProjectService = {
   deleteProject: (projectId) => projectsApi.deleteProject(projectId),
   createEmployee: (projectId, request) => employeesApi.createEmployee(projectId, request),
   updateEmployee: (projectId, employeeId, request) => employeesApi.updateEmployee(projectId, employeeId, request),
+  async deleteEmployee(projectId, employeeId) {
+    const workspace = await projectsApi.getWorkspace(projectId)
+    const employee = workspace.assignees.find((candidate) => candidate.id === employeeId)
+    if (!employee) throw new Error('Сотрудник не найден.')
+    const assignedTasks = workspace.tasks.filter((task) => task.assigneeId === employeeId)
+    if (assignedTasks.length > 0) {
+      throw new Error(`Нельзя удалить сотрудника, пока на него назначены задачи. Сначала назначьте другого ответственного для ${assignedTasks.length} задач.`)
+    }
+    await employeesApi.deleteEmployee(projectId, employeeId)
+    return projectsApi.getWorkspace(projectId)
+  },
   getWorkspace: (projectId) => projectsApi.getWorkspace(projectId),
   async updateTask(projectId, taskId, update) {
     const workspace = await projectsApi.getWorkspace(projectId)

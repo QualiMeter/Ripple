@@ -1,4 +1,4 @@
-import { createMockEmployee, getMockEmployee, listMockEmployees, updateMockEmployee } from '../mocks/employeeStore'
+import { createMockEmployee, deleteMockEmployee, getMockEmployee, listMockEmployees, updateMockEmployee } from '../mocks/employeeStore'
 import { getMockProject } from '../mocks/projectStore'
 import type { CreateEmployeeRequest, UpdateEmployeeRequest } from '../types/employee'
 
@@ -23,5 +23,11 @@ export const mockEmployeesApi = {
     if (!getMockEmployee(employeeId)) throw new Error('Сотрудник не найден.')
     validateName(request.name)
     return updateMockEmployee(employeeId, request)
+  },
+  async deleteEmployee(projectId: string, employeeId: string) {
+    await new Promise((resolve) => setTimeout(resolve, 140))
+    const employee = getMockEmployee(employeeId)
+    if (!employee || employee.projectId !== projectId) throw new Error('Сотрудник не найден.')
+    deleteMockEmployee(projectId, employeeId)
   },
 }

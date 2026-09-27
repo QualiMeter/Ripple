@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mockEmployeesApi } from './mockEmployees.api'
 import { mockProjectsApi } from './mockProjects.api'
 import { mockTasksApi } from './mockTasks.api'
+import { projectService } from '../services/projectService'
 
 async function createProject(name: string) {
   return mockProjectsApi.createProject({ name, startDate: '2027-06-01', targetEndDate: '2027-06-30' })
@@ -71,5 +72,30 @@ describe('project-scoped employees', () => {
     expect(workspace.tasks.filter((candidate) => candidate.assigneeId === nextEmployee.id)).toContainEqual(updatedTask)
     expect(updatedTask).toMatchObject({ startDate: '2027-06-08', endDate: '2027-06-12', status: 'in-progress' })
     expect(workspace.impact.affectedTaskIds).toEqual([])
+  })
+
+  it('удаляет только выбранного сотрудника нужного проекта', async () => {
+    const first = await createProject('Удаление сотрудника')
+    const second = await createProject('Другой проект удаления')
+    const deleted = await mockEmployeesApi.createEmployee(first.id, { name: 'Удаляемый' })
+    const retained = await mockEmployeesApi.createEmployee(first.id, { name: 'Остаётся' })
+    const other = await mockEmployeesApi.createEmployee(second.id, { name: 'Другой проект' })
+
+    await mockEmployeesApi.deleteEmployee(first.id, deleted.id)
+
+    expect((await mockEmployeesApi.listEmployees(first.id)).map((employee) => employee.id)).toEqual([retained.id])
+    expect((await mockEmployeesApi.listEmployees(second.id)).map((employee) => employee.id)).toEqual([other.id])
+  })
+
+  it('service deletes an unassigned employee and blocks an assigned employee', async () => {
+    const project = await createProject('Правило удаления сотрудника')
+    const free = await mockEmployeesApi.createEmployee(project.id, { name: 'Свободный' })
+    const assigned = await mockEmployeesApi.createEmployee(project.id, { name: 'Назначенный' })
+    await mockTasksApi.createTask(project.id, { title: 'Назначенная задача', startDate: '2027-06-10', endDate: '2027-06-11', assigneeId: assigned.id, status: 'not-started' })
+
+    const afterDelete = await projectService.deleteEmployee(project.id, free.id)
+    expect(afterDelete.assignees.some((employee) => employee.id === free.id)).toBe(false)
+    await expect(projectService.deleteEmployee(project.id, assigned.id)).rejects.toThrow('Сначала назначьте другого ответственного')
+    expect((await mockEmployeesApi.listEmployees(project.id)).some((employee) => employee.id === assigned.id)).toBe(true)
   })
 })

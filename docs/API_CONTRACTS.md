@@ -35,8 +35,9 @@ Project deletion returns an empty success response. After it succeeds, the front
 - `GET /api/v1/projects/{projectId}/employees`
 - `POST /api/v1/projects/{projectId}/employees`
 - `PUT /api/v1/projects/{projectId}/employees/{employeeId}`
+- `DELETE /api/v1/projects/{projectId}/employees/{employeeId}`
 
-The adapter maps `EmployeeDto` to the project-scoped frontend `Employee`. The MVP does not expose employee deletion.
+The adapter maps `EmployeeDto` to the project-scoped frontend `Employee`. Before deletion, the frontend blocks employees who still have assigned project tasks; the backend remains the final authority for the DELETE request.
 
 ### Tasks
 
@@ -86,6 +87,10 @@ HTTP mode still uses the pure frontend services for critical path, current unres
 The adapter stores the latest mutation context per project for the browser session: typed `LastChange`, source task, affected task IDs, backend analysis, and the prior projected end. Initial load uses neutral `session-started` context, not a fabricated task edit. `affectedTaskIds` describes only the latest change; `currentIssues` is recomputed from the complete current graph.
 
 Recovery scenarios remain in domain types for compatibility, but the unimplemented “Как сохранить срок” UI is hidden until a real API/engine is available.
+
+## Browser-local project history
+
+The History view is frontend-only until a backend history contract exists. Components use the replaceable `ProjectHistoryStorage` abstraction; the current implementation persists up to 100 events per project under `ripple:project-history:v1:{projectId}` in `localStorage`. Events are written only after successful mutations and contain focused before/after snapshots rather than the whole workspace. Safe frontend rollback uses existing CRUD endpoints and is blocked whenever current values no longer match the event's `after` snapshot. Task and employee deletion cannot be restored exactly without server-side identity/history support, so those rollback actions remain unavailable.
 
 ## Error and browser behavior
 

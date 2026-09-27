@@ -63,6 +63,16 @@ describe('HTTP adapters', () => {
     expect(urls.some((url) => url.endsWith('/api/v1/projects/project-1/employees'))).toBe(true)
   })
 
+  it('deletes an employee through the project-scoped DELETE endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await httpEmployeesApi.deleteEmployee('project-1', 'employee-7')
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/v1\/projects\/project-1\/employees\/employee-7$/),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
   it('confirms a shift without changing the project target date', async () => {
     const fetchMock = vi.fn((input: string | URL | Request, _init?: RequestInit) => {
       const url = String(input)

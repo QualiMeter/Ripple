@@ -7,6 +7,7 @@ export interface EmployeesApi {
   listEmployees(projectId: string): Promise<Employee[]>
   createEmployee(projectId: string, request: CreateEmployeeRequest): Promise<Employee>
   updateEmployee(projectId: string, employeeId: string, request: UpdateEmployeeRequest): Promise<Employee>
+  deleteEmployee(projectId: string, employeeId: string): Promise<void>
 }
 
 export const httpEmployeesApi: EmployeesApi = {
@@ -17,6 +18,9 @@ export const httpEmployeesApi: EmployeesApi = {
     const current = employees.find((employee) => employee.id === employeeId)
     if (!current) throw new Error('Сотрудник не найден.')
     return mapEmployee(await apiRequest<EmployeeDto>(`/api/v1/projects/${projectId}/employees/${employeeId}`, { method: 'PUT', body: JSON.stringify({ name: request.name ?? current.name }) }))
+  },
+  async deleteEmployee(projectId, employeeId) {
+    await apiRequest<void>(`/api/v1/projects/${projectId}/employees/${employeeId}`, { method: 'DELETE' })
   },
 }
 
@@ -34,5 +38,9 @@ export const employeesApi: EmployeesApi = mode === 'http' ? httpEmployeesApi : {
   updateEmployee: async (_projectId, employeeId, request) => {
     const { mockEmployeesApi } = await import('./mockEmployees.api')
     return mockEmployeesApi.updateEmployee(employeeId, request)
+  },
+  deleteEmployee: async (projectId, employeeId) => {
+    const { mockEmployeesApi } = await import('./mockEmployees.api')
+    return mockEmployeesApi.deleteEmployee(projectId, employeeId)
   },
 }

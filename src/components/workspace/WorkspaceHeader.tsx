@@ -14,17 +14,16 @@ const healthStyles: Record<ProjectSummary['health'], { badge: string; dot: strin
   'off-track': { badge: 'bg-rose-50 text-rose-700', dot: 'bg-rose-500' },
 }
 
-export type WorkspaceView = 'overview' | 'timeline' | 'dependencies' | 'employees' | 'risks'
+export type WorkspaceView = 'overview' | 'dependencies' | 'employees' | 'history'
 
 const projectViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: 'overview', label: 'Обзор' },
-  { id: 'timeline', label: 'План' },
   { id: 'dependencies', label: 'Зависимости' },
   { id: 'employees', label: 'Сотрудники' },
-  { id: 'risks', label: 'Риски и последствия' },
+  { id: 'history', label: 'История' },
 ]
 
-export function WorkspaceHeader({ project, currentIssueCount, activeView, onViewChange, onOpenNavigation, onEditProject, onDeleteProject }: { project: ProjectSummary; currentIssueCount: number; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void; onDeleteProject: () => void }) {
+export function WorkspaceHeader({ project, activeView, onViewChange, onOpenNavigation, onEditProject, onDeleteProject }: { project: ProjectSummary; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void; onDeleteProject: () => void }) {
   const healthStyle = healthStyles[project.health]
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -65,7 +64,7 @@ export function WorkspaceHeader({ project, currentIssueCount, activeView, onView
         </div>
         <nav className="mt-6 flex gap-6 overflow-x-auto text-sm" aria-label="Разделы проекта">
           {projectViews.map((view) => (
-            <button key={view.id} type="button" onClick={() => onViewChange(view.id)} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${activeView === view.id ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{view.label}{view.id === 'risks' && currentIssueCount > 0 && <span className="ml-1.5 rounded-full bg-[#fff0e6] px-1.5 py-0.5 text-[10px] text-[#bc5e2d]">{currentIssueCount}</span>}</button>
+            <button key={view.id} type="button" onClick={() => onViewChange(view.id)} className={`whitespace-nowrap border-b-2 pb-3 font-medium ${activeView === view.id ? 'border-[#6d5dfb] text-[#4f42c7]' : 'border-transparent text-[#7b7787] hover:text-[#3e3a4d]'}`}>{view.label}</button>
           ))}
         </nav>
       </div>

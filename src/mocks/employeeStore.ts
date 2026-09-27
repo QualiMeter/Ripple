@@ -41,6 +41,12 @@ export function updateMockEmployee(employeeId: string, request: UpdateEmployeeRe
   return { ...employee }
 }
 
+export function deleteMockEmployee(projectId: string, employeeId: string): void {
+  const employee = employees.get(employeeId)
+  if (!employee || employee.projectId !== projectId) throw new Error('Сотрудник не найден.')
+  employees.delete(employeeId)
+}
+
 export function deleteMockProjectEmployees(projectId: string): void {
   for (const [employeeId, employee] of employees) {
     if (employee.projectId === projectId) employees.delete(employeeId)
