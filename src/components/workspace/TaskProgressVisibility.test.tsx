@@ -22,10 +22,11 @@ const impact: ImpactAnalysis = {
 }
 const assignees = [{ id: 'employee-1', projectId: 'project-1', name: 'Иван Иванов' }]
 const currentIssues = { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] }
+const attentionIssues = { ...currentIssues, deadlineIssues: [{ sourceTaskId: task.id, affectedTaskIds: [task.id], severity: 'warning' as const, reason: 'Срок истёк', consequence: 'Проверить задачу' }] }
 
 describe('task progress presentation', () => {
   it('does not show a progress column, percentage or bar in TaskList', () => {
-    const markup = renderToStaticMarkup(<TaskList tasks={[task]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} slackDaysByTaskId={{}} projectedProjectEndDate={project.projectedEndDate} currentIssues={currentIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} showAll onShowAllChange={() => undefined} />)
+    const markup = renderToStaticMarkup(<TaskList tasks={[task]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} slackDaysByTaskId={{ [task.id]: 1 }} projectedProjectEndDate={project.projectedEndDate} currentIssues={attentionIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} />)
     expect(markup).not.toContain('Прогресс')
     expect(markup).not.toContain('62%')
     expect(markup).not.toContain('width:62%')
@@ -47,7 +48,7 @@ describe('task progress presentation', () => {
   it('shows a not-started task as gray in Timeline and TaskList', () => {
     const notStarted = { ...task, status: 'not-started' as const }
     const timelineMarkup = renderToStaticMarkup(<Timeline project={project} tasks={[notStarted]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
-    const listMarkup = renderToStaticMarkup(<TaskList tasks={[notStarted]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} slackDaysByTaskId={{}} projectedProjectEndDate={project.projectedEndDate} currentIssues={currentIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} showAll onShowAllChange={() => undefined} />)
+    const listMarkup = renderToStaticMarkup(<TaskList tasks={[notStarted]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} slackDaysByTaskId={{ [notStarted.id]: 1 }} projectedProjectEndDate={project.projectedEndDate} currentIssues={attentionIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} />)
     expect(timelineMarkup).toContain('data-task-visual-state="not-started"')
     expect(listMarkup).toContain('data-task-visual-state="not-started"')
     expect(listMarkup).toContain('bg-[#aaa5b6]')

@@ -32,7 +32,7 @@ const assignees = [{ id: 'employee', projectId: 'project', name: 'Иван Ив�
 const currentIssues = { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] }
 
 function renderList(status: TaskStatus, today = '2026-09-27') {
-  return renderToStaticMarkup(<TaskList tasks={[task(status)]} dependencies={dependencies} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} slackDaysByTaskId={{}} projectedProjectEndDate={project.projectedEndDate} currentIssues={currentIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} showAll onShowAllChange={() => undefined} today={today} />)
+  return renderToStaticMarkup(<TaskList tasks={[task(status)]} dependencies={dependencies} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={['task']} slackDaysByTaskId={{ task: 0 }} projectedProjectEndDate={project.projectedEndDate} currentIssues={currentIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} today={today} />)
 }
 
 describe('task overdue presentation', () => {

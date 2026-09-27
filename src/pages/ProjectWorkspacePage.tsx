@@ -37,7 +37,6 @@ export function ProjectWorkspacePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [isCreatingTask, setIsCreatingTask] = useState(false)
-  const [showAllTasks, setShowAllTasks] = useState(false)
   const [activeView, setActiveView] = useState<WorkspaceView>('overview')
   const [isEditingProject, setIsEditingProject] = useState(false)
   const [isDeletingProject, setIsDeletingProject] = useState(false)
@@ -98,7 +97,6 @@ export function ProjectWorkspacePage() {
     const task = updatedWorkspace.tasks.find((candidate) => !previousIds.has(candidate.id))!
     recordHistory({ projectId, kind: 'task-created', title: 'Создана задача', description: task.title, entityType: 'task', entityId: task.id, after: taskSnapshot(task) })
     setWorkspace(updatedWorkspace)
-    setShowAllTasks(true)
     setIsCreatingTask(false)
   }
   const handleTaskDelete = async () => {
@@ -167,7 +165,7 @@ export function ProjectWorkspacePage() {
       <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
-        {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} showAllTasks={showAllTasks} onShowAllTasksChange={setShowAllTasks} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} />}
+        {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} />}
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
         {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onDeleteEmployee={handleEmployeeDelete} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
         {activeView === 'history' && <HistoryView entries={historyEntries} workspace={workspace} onRevert={handleHistoryRevert} />}
