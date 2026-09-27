@@ -7,13 +7,16 @@ describe('CriticalTaskBadge', () => {
   it('explains zero slack and formats the projected project end', () => {
     const markup = renderToStaticMarkup(<CriticalTaskBadge slackDays={0} projectedProjectEndDate="2026-10-10" />)
     expect(markup).toContain('Запас по срокам: 0 дней.')
-    expect(markup).toContain('Прогноз завершения проекта: 10.10.2026')
+    expect(markup).toContain('нет свободных дней')
+    expect(markup).toContain('прогноз проекта сдвинется с 10.10.2026 на 11.10.2026')
     expect(markup).not.toContain('2026-10-10')
   })
 
   it('shows a positive deficit instead of a negative slack value', () => {
     const markup = renderToStaticMarkup(<CriticalTaskBadge slackDays={-2} projectedProjectEndDate="2026-10-10" />)
     expect(markup).toContain('Дефицит запаса: 2 дня.')
+    expect(markup).toContain('Чтобы сохранить завершение проекта 10.10.2026')
+    expect(markup).toContain('скорректировать связанные работы минимум на 2 дня')
     expect(markup).not.toContain('Дефицит запаса: -2')
   })
 

@@ -1,4 +1,4 @@
-import { formatFullDate } from '../../utils/date'
+import { addCalendarDays, formatFullDate } from '../../utils/date'
 import { pluralizeRu } from '../../utils/plural'
 import { TooltipTrigger } from './TooltipTrigger'
 
@@ -15,6 +15,8 @@ function formatDays(value: number): string {
 export function CriticalTaskBadge({ slackDays, projectedProjectEndDate, className }: CriticalTaskBadgeProps) {
   const hasDeficit = slackDays < 0
   const absoluteSlack = Math.abs(slackDays)
+  const formattedProjectEnd = formatFullDate(projectedProjectEndDate)
+  const delayedProjectEnd = formatFullDate(addCalendarDays(projectedProjectEndDate, 1))
   return (
     <TooltipTrigger
       ariaLabel="Почему задача критическая"
@@ -27,10 +29,9 @@ export function CriticalTaskBadge({ slackDays, projectedProjectEndDate, classNam
       </span>
       <span className="mt-1.5 block text-[#dedbe8]">
         {hasDeficit
-          ? 'По текущему расписанию задача уже выходит за допустимый временной резерв.'
-          : 'У этой задачи нет временного резерва. Её задержка может сдвинуть срок завершения проекта.'}
+          ? `По текущему графику задача уже выходит за допустимый срок на ${formatDays(absoluteSlack)}. Чтобы сохранить завершение проекта ${formattedProjectEnd}, нужно сократить эту задержку или скорректировать связанные работы минимум на ${formatDays(absoluteSlack)}.`
+          : `Между окончанием этой задачи и следующей ограничивающей работой или сроком проекта нет свободных дней. Если задача завершится на 1 день позже и связанные работы сохранят длительность, прогноз проекта сдвинется с ${formattedProjectEnd} на ${delayedProjectEnd}.`}
       </span>
-      <span className="mt-1.5 block text-[#dedbe8]">Прогноз завершения проекта: {formatFullDate(projectedProjectEndDate)}</span>
     </TooltipTrigger>
   )
 }
