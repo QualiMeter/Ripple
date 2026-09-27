@@ -54,7 +54,11 @@ function buildWorkspace(projectId: string): ProjectWorkspace {
 export const mockProjectsApi: ProjectsApi = {
   async listProjects() {
     await new Promise((resolve) => setTimeout(resolve, 120))
-    return listMockProjects().map((project) => buildWorkspace(project.id).project)
+    return listMockProjects().map((project) => ({
+      ...project,
+      taskCount: getMockProjectState(project.id).tasks.length,
+      employeeCount: listMockEmployees(project.id).length,
+    }))
   },
 
   async createProject(request) {
@@ -63,7 +67,7 @@ export const mockProjectsApi: ProjectsApi = {
     return createMockProject(request)
   },
 
-  async updateProject(projectId, request) {
+  async updateProject(projectId, _project, request) {
     await new Promise((resolve) => setTimeout(resolve, 180))
     const current = getMockProject(projectId)
     if (!current) throw new Error('Проект не найден')

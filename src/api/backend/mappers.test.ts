@@ -25,7 +25,7 @@ describe('backend mappers', () => {
   })
 
   it('maps a project-scoped employee', () => {
-    expect(mapEmployee({ id: 'e', projectId: 'p', name: 'Анна', taskCount: 2 })).toEqual({ id: 'e', projectId: 'p', name: 'Анна' })
+    expect(mapEmployee({ id: 'e', projectId: 'p', name: 'Анна', phone: null, email: null, taskCount: 2 })).toEqual({ id: 'e', projectId: 'p', name: 'Анна', phone: null, email: null })
   })
 
   it('maps delayed status to risk without using legacy critical flags', () => {

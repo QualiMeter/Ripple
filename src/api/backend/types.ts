@@ -14,11 +14,13 @@ export interface EmployeeDto {
   id: string
   projectId: string
   name: string
+  phone: string | null
+  email: string | null
   taskCount: number | string
 }
 
 export interface AssignedTaskDto { id: string; name: string; startDate: string; endDate: string; status: BackendTaskStatus }
-export interface EmployeeDetailsDto { id: string; projectId: string; name: string; tasks: AssignedTaskDto[] }
+export interface EmployeeDetailsDto { id: string; projectId: string; name: string; phone: string | null; email: string | null; tasks: AssignedTaskDto[] }
 
 export interface TaskListItemDto {
   id: string
@@ -93,10 +95,18 @@ export interface ShiftPreviewDto {
 
 export interface ShiftConfirmationResponse { preview: ShiftPreviewDto; projectEndDateChanged: boolean }
 
+export interface ChangeHistoryDto {
+  id: string
+  operationType: string
+  description: string
+  createdAt: string
+  canUndo: boolean
+}
+
 export interface BackendCreateProjectRequest { name: string; startDate: string; endDate: string }
 export interface BackendUpdateProjectRequest extends BackendCreateProjectRequest {}
 export interface BackendCreateTaskRequest { name: string; startDate: string; endDate: string; assigneeId: string; status: string }
 export interface BackendUpdateTaskRequest extends BackendCreateTaskRequest {}
-export interface BackendCreateEmployeeRequest { name: string }
-export interface BackendUpdateEmployeeRequest { name: string }
+export interface BackendCreateEmployeeRequest { name: string; phone: string | null; email: string | null }
+export interface BackendUpdateEmployeeRequest { name: string; phone: string | null; email: string | null }
 export interface BackendCreateDependencyRequest { predecessorTaskId: string; successorTaskId: string }

@@ -16,6 +16,12 @@ export interface ProjectSummary extends Project {
   completedTaskCount: number
 }
 
+/** Lightweight project data returned by the projects list endpoint. */
+export interface ProjectNavigationItem extends Project {
+  taskCount: number
+  employeeCount: number
+}
+
 export interface CreateProjectRequest {
   name: string
   startDate: string

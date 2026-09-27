@@ -1,7 +1,7 @@
 import type { Dependency } from '../../types/dependency'
 import type { Employee } from '../../types/employee'
 import type { ImpactReason } from '../../types/impact'
-import type { Project, ProjectSummary } from '../../types/project'
+import type { Project, ProjectNavigationItem } from '../../types/project'
 import type { ScheduleShiftPreview } from '../../types/schedule'
 import type { ProjectTask, TaskCreateRequest, TaskStatus, TaskUpdateRequest } from '../../types/task'
 import type {
@@ -37,8 +37,8 @@ export function toUpdateProjectDto(project: Project, update: { name?: string; st
   return { name: update.name ?? project.name, startDate: update.startDate ?? project.startDate, endDate: update.targetEndDate ?? project.targetEndDate }
 }
 
-export function mapEmployee(dto: EmployeeDto): Employee {
-  return { id: dto.id, projectId: dto.projectId, name: dto.name }
+export function mapEmployee(dto: Pick<EmployeeDto, 'id' | 'projectId' | 'name'> & Partial<Pick<EmployeeDto, 'phone' | 'email' | 'taskCount'>>): Employee {
+  return { id: dto.id, projectId: dto.projectId, name: dto.name, phone: dto.phone, email: dto.email }
 }
 
 function baselineKey(projectId: string, taskId: string): string { return `${projectId}:${taskId}` }
@@ -111,6 +111,6 @@ export function mapShiftPreview(projectId: string, dto: ShiftPreviewDto): Schedu
   }
 }
 
-export function mapListProjectSummary(dto: ProjectListItemDto, ownerName: string): ProjectSummary {
-  return { ...mapProject(dto), projectedEndDate: dto.endDate, ownerName, health: 'on-track', progress: 0, taskCount: Number(dto.taskCount), completedTaskCount: 0 }
+export function mapProjectNavigationItem(dto: ProjectListItemDto): ProjectNavigationItem {
+  return { ...mapProject(dto), taskCount: Number(dto.taskCount), employeeCount: Number(dto.employeeCount) }
 }

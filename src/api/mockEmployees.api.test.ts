@@ -93,9 +93,11 @@ describe('project-scoped employees', () => {
     const assigned = await mockEmployeesApi.createEmployee(project.id, { name: 'Назначенный' })
     await mockTasksApi.createTask(project.id, { title: 'Назначенная задача', startDate: '2027-06-10', endDate: '2027-06-11', assigneeId: assigned.id, status: 'not-started' })
 
-    const afterDelete = await projectService.deleteEmployee(project.id, free.id)
+    let currentWorkspace = await projectService.getWorkspace(project.id)
+    const afterDelete = await projectService.deleteEmployee(currentWorkspace, free.id)
     expect(afterDelete.assignees.some((employee) => employee.id === free.id)).toBe(false)
-    await expect(projectService.deleteEmployee(project.id, assigned.id)).rejects.toThrow('Сначала назначьте другого ответственного')
+    currentWorkspace = await projectService.getWorkspace(project.id)
+    await expect(projectService.deleteEmployee(currentWorkspace, assigned.id)).rejects.toThrow('Сначала назначьте другого ответственного')
     expect((await mockEmployeesApi.listEmployees(project.id)).some((employee) => employee.id === assigned.id)).toBe(true)
   })
 })

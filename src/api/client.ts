@@ -1,4 +1,4 @@
-const baseUrl = (import.meta.env.VITE_API_URL ?? 'https://mvp-action.up.railway.app').replace(/\/+$/, '')
+import { apiUrl } from '../config/api'
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -9,7 +9,7 @@ export class ApiError extends Error {
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const normalizedPath = `/${path.replace(/^\/+/, '')}`
-  const response = await fetch(`${baseUrl}${normalizedPath}`, {
+  const response = await fetch(apiUrl(normalizedPath), {
     ...init,
     headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
   })

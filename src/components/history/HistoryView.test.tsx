@@ -24,4 +24,12 @@ describe('HistoryView', () => {
     expect(markup).toContain('Почему откат недоступен')
     expect(markup).toContain('потребуется серверная история')
   })
+
+  it('uses backend canUndo and disables unavailable server undo', () => {
+    const entry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-10-01T12:00:00Z', canUndo: false }
+    const markup = renderToStaticMarkup(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={async () => undefined} />)
+    expect(markup).toContain('История проекта из backend')
+    expect(markup).toContain('disabled=""')
+    expect(markup).not.toContain('Для точного восстановления этого изменения потребуется серверная история')
+  })
 })

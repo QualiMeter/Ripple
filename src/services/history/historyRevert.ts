@@ -105,28 +105,28 @@ export async function executeHistoryRevert(
   if (!plan.allowed) throw new Error(plan.reason ?? 'Откат недоступен.')
   const before = entry.before ?? {}
   const snapshot = entry.after ?? entry.before ?? {}
+  let currentWorkspace = workspace
 
-  if (entry.kind === 'project-updated') await service.updateProject(entry.projectId, before as UpdateProjectRequest)
-  if (entry.kind === 'task-updated') await service.updateTask(entry.projectId, entry.entityId!, before as TaskUpdateRequest)
-  if (entry.kind === 'employee-updated') await service.updateEmployee(entry.projectId, entry.entityId!, { name: stringValue(before.name) })
-  if (entry.kind === 'employee-created') await service.deleteEmployee(entry.projectId, entry.entityId!)
+  if (entry.kind === 'project-updated') currentWorkspace = await service.updateProject(currentWorkspace, before as UpdateProjectRequest)
+  if (entry.kind === 'task-updated') currentWorkspace = await service.updateTask(currentWorkspace, entry.entityId!, before as TaskUpdateRequest)
+  if (entry.kind === 'employee-updated') currentWorkspace = (await service.updateEmployee(currentWorkspace, entry.entityId!, { name: stringValue(before.name) })).workspace
+  if (entry.kind === 'employee-created') currentWorkspace = await service.deleteEmployee(currentWorkspace, entry.entityId!)
   if (entry.kind === 'dependency-created') {
     const dependency = workspace.dependencies.find((candidate) => candidate.predecessorTaskId === snapshot.predecessorTaskId && candidate.successorTaskId === snapshot.successorTaskId)
     if (!dependency) throw new Error('Зависимость больше не существует.')
-    await service.deleteDependency(entry.projectId, dependency.id)
+    currentWorkspace = await service.deleteDependency(currentWorkspace, dependency.id)
   }
-  if (entry.kind === 'dependency-deleted') await service.createDependency(entry.projectId, { predecessorTaskId: stringValue(snapshot.predecessorTaskId), successorTaskId: stringValue(snapshot.successorTaskId), type: 'finish-to-start' })
+  if (entry.kind === 'dependency-deleted') currentWorkspace = await service.createDependency(currentWorkspace, { predecessorTaskId: stringValue(snapshot.predecessorTaskId), successorTaskId: stringValue(snapshot.successorTaskId), type: 'finish-to-start' })
   if (entry.kind === 'schedule-shift-applied') {
     const beforeTasks = Array.isArray(before.tasks) ? before.tasks as Array<Record<string, unknown>> : []
     for (const task of beforeTasks) {
-      await service.updateTask(entry.projectId, stringValue(task.taskId), { startDate: stringValue(task.startDate), endDate: stringValue(task.endDate) })
+      currentWorkspace = await service.updateTask(currentWorkspace, stringValue(task.taskId), { startDate: stringValue(task.startDate), endDate: stringValue(task.endDate) })
     }
     if (before.projectEndDate && workspace.project.targetEndDate === entry.after?.projectEndDate) {
-      await service.updateProject(entry.projectId, { targetEndDate: stringValue(before.projectEndDate) })
+      currentWorkspace = await service.updateProject(currentWorkspace, { targetEndDate: stringValue(before.projectEndDate) })
     }
   }
 
-  const refreshed = await service.getWorkspace(entry.projectId)
   const revertEvent = history.record({
     projectId: entry.projectId,
     kind: 'change-reverted',
@@ -140,5 +140,5 @@ export async function executeHistoryRevert(
     revertStatus: 'unavailable',
   })
   history.markReverted(entry.projectId, entry.id, revertEvent.id)
-  return refreshed
+  return currentWorkspace
 }

@@ -12,3 +12,6 @@ export function formatTaskCount(value: number): string {
   return `${value} ${pluralizeRu(value, ['задача', 'задачи', 'задач'])}`
 }
 
+export function formatEmployeeCount(value: number): string {
+  return `${value} ${pluralizeRu(value, ['сотрудник', 'сотрудника', 'сотрудников'])}`
+}

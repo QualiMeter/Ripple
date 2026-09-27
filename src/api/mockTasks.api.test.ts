@@ -29,11 +29,13 @@ describe('mockTasksApi', () => {
       predecessorTaskId: predecessor.id, successorTaskId: successor.id, type: 'finish-to-start',
     })
 
-    await expect(projectService.updateTask(projectId, successor.id, { status: 'completed' }))
+    let currentWorkspace = await projectService.getWorkspace(projectId)
+    await expect(projectService.updateTask(currentWorkspace, successor.id, { status: 'completed' }))
       .rejects.toThrow('Нельзя завершить задачу, пока не завершены все предшественники')
     expect(getMockProjectState(projectId).tasks.find((item) => item.id === successor.id)?.status).toBe('not-started')
 
-    const workspace = await projectService.updateTask(projectId, successor.id, { status: 'in-progress' })
+    currentWorkspace = await projectService.getWorkspace(projectId)
+    const workspace = await projectService.updateTask(currentWorkspace, successor.id, { status: 'in-progress' })
     expect(workspace.tasks.find((item) => item.id === successor.id)?.status).toBe('in-progress')
     expect(workspace.impact.reasons.some((reason) => reason.reason.includes('начата до завершения всех предшественников'))).toBe(true)
   })

@@ -14,13 +14,12 @@ describe('HTTP adapters', () => {
 
   it('uses the documented full PUT project contract', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(projectDetails), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...projectDetails, name: 'Новое имя' }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
-    await httpProjectsApi.updateProject('project-1', { name: 'Новое имя' })
-    expect(fetchMock.mock.calls[1][0]).toMatch(/\/api\/v1\/projects\/project-1$/)
-    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'PUT' })
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ name: 'Новое имя', startDate: '2026-10-01', endDate: '2026-10-20' })
+    await httpProjectsApi.updateProject('project-1', { id: 'project-1', creatorId: 'user-1', name: 'Проект', description: '', startDate: '2026-10-01', targetEndDate: '2026-10-20' }, { name: 'Новое имя' })
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/project-1$/)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT' })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ name: 'Новое имя', startDate: '2026-10-01', endDate: '2026-10-20' })
   })
 
   it('deletes a project through its project resource and clears session state', async () => {
@@ -59,8 +58,20 @@ describe('HTTP adapters', () => {
     await httpProjectsApi.listProjects()
     await httpEmployeesApi.listEmployees('project-1')
     expect(urls.some((url) => url.endsWith('/api/v1/projects'))).toBe(true)
-    expect(urls.some((url) => url.endsWith('/api/v1/projects/project-1'))).toBe(true)
+    expect(urls.some((url) => url.endsWith('/api/v1/projects/project-1'))).toBe(false)
     expect(urls.some((url) => url.endsWith('/api/v1/projects/project-1/employees'))).toBe(true)
+  })
+
+  it('loads ten sidebar projects with one list request and no detail requests', async () => {
+    const projects = Array.from({ length: 10 }, (_, index) => ({
+      id: `project-${index}`, name: `Проект ${index}`, startDate: '2026-10-01', endDate: '2026-10-20', creatorId: 'user-1', taskCount: index, employeeCount: 2,
+    }))
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(projects), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await httpProjectsApi.listProjects()
+    expect(result).toHaveLength(10)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/v1\/projects$/)
   })
 
   it('deletes an employee through the project-scoped DELETE endpoint', async () => {

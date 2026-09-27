@@ -20,17 +20,23 @@ import { ProjectDeleteDialog } from '../components/projects/ProjectDeleteDialog'
 import { deleteProjectAndLeave } from '../services/projectDeletion'
 import { HistoryView } from '../components/history/HistoryView'
 import { projectHistory } from '../services/history/projectHistory'
-import type { NewProjectHistoryEntry, ProjectHistoryEntry } from '../services/history/historyTypes'
+import { isServerHistoryEntry, type HistoryEntry, type NewProjectHistoryEntry } from '../services/history/historyTypes'
 import { dependencySnapshot, employeeSnapshot, projectUpdatedEvent, scheduleShiftEvent, taskSnapshot, taskUpdatedEvent } from '../services/history/historyEvents'
 import { executeHistoryRevert } from '../services/history/historyRevert'
 import { deleteEmployeeWithHistory } from '../services/history/employeeHistory'
+import { useProjectRealtime } from '../realtime/useProjectRealtime'
+import { isHttpApiMode } from '../config/api'
+import { historyApi, serverHistoryEntryFromRealtimeData } from '../api/history.api'
+import { serverHistorySession } from '../services/history/serverHistorySession'
+import { projectRealtime } from '../realtime/projectRealtime'
+import { undoServerHistoryEntry } from '../services/history/serverHistoryActions'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
 }
 
 export function ProjectWorkspacePage() {
-  const { openMobileSidebar, refreshProjects } = useOutletContext<AppShellContext>()
+  const { openMobileSidebar, refreshProjects, syncProjectNavigation } = useOutletContext<AppShellContext>()
   const navigate = useNavigate()
   const { projectId = '' } = useParams()
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
@@ -41,7 +47,10 @@ export function ProjectWorkspacePage() {
   const [isEditingProject, setIsEditingProject] = useState(false)
   const [isDeletingProject, setIsDeletingProject] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const [historyEntries, setHistoryEntries] = useState<ProjectHistoryEntry[]>([])
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([])
+  const [historyLoaded, setHistoryLoaded] = useState(!isHttpApiMode)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -52,25 +61,88 @@ export function ProjectWorkspacePage() {
     setIsEditingProject(false)
     setIsDeletingProject(false)
     setActiveView('overview')
-    setHistoryEntries(projectHistory.list(projectId))
+    const cachedServerHistory = isHttpApiMode ? serverHistorySession.get(projectId) : undefined
+    setHistoryEntries(isHttpApiMode ? cachedServerHistory ?? [] : projectHistory.list(projectId))
+    setHistoryLoaded(!isHttpApiMode || Boolean(cachedServerHistory))
+    setHistoryLoading(false)
+    setHistoryError(null)
     projectService.getWorkspace(projectId)
       .then((result) => active && setWorkspace(result))
       .catch((loadError: unknown) => active && setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить проект.'))
     return () => { active = false }
   }, [projectId, loadAttempt])
 
+  useProjectRealtime(projectId, workspace, setWorkspace, projectService.getWorkspace)
+
+  useEffect(() => {
+    if (!isHttpApiMode || activeView !== 'history' || historyLoaded) return
+    let active = true
+    setHistoryLoading(true)
+    setHistoryError(null)
+    serverHistorySession.load(projectId, historyApi)
+      .then((entries) => {
+        if (!active) return
+        setHistoryEntries(entries)
+        setHistoryLoaded(true)
+      })
+      .catch((historyLoadError: unknown) => active && setHistoryError(historyLoadError instanceof Error ? historyLoadError.message : 'Не удалось загрузить историю проекта.'))
+      .finally(() => active && setHistoryLoading(false))
+    return () => { active = false }
+  }, [activeView, historyLoaded, projectId])
+
+  useEffect(() => {
+    const unsubscribeEvent = projectRealtime.onProjectChanged((event) => {
+      const historyEntity = event.entity.toLowerCase()
+      if (!isHttpApiMode || !historyLoaded || event.projectId !== projectId) return
+      if (historyEntity !== 'history' && historyEntity !== 'change_history') {
+        void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
+        return
+      }
+      const entry = serverHistoryEntryFromRealtimeData(projectId, event.data)
+      if (event.action.toLowerCase() === 'undone' && event.entityId) serverHistorySession.markUndone(projectId, event.entityId)
+      if (entry) {
+        setHistoryEntries(serverHistorySession.upsert(projectId, event.action.toLowerCase() === 'undone' ? { ...entry, canUndo: false, undone: true } : entry))
+        return
+      }
+      void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
+    })
+    const unsubscribeResync = projectRealtime.onResyncRequired((reconnectedProjectId) => {
+      if (!isHttpApiMode || !historyLoaded || reconnectedProjectId !== projectId) return
+      void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
+    })
+    return () => { unsubscribeEvent(); unsubscribeResync() }
+  }, [historyLoaded, projectId])
+
+  useEffect(() => {
+    if (!workspace) return
+    syncProjectNavigation({
+      id: workspace.project.id,
+      creatorId: workspace.project.creatorId,
+      name: workspace.project.name,
+      description: workspace.project.description,
+      startDate: workspace.project.startDate,
+      targetEndDate: workspace.project.targetEndDate,
+      taskCount: workspace.tasks.length,
+      employeeCount: workspace.assignees.length,
+    })
+  }, [workspace, syncProjectNavigation])
+
   if (error) return <div className="grid min-h-screen place-items-center p-8"><div className="text-center text-sm text-rose-700"><p>{error}</p><button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="mt-4 rounded-xl bg-[#29263e] px-4 py-2 font-bold text-white">Повторить</button></div></div>
   if (!workspace) return <WorkspaceSkeleton />
 
   const selectedTask = workspace.tasks.find((task) => task.id === selectedTaskId)
   const recordHistory = (entry: NewProjectHistoryEntry) => {
+    if (isHttpApiMode) {
+      if (historyLoaded) void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
+      return
+    }
     projectHistory.record(entry)
     setHistoryEntries(projectHistory.list(projectId))
   }
   const taskTitle = (taskId: string) => workspace.tasks.find((task) => task.id === taskId)?.title ?? taskId
   const handleTaskSave = async (update: TaskUpdateRequest) => {
     const beforeTask = selectedTask!
-    const updatedWorkspace = await projectService.updateTask(projectId, selectedTaskId!, update)
+    const updatedWorkspace = await projectService.updateTask(workspace, selectedTaskId!, update)
     const afterTask = updatedWorkspace.tasks.find((task) => task.id === selectedTaskId!)!
     const event = taskUpdatedEvent(projectId, beforeTask, afterTask)
     if (Object.keys(event.after ?? {}).length > 0) recordHistory(event)
@@ -79,7 +151,7 @@ export function ProjectWorkspacePage() {
   }
   const handleDependencyCreate = async (request: CreateDependencyRequest) => {
     const previousIds = new Set(workspace.dependencies.map((dependency) => dependency.id))
-    const updatedWorkspace = await projectService.createDependency(projectId, request)
+    const updatedWorkspace = await projectService.createDependency(workspace, request)
     const dependency = updatedWorkspace.dependencies.find((candidate) => !previousIds.has(candidate.id))
       ?? updatedWorkspace.dependencies.find((candidate) => candidate.predecessorTaskId === request.predecessorTaskId && candidate.successorTaskId === request.successorTaskId)!
     recordHistory({ projectId, kind: 'dependency-created', title: 'Добавлена зависимость', description: `${taskTitle(request.predecessorTaskId)} → ${taskTitle(request.successorTaskId)}`, entityType: 'dependency', entityId: dependency.id, after: dependencySnapshot(dependency) })
@@ -87,13 +159,13 @@ export function ProjectWorkspacePage() {
   }
   const handleDependencyDelete = async (dependencyId: string) => {
     const dependency = workspace.dependencies.find((candidate) => candidate.id === dependencyId)!
-    const updatedWorkspace = await projectService.deleteDependency(projectId, dependencyId)
+    const updatedWorkspace = await projectService.deleteDependency(workspace, dependencyId)
     recordHistory({ projectId, kind: 'dependency-deleted', title: 'Удалена зависимость', description: `${taskTitle(dependency.predecessorTaskId)} → ${taskTitle(dependency.successorTaskId)}`, entityType: 'dependency', entityId: dependencyId, before: dependencySnapshot(dependency) })
     setWorkspace(updatedWorkspace)
   }
   const handleTaskCreate = async (request: TaskCreateRequest) => {
     const previousIds = new Set(workspace.tasks.map((task) => task.id))
-    const updatedWorkspace = await projectService.createTask(projectId, request)
+    const updatedWorkspace = await projectService.createTask(workspace, request)
     const task = updatedWorkspace.tasks.find((candidate) => !previousIds.has(candidate.id))!
     recordHistory({ projectId, kind: 'task-created', title: 'Создана задача', description: task.title, entityType: 'task', entityId: task.id, after: taskSnapshot(task) })
     setWorkspace(updatedWorkspace)
@@ -102,43 +174,40 @@ export function ProjectWorkspacePage() {
   const handleTaskDelete = async () => {
     if (!selectedTaskId) return
     const task = workspace.tasks.find((candidate) => candidate.id === selectedTaskId)!
-    const updatedWorkspace = await projectService.deleteTask(projectId, selectedTaskId)
+    const updatedWorkspace = await projectService.deleteTask(workspace, selectedTaskId)
     recordHistory({ projectId, kind: 'task-deleted', title: 'Удалена задача', description: task.title, entityType: 'task', entityId: task.id, before: taskSnapshot(task) })
     setWorkspace(updatedWorkspace)
     setSelectedTaskId(null)
   }
-  const handleSchedulePreview = (sourceTaskId: string) => projectService.previewScheduleShift(projectId, sourceTaskId)
+  const handleSchedulePreview = (sourceTaskId: string) => projectService.previewScheduleShift(workspace, sourceTaskId)
   const handleScheduleApply = async (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => {
-    const updatedWorkspace = await projectService.applyScheduleShift(projectId, preview, confirmProjectEndDate)
+    const updatedWorkspace = await projectService.applyScheduleShift(workspace, preview, confirmProjectEndDate)
     recordHistory(scheduleShiftEvent(projectId, preview))
     setWorkspace(updatedWorkspace)
   }
   const handleEmployeeCreate = async (name: string): Promise<Employee> => {
-    const employee = await projectService.createEmployee(projectId, { name })
-    const updatedWorkspace = await projectService.getWorkspace(projectId)
+    const { entity: employee, workspace: updatedWorkspace } = await projectService.createEmployee(workspace, { name })
     recordHistory({ projectId, kind: 'employee-created', title: 'Добавлен сотрудник', description: employee.name, entityType: 'employee', entityId: employee.id, after: employeeSnapshot(employee) })
     setWorkspace(updatedWorkspace)
     return employee
   }
   const handleEmployeeUpdate = async (employeeId: string, name: string): Promise<Employee> => {
     const previous = workspace.assignees.find((employee) => employee.id === employeeId)!
-    const employee = await projectService.updateEmployee(projectId, employeeId, { name })
-    const updatedWorkspace = await projectService.getWorkspace(projectId)
+    const { entity: employee, workspace: updatedWorkspace } = await projectService.updateEmployee(workspace, employeeId, { name })
     if (previous.name !== employee.name) recordHistory({ projectId, kind: 'employee-updated', title: 'Изменён сотрудник', description: `${previous.name} → ${employee.name}`, entityType: 'employee', entityId: employee.id, before: { name: previous.name }, after: { name: employee.name } })
     setWorkspace(updatedWorkspace)
     return employee
   }
   const handleEmployeeDelete = async (employeeId: string) => {
     const employee = workspace.assignees.find((candidate) => candidate.id === employeeId)!
-    const updatedWorkspace = await deleteEmployeeWithHistory(projectId, employee, () => projectService.deleteEmployee(projectId, employeeId), recordHistory)
+    const updatedWorkspace = await deleteEmployeeWithHistory(projectId, employee, () => projectService.deleteEmployee(workspace, employeeId), recordHistory)
     setWorkspace(updatedWorkspace)
   }
   const handleProjectUpdate = async (request: CreateProjectRequest) => {
-    const updatedWorkspace = await projectService.updateProject(projectId, request)
+    const updatedWorkspace = await projectService.updateProject(workspace, request)
     const event = projectUpdatedEvent(projectId, workspace.project, updatedWorkspace.project)
     if (Object.keys(event.after ?? {}).length > 0) recordHistory(event)
     setWorkspace(updatedWorkspace)
-    await refreshProjects()
     setIsEditingProject(false)
   }
   const handleProjectDelete = async () => {
@@ -149,7 +218,22 @@ export function ProjectWorkspacePage() {
       navigateHome: () => navigate('/', { replace: true }),
     })
   }
-  const handleHistoryRevert = async (entry: ProjectHistoryEntry) => {
+  const handleHistoryRevert = async (entry: HistoryEntry) => {
+    if (isHttpApiMode) {
+      if (!isServerHistoryEntry(entry)) throw new Error('Локальная запись не относится к серверной истории.')
+      try {
+        setHistoryEntries(await undoServerHistoryEntry(projectId, entry.id, historyApi, serverHistorySession))
+      } catch (undoError) {
+        setHistoryEntries(serverHistorySession.get(projectId) ?? [])
+        throw undoError
+      }
+      if (!projectRealtime.isProjectJoined(projectId)) {
+        const synchronized = await projectService.getWorkspace(projectId).catch(() => null)
+        if (synchronized) setWorkspace(synchronized)
+      }
+      return
+    }
+    if (isServerHistoryEntry(entry)) return
     try {
       setWorkspace(await executeHistoryRevert(entry, workspace, projectService, projectHistory))
     } catch (revertError) {
@@ -168,7 +252,7 @@ export function ProjectWorkspacePage() {
         {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} />}
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
         {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onDeleteEmployee={handleEmployeeDelete} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
-        {activeView === 'history' && <HistoryView entries={historyEntries} workspace={workspace} onRevert={handleHistoryRevert} />}
+        {activeView === 'history' && <HistoryView entries={historyEntries} workspace={workspace} onRevert={handleHistoryRevert} source={isHttpApiMode ? 'server' : 'local'} loading={historyLoading} loadError={historyError} />}
       </div>
       {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onCreateEmployee={handleEmployeeCreate} />}
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} onCreateEmployee={handleEmployeeCreate} />}

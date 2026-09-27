@@ -53,7 +53,7 @@ describe('mockProjectsApi', () => {
       status: 'not-started',
     })
 
-    await mockProjectsApi.updateProject(project.id, { startDate: '2027-01-08', targetEndDate: '2027-01-09' })
+    await mockProjectsApi.updateProject(project.id, project, { startDate: '2027-01-08', targetEndDate: '2027-01-09' })
     const workspace = await mockProjectsApi.getWorkspace(project.id)
     const unchangedTask = workspace.tasks.find((candidate) => candidate.id === task.id)
 

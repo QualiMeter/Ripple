@@ -40,7 +40,7 @@ describe('safe history revert', () => {
 
     await executeHistoryRevert(entry, workspace(), service, history)
 
-    expect(updateTask).toHaveBeenCalledWith('project', 'task', { endDate: '2026-10-14' })
+    expect(updateTask).toHaveBeenCalledWith(expect.objectContaining({ project: expect.objectContaining({ id: 'project' }) }), 'task', { endDate: '2026-10-14' })
     const events = history.list('project')
     expect(events.find((event) => event.id === 'change')?.revertStatus).toBe('reverted')
     expect(events.some((event) => event.kind === 'change-reverted' && event.revertsEntryId === 'change')).toBe(true)

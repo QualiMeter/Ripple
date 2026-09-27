@@ -1,27 +1,26 @@
-import type { CreateProjectRequest, Project, ProjectSummary, UpdateProjectRequest } from '../types/project'
+import type { CreateProjectRequest, Project, ProjectNavigationItem, UpdateProjectRequest } from '../types/project'
 import type { ProjectWorkspace } from '../types/workspace'
 import { apiRequest } from './client'
 import type { ProjectDetailsDto } from './backend/types'
 import { mapProject, toCreateProjectDto, toUpdateProjectDto } from './backend/mappers'
-import { composeHttpWorkspace, fetchProjectDetails, listHttpProjectSummaries } from './backend/workspace'
+import { composeHttpWorkspace, listHttpProjectNavigationItems } from './backend/workspace'
 import { clearHttpProjectSession } from './backend/session'
 
 export interface ProjectsApi {
-  listProjects(): Promise<ProjectSummary[]>
+  listProjects(): Promise<ProjectNavigationItem[]>
   createProject(request: CreateProjectRequest): Promise<Project>
-  updateProject(projectId: string, request: UpdateProjectRequest): Promise<Project>
+  updateProject(projectId: string, current: Project, request: UpdateProjectRequest): Promise<Project>
   deleteProject(projectId: string): Promise<void>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
 }
 
 export const httpProjectsApi: ProjectsApi = {
-  listProjects: listHttpProjectSummaries,
+  listProjects: listHttpProjectNavigationItems,
   async createProject(request) {
     const dto = await apiRequest<ProjectDetailsDto>('/api/v1/projects', { method: 'POST', body: JSON.stringify(toCreateProjectDto(request)) })
     return mapProject(dto)
   },
-  async updateProject(projectId, request) {
-    const current = mapProject(await fetchProjectDetails(projectId))
+  async updateProject(projectId, current, request) {
     const dto = await apiRequest<ProjectDetailsDto>(`/api/v1/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(toUpdateProjectDto(current, request)) })
     return mapProject(dto)
   },
@@ -45,9 +44,9 @@ export const projectsApi: ProjectsApi = mode === 'http'
         const { mockProjectsApi } = await import('./mockProjects.api')
         return mockProjectsApi.createProject(request)
       },
-      updateProject: async (projectId, request) => {
+      updateProject: async (projectId, current, request) => {
         const { mockProjectsApi } = await import('./mockProjects.api')
-        return mockProjectsApi.updateProject(projectId, request)
+        return mockProjectsApi.updateProject(projectId, current, request)
       },
       deleteProject: async (projectId) => {
         const { mockProjectsApi } = await import('./mockProjects.api')

@@ -1,27 +1,25 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { projectService } from '../services/projectService'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { getInitialProjectPath } from '../services/projectNavigation'
+import type { AppShellContext } from '../components/layout/AppShell'
 
 export function ProjectEntryPage() {
   const navigate = useNavigate()
+  const { projects, projectsLoading, projectsError } = useOutletContext<AppShellContext>()
   const [state, setState] = useState<'loading' | 'empty' | 'error'>('loading')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    let active = true
-    projectService.listProjects().then((projects) => {
-      if (!active) return
-      const path = getInitialProjectPath(projects)
-      if (path) navigate(path, { replace: true })
-      else setState('empty')
-    }).catch((error: unknown) => {
-      if (!active) return
-      setMessage(error instanceof Error ? error.message : 'Не удалось загрузить проекты.')
+    if (projectsLoading) return
+    if (projectsError) {
+      setMessage(projectsError)
       setState('error')
-    })
-    return () => { active = false }
-  }, [navigate])
+      return
+    }
+    const path = getInitialProjectPath(projects)
+    if (path) navigate(path, { replace: true })
+    else setState('empty')
+  }, [navigate, projects, projectsError, projectsLoading])
 
   if (state === 'loading') return <div className="grid min-h-screen place-items-center text-sm text-[#777181]" role="status">Загрузка проектов…</div>
   if (state === 'error') return <div className="grid min-h-screen place-items-center p-8 text-center text-sm text-rose-700">{message}</div>

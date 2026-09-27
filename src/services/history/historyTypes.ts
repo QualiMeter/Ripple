@@ -31,6 +31,23 @@ export interface ProjectHistoryEntry {
   revertsEntryId?: string
 }
 
+export interface ServerHistoryEntry {
+  source: 'server'
+  id: string
+  projectId: string
+  operationType: string
+  description: string
+  createdAt: string
+  canUndo: boolean
+  undone?: boolean
+}
+
+export type HistoryEntry = ProjectHistoryEntry | ServerHistoryEntry
+
+export function isServerHistoryEntry(entry: HistoryEntry): entry is ServerHistoryEntry {
+  return 'source' in entry && entry.source === 'server'
+}
+
 export type NewProjectHistoryEntry = Omit<ProjectHistoryEntry, 'id' | 'createdAt' | 'revertStatus'> & {
   id?: string
   createdAt?: string

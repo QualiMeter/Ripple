@@ -2,12 +2,10 @@ import type { ScheduleShiftConfirmationOptions, ScheduleShiftPreview, ScheduleSh
 import { apiRequest } from './client'
 import type { ShiftConfirmationResponse, ShiftPreviewDto } from './backend/types'
 import { mapShiftPreview } from './backend/mappers'
-import { setHttpProjectSession } from './backend/session'
-import { composeHttpWorkspace } from './backend/workspace'
 
 export interface ScheduleApi {
   previewShift(projectId: string, request: ScheduleShiftPreviewRequest): Promise<ScheduleShiftPreview>
-  applyShift(projectId: string, preview: ScheduleShiftPreview, options: ScheduleShiftConfirmationOptions): Promise<void>
+  applyShift(projectId: string, preview: ScheduleShiftPreview, options: ScheduleShiftConfirmationOptions): Promise<{ preview: ScheduleShiftPreview; projectEndDateChanged: boolean }>
 }
 
 export const httpScheduleApi: ScheduleApi = {
@@ -16,17 +14,11 @@ export const httpScheduleApi: ScheduleApi = {
     return mapShiftPreview(projectId, dto)
   },
   async applyShift(projectId, preview, options) {
-    const before = await composeHttpWorkspace(projectId)
     const response = await apiRequest<ShiftConfirmationResponse>(`/api/v1/projects/${projectId}/tasks/${preview.sourceTaskId}/shift-confirm`, {
       method: 'POST', body: JSON.stringify(options),
     })
     const confirmed = mapShiftPreview(projectId, response.preview)
-    setHttpProjectSession(projectId, {
-      sourceTaskId: preview.sourceTaskId,
-      affectedTaskIds: confirmed.taskShifts.map((shift) => shift.taskId),
-      lastChange: { kind: 'schedule-shift-applied', sourceTaskId: preview.sourceTaskId, shiftedTaskIds: confirmed.taskShifts.map((shift) => shift.taskId) },
-      analysis: response.preview.analysis ?? [], previousProjectEndDate: before.project.projectedEndDate,
-    })
+    return { preview: confirmed, projectEndDateChanged: response.projectEndDateChanged }
   },
 }
 

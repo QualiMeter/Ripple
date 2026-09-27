@@ -4,22 +4,16 @@ import {
   X,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
-import type { ProjectSummary } from '../../types/project'
-import { formatTaskCount } from '../../utils/plural'
+import type { ProjectNavigationItem } from '../../types/project'
+import { formatEmployeeCount, formatTaskCount } from '../../utils/plural'
 
 interface SidebarProps {
-  projects: ProjectSummary[]
+  projects: ProjectNavigationItem[]
   loading: boolean
   error?: string | null
   onCreateProject: () => void
   mobile?: boolean
   onClose?: () => void
-}
-
-const healthLabels: Record<ProjectSummary['health'], string> = {
-  'on-track': 'По плану',
-  'at-risk': 'Под угрозой',
-  'off-track': 'Срок сорван',
 }
 
 function initials(name: string) {
@@ -55,7 +49,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, mobile = fa
               <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#8a79ff] to-[#5a49d6] text-[10px] font-bold">{initials(project.name)}</div>
               <div className="min-w-0">
                 <p className="truncate text-xs font-semibold text-white">{project.name}</p>
-                <p className="mt-0.5 text-[11px] text-[#9691a6]">{formatTaskCount(project.taskCount)} · {healthLabels[project.health]}</p>
+                <p className="mt-0.5 text-[11px] text-[#9691a6]">{formatTaskCount(project.taskCount)} · {formatEmployeeCount(project.employeeCount)}</p>
               </div>
             </div>
           </NavLink>)}

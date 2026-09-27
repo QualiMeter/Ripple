@@ -2,10 +2,10 @@ import { apiRequest } from '../client'
 import { analyzeProjectBoundaries } from '../../services/projectBoundaryAnalysis'
 import { calculateProjectProgress } from '../../services/projectProgress'
 import { buildCurrentProjectIssues, buildImpactAnalysis, differenceInDays, findDownstreamTaskIds } from '../../services/scheduleEngine'
-import type { ProjectSummary } from '../../types/project'
+import type { ProjectNavigationItem, ProjectSummary } from '../../types/project'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { getHttpProjectSession } from './session'
-import { mapAnalysisMessage, mapDependency, mapEmployee, mapProject, mapTask } from './mappers'
+import { mapDependency, mapEmployee, mapProject, mapProjectNavigationItem, mapTask } from './mappers'
 import type { ProjectDetailsDto, ProjectListItemDto, UserDto } from './types'
 import { deriveProjectHealth, includeCurrentIssuesInImpact } from '../../services/currentProjectAnalysis'
 
@@ -51,7 +51,7 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
   impact.projectEndChangeDays = differenceInDays(currentEnd, previousEnd)
   impact.deadlineShiftDays = differenceInDays(currentEnd, project.targetEndDate)
   if (session.analysis.length > 0 && session.lastChange.kind !== 'task-updated') {
-    impact.reasons = session.analysis.map(mapAnalysisMessage)
+    impact.reasons = session.analysis
     impact.affectedTaskIds = [...new Set(session.analysis.flatMap((message) => message.affectedTaskIds))]
     impact.requiresIntervention = impact.deadlineShiftDays > 0 || impact.reasons.some((reason) => reason.severity !== 'info')
   }
@@ -79,7 +79,7 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
   }
 }
 
-export async function listHttpProjectSummaries(): Promise<ProjectSummary[]> {
+export async function listHttpProjectNavigationItems(): Promise<ProjectNavigationItem[]> {
   const projects = await apiRequest<ProjectListItemDto[]>('/api/v1/projects')
-  return Promise.all(projects.map(async (project) => (await composeHttpWorkspace(project.id)).project))
+  return projects.map(mapProjectNavigationItem)
 }

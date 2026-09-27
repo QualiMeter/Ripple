@@ -20,6 +20,15 @@ describe('HTTP workspace composition', () => {
     expect(workspace.impact.lastChange).toEqual({ kind: 'session-started' })
   })
 
+  it('loads an opened project with one project-details request', async () => {
+    const fetchMock = vi.fn((url: string) => url.endsWith('/users')
+      ? response([{ id: 'u', name: 'Менеджер', email: 'manager@example.test' }])
+      : response({ id: 'opened', creatorId: 'u', name: 'Открытый', startDate: '2026-10-01', endDate: '2026-10-20', employees: [], tasks: [], dependencies: [], boundaryWarnings: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await composeHttpWorkspace('opened')
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/api/v1/projects/opened'))).toHaveLength(1)
+  })
+
   it('maps employees, tasks and dependencies before running local analytics', async () => {
     vi.stubGlobal('fetch', vi.fn(() => response({
       id: 'full', creatorId: 'u', name: 'Полный', startDate: '2026-10-01', endDate: '2026-10-20', boundaryWarnings: [],
@@ -46,8 +55,8 @@ describe('HTTP workspace composition', () => {
         changes: [{ field: 'status', previousValue: 'not-started', nextValue: 'in-progress' }],
       },
       analysis: [{
-        severity: 0, triggerTaskId: 'a', triggerTaskName: 'A', affectedTaskIds: ['b'], affectedTaskNames: ['B'],
-        description: 'Все предшественники задачи B закончены.', actions: [],
+        severity: 'info', sourceTaskId: 'a', affectedTaskIds: ['b'],
+        reason: 'Все предшественники задачи B закончены.', consequence: 'Можно начинать.',
       }],
       previousProjectEndDate: '2026-10-10',
     })

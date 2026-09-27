@@ -35,5 +35,6 @@ export const mockScheduleApi: ScheduleApi = {
         shiftedTaskIds: currentPreview.taskShifts.map((shift) => shift.taskId),
       },
     })
+    return { preview: currentPreview, projectEndDateChanged: false }
   },
 }

@@ -1,11 +1,11 @@
 import type { LastChange } from '../../types/impact'
-import type { AnalysisMessageDto } from './types'
+import type { ImpactReason } from '../../types/impact'
 
 export interface HttpProjectSession {
   sourceTaskId: string
   affectedTaskIds: string[]
   lastChange: LastChange
-  analysis: AnalysisMessageDto[]
+  analysis: ImpactReason[]
   previousProjectEndDate?: string
 }
 
