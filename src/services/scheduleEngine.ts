@@ -7,6 +7,9 @@ import { analyzeStatusChange, findCurrentStatusConflicts } from './statusAnalysi
 import { analyzeCriticalPath } from './criticalPath'
 import { formatFullDate, getTodayIsoDate } from '../utils/date'
 import { findCurrentDeadlineIssues } from './deadlineAnalysis'
+import { findDownstreamTaskIds } from './dependencyGraph'
+
+export { findDownstreamTaskIds } from './dependencyGraph'
 
 const dayMs = 86_400_000
 
@@ -45,23 +48,6 @@ export function applyExplicitTaskUpdate(task: ProjectTask, update: TaskUpdateReq
     changeNote: undefined,
   }
   return { ...nextTask, riskState: deriveRiskState(nextTask) }
-}
-
-export function findDownstreamTaskIds(sourceTaskId: string, dependencies: Dependency[]): string[] {
-  const visited = new Set<string>()
-  const queue = [sourceTaskId]
-  while (queue.length) {
-    const current = queue.shift()!
-    dependencies
-      .filter((dependency) => dependency.predecessorTaskId === current)
-      .forEach((dependency) => {
-        if (!visited.has(dependency.successorTaskId)) {
-          visited.add(dependency.successorTaskId)
-          queue.push(dependency.successorTaskId)
-        }
-      })
-  }
-  return [...visited]
 }
 
 export function findScheduleConflicts(
@@ -106,7 +92,7 @@ export function buildCurrentProjectIssues(
 ): CurrentProjectIssues {
   const scheduleConflicts = findScheduleConflicts(tasks, dependencies, tasks.map((task) => task.id))
   const statusConflicts = findCurrentStatusConflicts(tasks, dependencies)
-  const deadlineIssues = findCurrentDeadlineIssues(project, tasks, today)
+  const deadlineIssues = findCurrentDeadlineIssues(project, tasks, today, dependencies)
   const allIssues = [...scheduleConflicts, ...statusConflicts, ...deadlineIssues]
   return {
     scheduleConflicts,

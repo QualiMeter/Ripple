@@ -10,6 +10,23 @@ export class DependencyValidationError extends Error {
   }
 }
 
+export function findDownstreamTaskIds(sourceTaskId: string, dependencies: Dependency[]): string[] {
+  const visited = new Set<string>()
+  const queue = [sourceTaskId]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    dependencies
+      .filter((dependency) => dependency.predecessorTaskId === current)
+      .forEach((dependency) => {
+        if (!visited.has(dependency.successorTaskId)) {
+          visited.add(dependency.successorTaskId)
+          queue.push(dependency.successorTaskId)
+        }
+      })
+  }
+  return [...visited]
+}
+
 export function validateDependencyTasks(
   projectId: string,
   tasks: ProjectTask[],

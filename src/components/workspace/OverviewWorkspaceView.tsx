@@ -18,8 +18,8 @@ export function OverviewWorkspaceView({ workspace, showAllTasks, onShowAllTasksC
     <MetricCards workspace={workspace} />
     <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">
       <div className="min-w-0 space-y-4">
-        <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => onTaskSelect(task.id)} />
-        <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} slackDaysByTaskId={workspace.impact.slackDaysByTaskId} projectedProjectEndDate={workspace.impact.projectedProjectEndDate} currentIssues={workspace.currentIssues} onTaskSelect={(task) => onTaskSelect(task.id)} onTaskCreate={onTaskCreate} showAll={showAllTasks} onShowAllChange={onShowAllTasksChange} />
+        <Timeline project={workspace.project} tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => onTaskSelect(task.id)} />
+        <TaskList tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} slackDaysByTaskId={workspace.impact.slackDaysByTaskId} projectedProjectEndDate={workspace.impact.projectedProjectEndDate} currentIssues={workspace.currentIssues} onTaskSelect={(task) => onTaskSelect(task.id)} onTaskCreate={onTaskCreate} showAll={showAllTasks} onShowAllChange={onShowAllTasksChange} />
       </div>
       <ImpactPanel workspace={workspace} onPreviewScheduleShift={onPreviewScheduleShift} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={onTaskSelect} />
     </div>
