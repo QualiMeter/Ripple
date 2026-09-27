@@ -5,8 +5,9 @@ import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSourc
 import type { ProjectTask } from '../../types/task'
 import type { ProjectWorkspace } from '../../types/workspace'
 import type { ScheduleShiftPreview } from '../../types/schedule'
-import { formatAnalysisTime, formatShortDate } from '../../utils/date'
+import { formatAnalysisTime, formatFullDate, formatShortDate } from '../../utils/date'
 import { getErrorMessage } from '../../utils/error'
+import { describeScheduleConflict } from '../../services/scheduleConflictPresentation'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
@@ -129,14 +130,22 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
             <p className="mb-2 text-[9px] font-bold uppercase tracking-[.08em] text-[#8c8798]">{group.title} · {group.items.length}</p>
             <div className="space-y-2">{group.items.map((reason, index) => {
               const source = tasks.find((task) => task.id === reason.sourceTaskId)
+              const scheduleConflict = group.id === 'schedule'
+                ? describeScheduleConflict(reason, tasks, workspace.dependencies)
+                : null
               const tone = reason.severity === 'error'
                 ? 'border-rose-200 bg-rose-50 text-rose-800'
                 : reason.severity === 'warning'
                   ? 'border-amber-200 bg-amber-50 text-amber-900'
                   : 'border-sky-200 bg-sky-50 text-sky-900'
               return <div key={`${group.id}-${reason.sourceTaskId}-${index}`} className={`rounded-xl border p-3 ${tone}`}>
-                {source && <p className="text-[9px] font-bold uppercase tracking-[.08em]">Задача: {source.title}</p>}
+                {scheduleConflict
+                  ? <p className="text-[9px] font-bold uppercase tracking-[.08em]">Задача: {scheduleConflict.successor.title}</p>
+                  : source && <p className="text-[9px] font-bold uppercase tracking-[.08em]">Задача: {source.title}</p>}
                 <p className="mt-1 text-[11px] font-semibold leading-4">{reason.reason}</p>
+                {scheduleConflict && (scheduleConflict.completedSuccessor
+                  ? <div className="mt-1.5 space-y-0.5 text-[10px] leading-4 opacity-85"><p>Задача: {scheduleConflict.successor.title}</p><p>Предшественник: {scheduleConflict.predecessor.title}</p></div>
+                  : <div className="mt-1.5 space-y-0.5 text-[10px] leading-4 opacity-85"><p>Запланированное начало: {formatFullDate(scheduleConflict.successor.startDate)}</p><p>Предшественник «{scheduleConflict.predecessor.title}» завершается: {formatFullDate(scheduleConflict.predecessor.endDate)}</p><p>Можно начать не раньше: {formatFullDate(scheduleConflict.earliestStartDate)}</p></div>)}
                 <p className="mt-1 text-[10px] leading-4 opacity-80">{reason.consequence}</p>
                 {reason.action && <button type="button" onClick={() => reason.action?.type === 'open-task' ? onTaskSelect(reason.action.taskId) : calculatePreview(reason.sourceTaskId)} className="mt-2 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold shadow-sm">{reason.action.type === 'open-task' ? 'Открыть задачу' : 'Рассчитать сдвиг'}</button>}
               </div>

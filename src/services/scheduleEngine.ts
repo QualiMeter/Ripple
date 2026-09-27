@@ -5,9 +5,10 @@ import type { ScheduleShiftPreview, TaskScheduleShift } from '../types/schedule'
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 import { analyzeStatusChange, findCurrentStatusConflicts } from './statusAnalysis'
 import { analyzeCriticalPath } from './criticalPath'
-import { formatFullDate, getTodayIsoDate } from '../utils/date'
+import { getTodayIsoDate } from '../utils/date'
 import { findCurrentDeadlineIssues } from './deadlineAnalysis'
 import { findDownstreamTaskIds } from './dependencyGraph'
+import { getEarliestSuccessorStart, getTaskEarliestStart } from './scheduleRules'
 
 export { findDownstreamTaskIds } from './dependencyGraph'
 
@@ -61,14 +62,14 @@ export function findScheduleConflicts(
     const predecessor = tasksById.get(dependency.predecessorTaskId)
     const successor = tasksById.get(dependency.successorTaskId)
     if (!predecessor || !successor || !candidates.has(successor.id)) return []
-    const earliestStart = addDays(predecessor.endDate, 1)
+    const earliestStart = getEarliestSuccessorStart([predecessor.endDate])!
     if (successor.startDate >= earliestStart) return []
     if (successor.status === 'completed') {
       return [{
         sourceTaskId: predecessor.id,
         affectedTaskIds: [successor.id],
-        reason: `Фактические даты законченной задачи «${successor.title}» конфликтуют с зависимостью от «${predecessor.title}».`,
-        consequence: 'Законченную задачу нельзя сдвинуть автоматически — требуется ручное решение и проверка фактических дат.',
+        reason: 'Фактические даты завершённой задачи конфликтуют с зависимостью.',
+        consequence: 'Завершённую задачу нельзя сдвинуть автоматически. Проверьте фактические даты вручную.',
         severity: 'warning' as const,
         action: { type: 'open-task' as const, taskId: successor.id },
       }]
@@ -76,8 +77,8 @@ export function findScheduleConflicts(
     return [{
       sourceTaskId: predecessor.id,
       affectedTaskIds: [successor.id],
-      reason: `Начало задачи раньше допустимой даты ${formatFullDate(earliestStart)} после завершения предшественника «${predecessor.title}».`,
-      consequence: `Без ручного решения или подтверждённого сдвига задача «${successor.title}» нарушает finish-to-start зависимость.`,
+      reason: 'Задача начинается раньше допустимой даты.',
+      consequence: 'По зависимости «окончание → начало» следующая задача должна начинаться со следующего календарного дня после завершения предшественника.',
       severity: 'warning' as const,
       action: { type: 'preview-shift' as const },
     }]
@@ -112,11 +113,10 @@ export function calculateScheduleShiftPreview(
   const downstreamIds = new Set(findDownstreamTaskIds(sourceTaskId, dependencies))
   for (let iteration = 0; iteration < tasks.length; iteration += 1) {
     let changed = false
-    for (const dependency of dependencies) {
-      const predecessor = proposedById.get(dependency.predecessorTaskId)
-      const successor = proposedById.get(dependency.successorTaskId)
-      if (!predecessor || !successor || successor.status === 'completed' || !downstreamIds.has(successor.id)) continue
-      const earliestStart = addDays(predecessor.endDate, 1)
+    for (const successor of proposedById.values()) {
+      if (successor.status === 'completed' || !downstreamIds.has(successor.id)) continue
+      const earliestStart = getTaskEarliestStart(successor.id, proposedById, dependencies)
+      if (!earliestStart) continue
       if (successor.startDate >= earliestStart) continue
       const shiftDays = differenceInDays(earliestStart, successor.startDate)
       proposedById.set(successor.id, {

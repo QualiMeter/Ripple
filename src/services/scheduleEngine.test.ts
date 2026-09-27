@@ -66,14 +66,15 @@ describe('scheduleEngine explicit shift flow', () => {
     expect(findScheduleConflicts(current, dependencies, ['frontend', 'qa', 'release'])).not.toEqual([])
   })
 
-  it('показывает допустимую дату конфликта в русском формате', () => {
+  it('описывает конфликт понятным правилом без технического термина', () => {
     const conflictTasks = [
       task('source-date', '2026-05-30', '2026-06-01'),
       task('successor-date', '2026-06-01', '2026-06-03'),
     ]
     const conflicts = findScheduleConflicts(conflictTasks, [{ id: 'date-edge', projectId: 'test-project', predecessorTaskId: 'source-date', successorTaskId: 'successor-date', type: 'finish-to-start' }], ['successor-date'])
-    expect(conflicts[0].reason).toContain('02.06.2026')
-    expect(conflicts[0].reason).not.toContain('2026-06-02')
+    expect(conflicts[0].reason).toBe('Задача начинается раньше допустимой даты.')
+    expect(conflicts[0].consequence).toContain('«окончание → начало»')
+    expect(`${conflicts[0].reason} ${conflicts[0].consequence}`).not.toContain('finish-to-start')
   })
 
   it('preview сдвигает downstream-цепочку по календарным дням, включая выходные', () => {

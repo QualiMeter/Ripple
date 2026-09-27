@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { ImpactReason } from '../../types/impact'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { ImpactPanel } from './ImpactPanel'
+import { findScheduleConflicts } from '../../services/scheduleEngine'
 
 function issue(sourceTaskId: string, reason: string, severity: ImpactReason['severity'], action: ImpactReason['action']): ImpactReason {
   return { sourceTaskId, affectedTaskIds: [sourceTaskId], reason, consequence: 'Требуется решение.', severity, action }
@@ -40,5 +41,40 @@ describe('ImpactPanel current issues', () => {
     expect(markup).toContain('Просроченные сроки')
     expect(markup).toContain('Рассчитать сдвиг')
     expect(markup).toContain('Открыть задачу')
+  })
+
+  it('shows the successor and human-readable dates for a dependency conflict', () => {
+    const tasks = [
+      { ...workspace.tasks[0], title: 'A', endDate: '2026-10-23' },
+      { ...workspace.tasks[1], title: 'B', startDate: '2026-10-23' },
+    ]
+    const dependencies = [{ id: 'a-b', projectId: 'project', predecessorTaskId: 'a', successorTaskId: 'b', type: 'finish-to-start' as const }]
+    const scheduleConflicts = findScheduleConflicts(tasks, dependencies, ['b'])
+    const markup = renderToStaticMarkup(<ImpactPanel workspace={{ ...workspace, tasks, dependencies, currentIssues: { scheduleConflicts, statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'] } }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+
+    expect(markup).toContain('Задача: B')
+    expect(markup).not.toContain('Задача: A')
+    expect(markup).toContain('Запланированное начало: 23.10.2026')
+    expect(markup).toContain('Предшественник «A» завершается: 23.10.2026')
+    expect(markup).toContain('Можно начать не раньше: 24.10.2026')
+    expect(markup).toContain('Рассчитать сдвиг')
+    expect(markup).not.toContain('finish-to-start')
+  })
+
+  it('uses the completed-successor wording and open-task action', () => {
+    const tasks = [
+      { ...workspace.tasks[0], title: 'A', endDate: '2026-10-23' },
+      { ...workspace.tasks[1], title: 'B', startDate: '2026-10-23', status: 'completed' as const },
+    ]
+    const dependencies = [{ id: 'a-b', projectId: 'project', predecessorTaskId: 'a', successorTaskId: 'b', type: 'finish-to-start' as const }]
+    const scheduleConflicts = findScheduleConflicts(tasks, dependencies, ['b'])
+    const markup = renderToStaticMarkup(<ImpactPanel workspace={{ ...workspace, tasks, dependencies, currentIssues: { scheduleConflicts, statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'] } }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+
+    expect(markup).toContain('Фактические даты завершённой задачи конфликтуют с зависимостью.')
+    expect(markup).toContain('Задача: B')
+    expect(markup).toContain('Предшественник: A')
+    expect(markup).toContain('Завершённую задачу нельзя сдвинуть автоматически. Проверьте фактические даты вручную.')
+    expect(markup).toContain('Открыть задачу')
+    expect(markup).not.toContain('Рассчитать сдвиг')
   })
 })

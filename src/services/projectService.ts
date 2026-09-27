@@ -11,6 +11,7 @@ import type { CreateProjectRequest, Project, ProjectSummary, UpdateProjectReques
 import { validateProjectInput } from './projectValidation'
 import type { CreateEmployeeRequest, Employee, UpdateEmployeeRequest } from '../types/employee'
 import { validateTaskCompletion } from './taskStatusConsistency'
+import { assertValidScheduleShiftPreview } from './scheduleRules'
 
 export interface ProjectService {
   listProjects(): Promise<ProjectSummary[]>
@@ -90,8 +91,15 @@ export const projectService: ProjectService = {
     await dependenciesApi.deleteDependency(projectId, dependency)
     return projectsApi.getWorkspace(projectId)
   },
-  previewScheduleShift: (projectId, sourceTaskId) => scheduleApi.previewShift(projectId, { sourceTaskId }),
+  async previewScheduleShift(projectId, sourceTaskId) {
+    const workspace = await projectsApi.getWorkspace(projectId)
+    const preview = await scheduleApi.previewShift(projectId, { sourceTaskId })
+    assertValidScheduleShiftPreview(workspace.tasks, workspace.dependencies, preview)
+    return preview
+  },
   async applyScheduleShift(projectId, preview, confirmProjectEndDate) {
+    const workspace = await projectsApi.getWorkspace(projectId)
+    assertValidScheduleShiftPreview(workspace.tasks, workspace.dependencies, preview)
     await scheduleApi.applyShift(projectId, preview, { confirmProjectEndDate })
     return projectsApi.getWorkspace(projectId)
   },
