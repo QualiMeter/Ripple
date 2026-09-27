@@ -3,7 +3,7 @@ import { ApiError } from '../../api/client'
 import type { HistoryApi } from '../../api/history.api'
 import { ProjectHistory } from './projectHistory'
 import { createLocalHistoryStorage } from './historyStorage'
-import { undoServerHistoryEntry } from './serverHistoryActions'
+import { HistoryUndoAlreadyAppliedError, undoServerHistoryEntry } from './serverHistoryActions'
 import { ServerHistorySession } from './serverHistorySession'
 
 const serverEntry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-09-27T10:00:00Z', canUndo: true }
@@ -36,15 +36,38 @@ describe('ServerHistorySession', () => {
     expect(local.list('project')).toHaveLength(1)
   })
 
-  it.each([
-    [404, 'Изменение не найдено. История проекта могла обновиться.'],
-    [409, 'Это изменение уже было отменено.'],
-  ])('refreshes history and exposes the %i undo error', async (status, message) => {
-    const service = api({ undoHistoryEntry: vi.fn().mockRejectedValue(new ApiError(status, 'backend error')) })
+  it('refreshes history after 404 and exposes a clear error', async () => {
+    const service = api({ undoHistoryEntry: vi.fn().mockRejectedValue(new ApiError(404, 'backend error')) })
     const session = new ServerHistorySession()
-    await expect(undoServerHistoryEntry('project', 'abc', service, session)).rejects.toThrow(message)
+    await expect(undoServerHistoryEntry('project', 'abc', service, session)).rejects.toThrow('Изменение не найдено. История проекта могла обновиться.')
     expect(service.listHistory).toHaveBeenCalledTimes(1)
-    if (status === 409) expect(session.get('project')?.[0]).toMatchObject({ canUndo: false, undone: true })
+  })
+
+  it('treats 409 as synchronized only when refreshed history is unavailable', async () => {
+    const service = api({
+      undoHistoryEntry: vi.fn().mockRejectedValue(new ApiError(409, 'already undone')),
+      listHistory: vi.fn().mockResolvedValue([{ ...serverEntry, canUndo: false }]),
+    })
+    const session = new ServerHistorySession()
+    await expect(undoServerHistoryEntry('project', 'abc', service, session)).rejects.toBeInstanceOf(HistoryUndoAlreadyAppliedError)
+    expect(service.listHistory).toHaveBeenCalledTimes(1)
+    expect(session.get('project')?.[0].canUndo).toBe(false)
+  })
+
+  it('does not mask a backend 409 when refreshed history is still undoable', async () => {
+    const service = api({ undoHistoryEntry: vi.fn().mockRejectedValue(new ApiError(409, 'already undone')) })
+    const session = new ServerHistorySession()
+    await expect(undoServerHistoryEntry('project', 'abc', service, session)).rejects.toThrow('Backend вернул 409')
+    expect(session.get('project')?.[0].canUndo).toBe(true)
+  })
+
+  it('does not send undo when the current session already marks the entry unavailable', async () => {
+    const service = api()
+    const session = new ServerHistorySession()
+    await session.load('project', service)
+    session.markUndone('project', 'abc')
+    await expect(undoServerHistoryEntry('project', 'abc', service, session)).rejects.toBeInstanceOf(HistoryUndoAlreadyAppliedError)
+    expect(service.undoHistoryEntry).not.toHaveBeenCalled()
   })
 
   it('marks a history entry as undone without blocking other updates', async () => {
