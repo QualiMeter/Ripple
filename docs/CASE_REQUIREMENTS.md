@@ -71,3 +71,29 @@ Implement one additional working feature that:
 
 Preferred Ripple direction:
 recovery suggestions / “How to save the deadline”.
+
+## Ripple implementation status
+
+The sections above record the original case requirements. The current hackathon implementation maps to them as follows; this status does not redefine the case.
+
+### Implemented
+
+- Multiple projects with project dates and project-scoped employees.
+- Task create/edit/delete, status and assignee changes.
+- Finish-to-start dependency create/delete with duplicate, self-link and cycle validation.
+- Overview with timeline, task plan, current issues and impact of the latest change.
+- Interactive dependency graph with affected, risk and critical states.
+- Downstream impact, overdue analysis, start constraints, project-boundary warnings, computed critical tasks and slack.
+- Explicit automatic-shift preview and confirmation; ordinary edits never move related tasks silently.
+- Responsive desktop/mobile navigation.
+- REST source of truth with SignalR multi-tab/client synchronization.
+
+### Counter-feature delivered
+
+Ripple uses backend project History with transactional selective Undo of a chosen entry. Reverted entities are synchronized through SignalR. Mock mode keeps a separate local history implementation.
+
+### Deferred beyond the current MVP
+
+- Authentication and access roles.
+- Working calendars, resource leveling and advanced planning analytics.
+- The preferred recovery-suggestion concept (“How to save the deadline”) is not exposed as a completed HTTP-mode feature. The explicit schedule-shift preview is implemented, but it is not presented as a broader recovery recommendation engine.

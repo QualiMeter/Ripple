@@ -51,9 +51,9 @@ The demo must visibly show a parameter change and its consequences.
 - At least one integrated counter-feature that creates extra user value.
 
 ## Backend integration
-The backend does not exist yet and will be developed separately in C# ASP.NET Core.
+The C# ASP.NET Core backend is integrated through REST and SignalR. REST is the source of truth; SignalR delivers project delta updates and reconnect synchronization. Mock mode remains available for isolated frontend development.
 
-The frontend must therefore be API-first and backend-ready from the beginning.
+The frontend remains API-first so transport DTO changes stay isolated from UI code.
 
 Rules:
 - Do not place mock data directly inside UI components.
@@ -61,18 +61,18 @@ Rules:
 - Define explicit TypeScript domain/DTO types for Project, Task, Dependency, Assignee, ImpactAnalysis, and recovery scenarios.
 - UI components must consume typed service/API interfaces rather than importing mock datasets directly.
 - Mock implementations should expose approximately the same operations that the future ASP.NET REST API will expose.
-- Use `VITE_API_URL` for the future backend base URL.
+- Use `VITE_API_URL` for the backend base URL.
 - Keep request/response mapping isolated so backend DTO changes do not require UI rewrites.
 - Do not move business rules into presentation components.
 - Temporary frontend-side impact/schedule calculations are allowed for the MVP, but they must be isolated in domain/service modules and replaceable by backend responses later.
 - Keep API/domain contracts documented in `docs/`.
-- Once the ASP.NET OpenAPI/Swagger contract is available, align or generate client types from that contract instead of duplicating models manually.
+- Keep the isolated transport DTO and mapping layer aligned with the ASP.NET OpenAPI contract.
 
-Expected frontend flow now:
+Mock flow:
 `UI -> typed API/service abstraction -> mock implementation/local engine`
 
-Expected flow after backend integration:
-`UI -> typed API client -> ASP.NET Core REST API -> backend domain logic/database`
+HTTP flow:
+`UI -> typed API client -> ASP.NET Core REST API + SignalR -> backend domain logic/database`
 
 Suggested frontend structure:
 
@@ -100,17 +100,10 @@ src/
 
 The exact folders may evolve, but preserve the separation of concerns above.
 
-## Counter-feature direction
-Preferred concept: “How to save the deadline”.
+## Counter-feature
+The delivered counter-feature is server-backed project History with transactional selective Undo of a chosen change. The frontend does not emulate HTTP-mode Undo with inverse CRUD; restored entities arrive through SignalR. Mock mode retains a separate local history implementation.
 
-After a risky change, Ripple may suggest recovery scenarios, for example:
-- reassign a task;
-- shorten a task duration;
-- move non-blocking work in parallel;
-- change a dependency;
-- combine several actions.
-
-This feature must be a working part of the product, not a mock slide.
+Recovery-scenario types and mock heuristics remain for compatibility, but an integrated recovery-recommendation UI is deferred and must not be presented as complete.
 
 ## Product principles
 - The key value is impact analysis, not generic task management.
@@ -125,12 +118,12 @@ This feature must be a working part of the product, not a mock slide.
 Desktop-first modern SaaS interface.
 
 Suggested information architecture:
-- Dashboard / Projects
+- Projects
 - Project workspace
   - Overview
-  - Timeline
-  - Dependency graph
-  - Risks / Impact
+  - Dependencies
+  - Employees
+  - History
 - Task details side panel / modal
 - Change impact panel
 
@@ -159,7 +152,7 @@ Important visual behavior:
 4. Dependency-aware date recalculation.
 5. Impact/risk highlighting.
 6. Timeline / dependency visualization.
-7. Counter-feature: recovery scenarios.
+7. Counter-feature: selective project History Undo.
 8. Polish demo flow and edge cases.
 
 ## Definition of Done for the hackathon MVP
@@ -171,4 +164,4 @@ A reviewer can:
 5. See whether the project deadline moved.
 6. See critical / at-risk tasks.
 7. Understand the reason for the impact.
-8. Try at least one recovery scenario.
+8. Select and undo one project History entry.

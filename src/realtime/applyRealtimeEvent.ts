@@ -147,6 +147,6 @@ export async function applyRealtimeEvent(
     return (await safely(() => loaders.getWorkspace(event.projectId))) ?? workspace
   }
 
-  // Server history is intentionally not mapped to the selective local history yet.
+  // History has its own lazy server-backed cache and is handled outside the workspace entity mapper.
   return workspace
 }

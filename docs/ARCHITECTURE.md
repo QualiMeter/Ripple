@@ -1,145 +1,95 @@
 # Architecture Notes — Ripple
 
-## Locked stack assumptions
-Frontend:
-- React
-- Vite
-- TypeScript
+## Current system
 
-Backend:
-- C# ASP.NET Core
-- REST API
-- OpenAPI / Swagger expected for integration
+Ripple is an API-first React frontend integrated with an ASP.NET Core backend. The same UI can run against the real REST/SignalR backend or the in-memory mock implementation.
 
-The backend is developed separately and may not be available during early frontend work.
+```text
+React UI
+   ↓
+projectService + typed API interfaces
+   ↓
+REST adapters and DTO mapping  ← source of truth in HTTP mode
+   ↕
+SignalR projectChanged deltas
+   ↓
+ASP.NET Core backend
+```
 
-## Frontend architecture principle
-Build API-first.
+The persistence technology of the backend is outside this repository and is not assumed by the frontend.
 
-UI components must not depend directly on mock datasets.
-All data access goes through typed API/service abstractions.
+## Runtime modes
 
-Current:
-`UI -> API/service abstraction -> mocks/local calculation`
+- `VITE_API_MODE=http` — REST confirms mutations and supplies authoritative project/history data; SignalR synchronizes other clients.
+- `VITE_API_MODE=mock` — typed API interfaces use the local project store and pure frontend engines. SignalR is not started.
 
-Later:
-`UI -> API client -> ASP.NET Core REST API`
-
-This should allow switching from mocks to the real backend without rewriting pages/components.
-
-## Core domain entities
-
-### Project
-- id
-- name
-- startDate
-- targetEndDate
-- projectedEndDate
-
-### Task
-- id
-- projectId
-- title
-- startDate
-- endDate or duration
-- assigneeId
-- status
-- riskState
-- isCritical (legacy DTO compatibility only; analytics must not read it)
-
-### Dependency
-- id
-- predecessorTaskId
-- successorTaskId
-- type (MVP can start with finish-to-start)
-
-### Assignee
-- id
-- name
-- role
-- optional availability/capacity fields
-
-### ChangeEvent
-Useful for impact comparison:
-- id
-- projectId
-- taskId
-- field
-- oldValue
-- newValue
-- createdAt
-
-### ImpactAnalysis
-Recommended response model:
-- affectedTaskIds
-- criticalTaskIds
-- atRiskTaskIds
-- previousProjectEndDate
-- projectedProjectEndDate
-- deadlineShiftDays
-- requiresIntervention
-- optional explanations/reasons
-
-`criticalTaskIds` is computed from current task dates and finish-to-start dependencies with a CPM-style backward pass. The current latest task end is the project end for this analysis. Existing calendar gaps become positive slack; all tasks with `slackDays <= 0` are critical. The mutable legacy `Task.isCritical` field is ignored.
+`VITE_API_URL` contains the backend origin. Backend routes and mapping details are documented in [API_CONTRACTS.md](API_CONTRACTS.md).
 
 ## Frontend layers
 
 ### `types/`
-Domain and API-facing TypeScript types.
+
+Stable UI-facing domain models: projects, tasks, employees, dependencies, impact analysis and schedule previews.
 
 ### `api/`
-HTTP client and endpoint functions.
-Use `VITE_API_URL` as backend base URL.
 
-### `mocks/`
-Demo data only.
-No UI component should import mock datasets directly.
+Typed endpoint interfaces, the shared HTTP client, ASP.NET transport DTOs and mapping. React components never consume backend DTOs directly. Project list loading uses the lightweight list response; opening a project uses one aggregate project-details request.
 
 ### `services/`
-Temporary frontend-side business logic such as schedule recalculation while backend is unavailable.
+
+Application orchestration and pure domain/presentation analysis:
+
+- current schedule, status and deadline issues;
+- finish-to-start validation;
+- critical tasks and calendar slack;
+- affected downstream tasks;
+- explicit schedule-shift preview validation;
+- workspace derived-state rebuilding;
+- mock/local History support.
+
+These calculations are isolated from React and can be replaced by backend read models without changing component contracts.
+
+### `realtime/`
+
+One session-wide official SignalR connection joins only the opened project. Events are deduplicated by `eventId`, serialized through an error-isolated queue and applied as task/employee/dependency/project deltas. Initial connection failures retry with bounded backoff. Reconnect performs one full project resync because events may have been missed.
+
+Complete event payloads are applied without network requests. Incomplete task and employee payloads use targeted GETs; incomplete dependencies may refresh only the dependency list. A full project GET is an exceptional fallback after reconnect or an unrecoverable event application error.
 
 ### `components/` and `pages/`
-Presentation and user interaction.
-No persistence or network implementation details here.
 
-## Service boundaries
+Presentation and interaction only. The project workspace orchestrates Overview, Dependencies, Employees and History. The task editor tracks dirty fields so remote updates do not get overwritten by stale form values.
 
-### Project service
-CRUD projects and tasks.
+### `mocks/`
 
-### Dependency service
-Validate and manage task graph.
-Reject cycles.
+Demo data and stores for autonomous frontend development. UI components do not import mock datasets.
 
-### Schedule engine
-For the frontend MVP, this may temporarily run client-side.
+## Core rules
 
-Input:
-- project
-- tasks
-- dependencies
+### Finish-to-start
 
-Output:
-- recalculated dates
-- impacted task ids
-- projected project end
-- critical tasks
-- risk states
+For dependency `A → B`, if `A.endDate = D`, then `B.startDate >= D + 1 calendar day`. Weekends and holidays are intentionally not modeled in the MVP.
 
-When backend support is ready, replace this calculation path with the ASP.NET impact endpoint while keeping the UI contract stable.
+Editing a task or dependency never moves other tasks implicitly. The system first analyzes the conflict. Cascading date changes happen only through the explicit preview/confirm schedule-shift flow; completed tasks require manual resolution.
 
-### Recovery engine
-Input: recalculated project state.
-Output: candidate recovery scenarios with expected impact.
+### Criticality and slack
 
-This may also begin client-side and later move to the backend.
+Criticality is derived from current dates and the dependency DAG with a CPM-style backward calculation. Existing gaps between tasks become positive slack. `ProjectTask.isCritical` is retained only for DTO compatibility and is ignored by analytics.
 
-## Backend API contract
+### REST and derived state
 
-The ASP.NET OpenAPI contract is now available. HTTP mode uses the `/api/v1` project, employee, task, dependency, user, and explicit shift-preview/confirmation routes documented in `API_CONTRACTS.md`. The backend has no combined workspace, impact, or recovery-scenario endpoint; the frontend adapter composes the workspace from project details and the existing pure analysis services.
+REST is the authority for initial loads and mutations. Mutation responses update the local base entities immediately; `rebuildWorkspaceDerivedState` reruns the existing pure analytics without an unnecessary full workspace GET. SignalR makes the update visible in other tabs and clients.
 
-## Integration rule
-When the backend OpenAPI changes:
-1. update the isolated DTO and mapping layer;
-2. keep UI-facing models stable where practical;
-3. do not spread backend-specific DTO differences across React components.
+## History and selective Undo
+
+HTTP mode loads project History lazily from the backend and never mixes it with browser-local History. The selected history ID is sent to the transactional selective Undo endpoint. Frontend inverse CRUD is not used in HTTP mode.
+
+After Undo, task/employee/dependency/project SignalR events update affected entities. Duplicate submission is prevented synchronously, and stale `canUndo`, `404`, and `409` states are reconciled against a refreshed History list. If realtime is unavailable after a successful multi-entity Undo, one full project resync is allowed.
+
+Mock mode retains localStorage-backed history and safe frontend inverse operations for supported entries.
+
+## Current scope boundaries
+
+- No authentication or role model in the frontend MVP.
+- No working-day calendars, holidays, resource leveling or probabilistic planning.
+- Recovery scenario types and the mock heuristic remain for compatibility, but the unimplemented recovery UI is not presented as a product feature.
+- Server History details are limited to fields returned by the backend DTO; the UI does not fabricate before/after values.

@@ -1,91 +1,65 @@
 # MVP Plan — Ripple
 
+This document records the current status of the hackathon MVP. Product behavior is described in [README.md](../README.md), the presentation flow in [DEMO.md](DEMO.md), and transport details in [API_CONTRACTS.md](API_CONTRACTS.md).
+
 ## Demo story
-Use a preconfigured software project with 8–10 tasks.
 
-Example chain:
-Requirements → UX Design → Backend API → Frontend Integration → QA → Release
+Use a project with at least eight tasks, multiple employees and a dependency chain such as:
 
-Plus parallel tasks such as:
-DB Schema, Infrastructure, Documentation.
+```text
+Требования → UX → API аналитики → Интеграция интерфейса → QA → Релиз
+```
 
-### Demo moment
-1. Open project.
-2. Show that it currently meets the deadline.
-3. Increase duration / shift due date of a key task.
-4. Ripple recalculates dependent tasks.
-5. UI highlights:
-   - affected tasks;
-   - new project deadline;
-   - critical path / critical tasks;
-   - risks.
-6. Open “Save the deadline”.
-7. Apply or preview one recovery scenario.
-8. Show project returning closer to the target date.
+The key demo moment is an explicit task-date change followed by impact analysis, schedule-shift preview, realtime synchronization and selective History Undo. Ordinary edits only save user-entered values; they do not silently shift downstream tasks.
 
-## MVP priority
+## Current MVP status
 
-### P0 — Must work
-- project/task model;
-- dependencies;
-- edit task;
-- recalculate dates;
-- impacted task list;
-- project deadline shift;
-- risk/critical state;
-- clear timeline or dependency view.
+### Done — core case
 
-### P1 — Strong demo
-- animated/visual propagation of impact;
-- before/after comparison;
-- change summary;
-- recovery suggestions;
-- seed demo project.
+- Project create/edit/delete and multi-project navigation.
+- Project-scoped employee create/edit/delete and task assignment.
+- Task create/edit/delete with dates, assignee and four MVP statuses.
+- Finish-to-start dependency graph with cycle prevention.
+- Timeline and draggable dependency graph.
+- Current schedule, status, deadline and project-boundary issues.
+- Affected downstream tasks from the latest change.
+- Computed critical tasks and calendar slack.
+- Overdue task presentation and earliest-start constraints.
+- Task-plan filters for attention, all, critical, buffer, conflicts and overdue.
+- Explicit cascade shift preview and confirmation, including separate confirmation when project target end changes.
+- Completed-task protection and frontend validation of backend shift previews.
+- HTTP API integration without N+1 project/workspace loading.
+- SignalR delta updates, event deduplication, reconnect resync and initial-connect retry.
+- Multi-tab-safe task editing with dirty-field conflict handling.
+- Responsive desktop/mobile UI.
 
-### P2 — Nice to have
-- multiple projects;
-- auth;
-- comments;
-- activity history;
-- advanced analytics;
-- export;
-- notifications.
+### Done — counter-feature
 
-## Suggested calculations
+- Lazy backend History in HTTP mode.
+- Transactional selective Undo by chosen history ID.
+- Realtime restoration of affected project entities.
+- Duplicate/stale Undo protection and `404`/`409` reconciliation.
+- Separate localStorage-backed History for mock mode.
 
-### Dependency propagation
-For finish-to-start dependency A → B:
-B cannot start before A is completed.
+### Partial / compatibility only
 
-If A moves later:
-- recompute earliest possible start for B;
-- update B end date;
-- continue propagation through descendants.
+- Recovery scenario domain types and a mock heuristic remain in the codebase, but no recovery-suggestion UI is claimed for the current integrated product.
+- Planned/baseline task dates are session-local in HTTP mode because the backend task DTO does not currently expose persistent baselines.
+- Server History details show only fields supplied by its DTO; no synthetic before/after data is created.
 
-### Project deadline
-Project finish = max(end date of all terminal tasks).
+### Deferred
 
-### Criticality
-Start simple:
-- mark tasks on the longest dependency chain to project finish as critical;
-- optionally compute slack later.
+- Authentication, authorization and project roles.
+- Working-day calendars, weekends/holiday rules and resource leveling.
+- Probabilistic CPM/PERT and advanced analytics.
+- Portfolio, sharing, notifications, comments and export.
+- A full recovery-recommendation engine beyond the explicit schedule-shift flow.
 
-### Risk
-A task may be risky if:
-- projected finish exceeds its planned deadline;
-- it has zero/low slack;
-- it blocks many downstream tasks;
-- it is already overdue and incomplete.
+## Calculation rules kept for MVP
 
-Keep the explanation visible in the UI.
-
-## Recovery scenarios
-Possible MVP heuristics:
-- reduce duration of a critical task;
-- move an independent task in parallel;
-- reassign a task to a faster/available assignee;
-- remove/change a dependency only when user explicitly confirms;
-- combine two safe actions.
-
-Recovery suggestions should show expected effect:
-“Project finish: Sep 30 → Sep 28”.
+- All durations and shifts use calendar days.
+- For finish-to-start `A → B`, `B.startDate` must be at least `A.endDate + 1 day`.
+- Multiple predecessors constrain a successor by the latest predecessor end plus one day.
+- Criticality is computed from the current dependency DAG and dates; existing gaps produce positive slack.
+- Completed tasks can belong to a critical chain but are excluded from «Требуют внимания» and are never shifted automatically.
+- Manual status `Delayed` and computed overdue/risk indicators are separate concepts.
