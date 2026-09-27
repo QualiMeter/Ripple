@@ -9,6 +9,7 @@ export interface AppShellContext {
   openMobileSidebar: () => void
   refreshProjects: () => Promise<void>
   syncProjectNavigation: (project: ProjectNavigationItem) => void
+  removeProjectNavigation: (projectId: string) => void
   projects: ProjectNavigationItem[]
   projectsLoading: boolean
   projectsError: string | null
@@ -75,6 +76,10 @@ export function AppShell() {
     })
   }, [])
 
+  const removeProjectNavigation = useCallback((projectId: string) => {
+    setProjects((current) => current.filter((project) => project.id !== projectId))
+  }, [])
+
   return (
     <div className="min-h-screen bg-[#f5f5f8] lg:flex">
       <Sidebar projects={projects} loading={projectsLoading} error={projectsError} onCreateProject={openCreateProject} />
@@ -83,7 +88,7 @@ export function AppShell() {
         <button type="button" className="min-w-0 flex-1 bg-[#17152b]/55 backdrop-blur-[1px]" onClick={() => setMobileSidebarOpen(false)} aria-label="Закрыть навигацию по фону" />
       </div>}
       <main className="min-w-0 flex-1 lg:ml-[244px]">
-        <Outlet context={{ openMobileSidebar: () => setMobileSidebarOpen(true), refreshProjects, syncProjectNavigation, projects, projectsLoading, projectsError } satisfies AppShellContext} />
+        <Outlet context={{ openMobileSidebar: () => setMobileSidebarOpen(true), refreshProjects, syncProjectNavigation, removeProjectNavigation, projects, projectsLoading, projectsError } satisfies AppShellContext} />
       </main>
       {createProjectOpen && <ProjectFormPanel title="Новый проект" submitLabel="Создать проект" initialValues={{ name: '', startDate: '', targetEndDate: '' }} onClose={() => setCreateProjectOpen(false)} onSubmit={handleCreateProject} />}
     </div>

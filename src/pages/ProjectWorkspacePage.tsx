@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { AppShellContext } from '../components/layout/AppShell'
 import { DependenciesView } from '../components/workspace/DependenciesView'
@@ -26,17 +26,18 @@ import { executeHistoryRevert } from '../services/history/historyRevert'
 import { deleteEmployeeWithHistory } from '../services/history/employeeHistory'
 import { useProjectRealtime } from '../realtime/useProjectRealtime'
 import { isHttpApiMode } from '../config/api'
-import { historyApi, serverHistoryEntryFromRealtimeData } from '../api/history.api'
+import { historyApi, isHistoryRealtimeEntity, serverHistoryEntryFromRealtimeData } from '../api/history.api'
 import { serverHistorySession } from '../services/history/serverHistorySession'
 import { projectRealtime } from '../realtime/projectRealtime'
 import { undoServerHistoryEntry } from '../services/history/serverHistoryActions'
+import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfterMutation } from '../services/history/historySyncPolicy'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
 }
 
 export function ProjectWorkspacePage() {
-  const { openMobileSidebar, refreshProjects, syncProjectNavigation } = useOutletContext<AppShellContext>()
+  const { openMobileSidebar, refreshProjects, syncProjectNavigation, removeProjectNavigation } = useOutletContext<AppShellContext>()
   const navigate = useNavigate()
   const { projectId = '' } = useParams()
   const [workspace, setWorkspace] = useState<ProjectWorkspace | null>(null)
@@ -62,8 +63,9 @@ export function ProjectWorkspacePage() {
     setIsDeletingProject(false)
     setActiveView('overview')
     const cachedServerHistory = isHttpApiMode ? serverHistorySession.get(projectId) : undefined
-    setHistoryEntries(isHttpApiMode ? cachedServerHistory ?? [] : projectHistory.list(projectId))
-    setHistoryLoaded(!isHttpApiMode || Boolean(cachedServerHistory))
+    const historyVisit = beginHistoryVisit(isHttpApiMode, cachedServerHistory, isHttpApiMode ? [] : projectHistory.list(projectId))
+    setHistoryEntries(historyVisit.entries)
+    setHistoryLoaded(historyVisit.loaded)
     setHistoryLoading(false)
     setHistoryError(null)
     projectService.getWorkspace(projectId)
@@ -72,14 +74,25 @@ export function ProjectWorkspacePage() {
     return () => { active = false }
   }, [projectId, loadAttempt])
 
-  useProjectRealtime(projectId, workspace, setWorkspace, projectService.getWorkspace)
+  const handleRealtimeProjectDeleted = useCallback((deletedProjectId: string) => {
+    if (deletedProjectId !== projectId) return
+    setSelectedTaskId(null)
+    setIsCreatingTask(false)
+    setIsEditingProject(false)
+    setIsDeletingProject(false)
+    setWorkspace(null)
+    removeProjectNavigation(deletedProjectId)
+    navigate('/', { replace: true })
+  }, [navigate, projectId, removeProjectNavigation])
+
+  useProjectRealtime(projectId, workspace, setWorkspace, projectService.getWorkspace, handleRealtimeProjectDeleted)
 
   useEffect(() => {
-    if (!isHttpApiMode || activeView !== 'history' || historyLoaded) return
+    if (!shouldLoadHistoryForVisit(isHttpApiMode, activeView, historyLoaded)) return
     let active = true
     setHistoryLoading(true)
     setHistoryError(null)
-    serverHistorySession.load(projectId, historyApi)
+    serverHistorySession.refresh(projectId, historyApi)
       .then((entries) => {
         if (!active) return
         setHistoryEntries(entries)
@@ -92,12 +105,8 @@ export function ProjectWorkspacePage() {
 
   useEffect(() => {
     const unsubscribeEvent = projectRealtime.onProjectChanged((event) => {
-      const historyEntity = event.entity.toLowerCase()
       if (!isHttpApiMode || !historyLoaded || event.projectId !== projectId) return
-      if (historyEntity !== 'history' && historyEntity !== 'change_history') {
-        void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
-        return
-      }
+      if (!isHistoryRealtimeEntity(event.entity)) return
       const entry = serverHistoryEntryFromRealtimeData(projectId, event.data)
       if (event.action.toLowerCase() === 'undone' && event.entityId) serverHistorySession.markUndone(projectId, event.entityId)
       if (entry) {
@@ -133,7 +142,9 @@ export function ProjectWorkspacePage() {
   const selectedTask = workspace.tasks.find((task) => task.id === selectedTaskId)
   const recordHistory = (entry: NewProjectHistoryEntry) => {
     if (isHttpApiMode) {
-      if (historyLoaded) void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
+      if (shouldRefreshHistoryAfterMutation(isHttpApiMode, historyLoaded, projectRealtime.isProjectJoined(projectId))) {
+        void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)
+      }
       return
     }
     projectHistory.record(entry)
@@ -251,10 +262,10 @@ export function ProjectWorkspacePage() {
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
         {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} />}
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
-        {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onDeleteEmployee={handleEmployeeDelete} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
+        {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} historyMode={isHttpApiMode ? 'server' : 'local'} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onDeleteEmployee={handleEmployeeDelete} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
         {activeView === 'history' && <HistoryView entries={historyEntries} workspace={workspace} onRevert={handleHistoryRevert} source={isHttpApiMode ? 'server' : 'local'} loading={historyLoading} loadError={historyError} />}
       </div>
-      {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onCreateEmployee={handleEmployeeCreate} />}
+      {selectedTask && <TaskEditPanel task={selectedTask} assignees={workspace.assignees} tasks={workspace.tasks} dependencies={workspace.dependencies} historyMode={isHttpApiMode ? 'server' : 'local'} onClose={() => setSelectedTaskId(null)} onSave={handleTaskSave} onDelete={handleTaskDelete} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onCreateEmployee={handleEmployeeCreate} />}
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} onCreateEmployee={handleEmployeeCreate} />}
       {isEditingProject && <ProjectFormPanel title="Редактирование проекта" submitLabel="Сохранить" initialValues={{ name: workspace.project.name, startDate: workspace.project.startDate, targetEndDate: workspace.project.targetEndDate }} onClose={() => setIsEditingProject(false)} onSubmit={handleProjectUpdate} />}
       {isDeletingProject && <ProjectDeleteDialog projectName={workspace.project.name} onClose={() => setIsDeletingProject(false)} onConfirm={handleProjectDelete} />}

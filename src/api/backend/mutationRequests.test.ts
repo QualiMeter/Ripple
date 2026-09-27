@@ -21,6 +21,16 @@ describe('HTTP mutation request counts', () => {
     expect(calls[0][1]).toMatchObject({ method: 'PUT' })
   })
 
+  it('builds a title-only update from the current remote task fields', async () => {
+    const fetchMock = vi.fn(() => json({ task: { ...taskDto, name: 'Новая', assigneeId: 'anna' }, analysis: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await httpTasksApi.updateTask('project', 'task', { ...currentTask, assigneeId: 'anna' }, { title: 'Новая' })
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>
+    const body = JSON.parse(String(calls[0][1].body))
+    expect(body).toMatchObject({ name: 'Новая', assigneeId: 'anna' })
+    expect(body.assigneeId).not.toBe('employee')
+  })
+
   it('creates a dependency with one POST and no project refetch', async () => {
     const dependency = { projectId: 'project', predecessorTaskId: 'a', successorTaskId: 'b', predecessorTaskName: 'A', successorTaskName: 'B' }
     const fetchMock = vi.fn(() => json({ dependency, analysis: [] }))

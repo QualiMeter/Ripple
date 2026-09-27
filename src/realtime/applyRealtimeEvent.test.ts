@@ -83,4 +83,17 @@ describe('applyRealtimeEvent', () => {
     }), unusedLoaders)
     expect(restoredDependency.dependencies).toHaveLength(1)
   })
+
+  it('upserts a restored employee and patches a restored project without a full workspace GET', async () => {
+    const initial = { ...workspace(), assignees: [] }
+    const restoredEmployee = await applyRealtimeEvent(initial, event('employee', 'restored', 'e1', {
+      id: 'e1', projectId: 'project', name: 'Анна', phone: null, email: null,
+    }), unusedLoaders)
+    expect(restoredEmployee.assignees).toHaveLength(1)
+    const restoredProject = await applyRealtimeEvent(restoredEmployee, event('project', 'restored', 'project', {
+      id: 'project', name: 'Восстановленный проект', startDate: '2026-10-02', endDate: '2026-11-01',
+    }), unusedLoaders)
+    expect(restoredProject.project).toMatchObject({ name: 'Восстановленный проект', startDate: '2026-10-02', targetEndDate: '2026-11-01' })
+    expect(unusedLoaders.getWorkspace).not.toHaveBeenCalled()
+  })
 })

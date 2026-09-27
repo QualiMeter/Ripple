@@ -7,6 +7,11 @@ export interface HistoryApi {
   undoHistoryEntry(projectId: string, historyId: string): Promise<ServerHistoryEntry>
 }
 
+export function isHistoryRealtimeEntity(entity: string): boolean {
+  const normalized = entity.toLowerCase()
+  return normalized === 'history' || normalized === 'change_history'
+}
+
 export function mapServerHistoryEntry(projectId: string, dto: ChangeHistoryDto): ServerHistoryEntry {
   return {
     source: 'server', projectId, id: dto.id, operationType: dto.operationType,

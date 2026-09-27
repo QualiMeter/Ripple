@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { historyApi } from './history.api'
+import { historyApi, isHistoryRealtimeEntity } from './history.api'
 
 const dto = { id: 'abc', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-09-27T10:00:00Z', canUndo: true }
 
 describe('HistoryApi', () => {
   afterEach(() => vi.unstubAllGlobals())
+
+  it('recognizes only server history realtime entities', () => {
+    expect(isHistoryRealtimeEntity('history')).toBe(true)
+    expect(isHistoryRealtimeEntity('change_history')).toBe(true)
+    expect(isHistoryRealtimeEntity('task')).toBe(false)
+    expect(isHistoryRealtimeEntity('project')).toBe(false)
+  })
 
   it('loads project history and undoes the selected history id', async () => {
     const fetchMock = vi.fn()

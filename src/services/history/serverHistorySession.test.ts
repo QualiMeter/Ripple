@@ -26,6 +26,23 @@ describe('ServerHistorySession', () => {
     expect(service.listHistory).toHaveBeenCalledTimes(1)
   })
 
+  it('refreshes once on a new project visit and shares a burst of refresh requests', async () => {
+    let resolve!: (entries: typeof serverEntry[]) => void
+    const listHistory = vi.fn()
+      .mockImplementationOnce(() => new Promise((done) => { resolve = done }))
+      .mockResolvedValue([serverEntry])
+    const service = api({ listHistory })
+    const session = new ServerHistorySession()
+    const first = session.refresh('project', service)
+    const burst = session.refresh('project', service)
+    expect(service.listHistory).toHaveBeenCalledTimes(1)
+    resolve([serverEntry])
+    await expect(Promise.all([first, burst])).resolves.toEqual([[serverEntry], [serverEntry]])
+
+    await session.refresh('project', service)
+    expect(service.listHistory).toHaveBeenCalledTimes(2)
+  })
+
   it('keeps server history separate from browser-local history', async () => {
     const storage = new Map<string, string>()
     const local = new ProjectHistory(createLocalHistoryStorage({ getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => { storage.set(key, value) } }))
