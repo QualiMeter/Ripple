@@ -35,10 +35,9 @@ describe('ImpactPanel current issues', () => {
   it('shows all issue categories and their total count', () => {
     const markup = renderToStaticMarkup(<ImpactPanel workspace={workspace} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
     expect(markup).toContain('aria-label="Всего текущих проблем: 3"')
-    expect(markup).toContain('Все 3')
-    expect(markup).toContain('Расписание 1')
-    expect(markup).toContain('Статусы 1')
-    expect(markup).toContain('Просрочки 1')
+    expect(markup).toContain('Конфликты зависимостей и дат')
+    expect(markup).toContain('Логические конфликты статусов')
+    expect(markup).toContain('Просроченные сроки')
     expect(markup).toContain('Рассчитать сдвиг')
     expect(markup).toContain('Открыть задачу')
   })
