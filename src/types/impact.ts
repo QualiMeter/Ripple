@@ -30,6 +30,7 @@ export interface ImpactAnalysis {
   lastChange: LastChange
   affectedTaskIds: string[]
   criticalTaskIds: string[]
+  slackDaysByTaskId: Record<string, number>
   atRiskTaskIds: string[]
   previousProjectEndDate: string
   projectedProjectEndDate: string

@@ -4,6 +4,7 @@ import type { ProjectTask } from '../types/task'
 import {
   applyExplicitTaskUpdate,
   applyScheduleShiftPreview,
+  buildImpactAnalysis,
   calculateScheduleShiftPreview,
   findScheduleConflicts,
 } from './scheduleEngine'
@@ -41,6 +42,21 @@ const dependencies: Dependency[] = [
 ]
 
 describe('scheduleEngine explicit shift flow', () => {
+  it('includes the existing critical-path slack result in impact analysis', () => {
+    const impact = buildImpactAnalysis(
+      { id: 'test-project', creatorId: 'manager', name: 'Проект', description: '', startDate: '2026-01-01', targetEndDate: '2026-01-12' },
+      tasks,
+      dependencies,
+      'source',
+    )
+    expect(impact.slackDaysByTaskId).toEqual(expect.objectContaining({
+      source: expect.any(Number),
+      release: expect.any(Number),
+      independent: expect.any(Number),
+    }))
+    expect(impact.criticalTaskIds.every((taskId) => impact.slackDaysByTaskId[taskId] <= 0)).toBe(true)
+  })
+
   it('обычное изменение меняет только исходную задачу и показывает конфликт', () => {
     const source = tasks[0]
     const updated = applyExplicitTaskUpdate(source, { endDate: '2026-01-10' })

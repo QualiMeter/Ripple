@@ -112,7 +112,7 @@ export function ProjectWorkspacePage() {
 
   const impactPanel = <ImpactPanel workspace={workspace} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} onTaskSelect={(taskId) => setSelectedTaskId(taskId)} />
 
-  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onTaskCreate={() => setIsCreatingTask(true)} showAll={showAllTasks} onShowAllChange={setShowAllTasks} />
+  const taskList = <TaskList tasks={workspace.tasks} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} slackDaysByTaskId={workspace.impact.slackDaysByTaskId} projectedProjectEndDate={workspace.impact.projectedProjectEndDate} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onTaskCreate={() => setIsCreatingTask(true)} showAll={showAllTasks} onShowAllChange={setShowAllTasks} />
   const timeline = <Timeline project={workspace.project} tasks={workspace.tasks} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => setSelectedTaskId(task.id)} />
 
   return (

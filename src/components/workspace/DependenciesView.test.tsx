@@ -25,6 +25,7 @@ const impact: ImpactAnalysis = {
   lastChange: { kind: 'session-started' },
   affectedTaskIds: [],
   criticalTaskIds: [],
+  slackDaysByTaskId: {},
   atRiskTaskIds: [],
   previousProjectEndDate: '2026-06-05',
   projectedProjectEndDate: '2026-06-05',

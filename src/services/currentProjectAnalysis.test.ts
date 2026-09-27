@@ -17,7 +17,7 @@ describe('current project analysis', () => {
 
   it('marks current warnings as requiring intervention', () => {
     const impact: ImpactAnalysis = {
-      sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: [], atRiskTaskIds: [],
+      sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: [], slackDaysByTaskId: {}, atRiskTaskIds: [],
       previousProjectEndDate: project.targetEndDate, projectedProjectEndDate: project.targetEndDate,
       projectEndChangeDays: 0, deadlineShiftDays: 0, requiresIntervention: false, reasons: [], analyzedAt: '',
     }

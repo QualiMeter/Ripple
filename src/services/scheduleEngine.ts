@@ -216,6 +216,7 @@ export function buildImpactAnalysis(
     },
     affectedTaskIds: activeAffectedTaskIds,
     criticalTaskIds: criticalPath.criticalTaskIds,
+    slackDaysByTaskId: criticalPath.slackDaysByTaskId,
     atRiskTaskIds: tasks.filter((task) => task.status !== 'completed' && task.riskState === 'at-risk').map((task) => task.id),
     previousProjectEndDate: previousProjectedEndDate,
     projectedProjectEndDate,

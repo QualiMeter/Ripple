@@ -14,7 +14,7 @@ const workspace = {
   dependencies: [], assignees: [], recoveryScenarios: [], projectBoundaryIssues: [],
   currentIssues: { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] },
   impact: {
-    sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: ['task'], atRiskTaskIds: [],
+    sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: ['task'], slackDaysByTaskId: { task: 0 }, atRiskTaskIds: [],
     previousProjectEndDate: '2026-06-30', projectedProjectEndDate: '2026-07-02', projectEndChangeDays: 2, deadlineShiftDays: 2,
     requiresIntervention: true, reasons: [], analyzedAt: '2026-06-01T00:00:00.000Z',
   },
@@ -32,7 +32,12 @@ describe('MetricCards', () => {
   it('uses the computed critical task metric wording', () => {
     const markup = renderToStaticMarkup(<MetricCards workspace={workspace} />)
     expect(markup).toContain('Критические задачи')
-    expect(markup).toContain('Задачи без запаса по срокам')
+    expect(markup).toContain('Задачи без временного запаса — их задержка может сдвинуть срок проекта.')
+  })
+
+  it('explains that a project can have several critical branches', () => {
+    const markup = renderToStaticMarkup(<MetricCards workspace={workspace} />)
+    expect(markup).toContain('В проекте может быть несколько критических ветвей одновременно.')
   })
 
   it('counts all current project issue categories', () => {

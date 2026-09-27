@@ -1,8 +1,9 @@
-import { CalendarDays, CheckCircle2, CircleAlert, Route } from 'lucide-react'
+import { CalendarDays, CheckCircle2, CircleAlert, Info, Route } from 'lucide-react'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { calendarDaysBetween, formatShortDate } from '../../utils/date'
 import { formatTaskCount } from '../../utils/plural'
 import { getCurrentIssueCount } from '../../services/currentProjectAnalysis'
+import { TooltipTrigger } from '../common/TooltipTrigger'
 
 export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
   const { project, impact } = workspace
@@ -15,18 +16,28 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
     { icon: CheckCircle2, label: 'Общий прогресс', value: `${project.progress}%`, detail: `${project.completedTaskCount} из ${formatTaskCount(project.taskCount)} завершено`, accent: 'text-emerald-600', progress: project.progress },
     { icon: CalendarDays, label: 'Плановый срок', value: formatShortDate(project.targetEndDate), detail: `${plannedDays} календарных дней по плану`, accent: 'text-[#6d5dfb]' },
     { icon: CircleAlert, label: 'Прогноз завершения', value: formatShortDate(impact.projectedProjectEndDate), detail: impact.deadlineShiftDays > 0 ? `На ${impact.deadlineShiftDays} дн. позже плана` : impact.deadlineShiftDays < 0 ? `На ${Math.abs(impact.deadlineShiftDays)} дн. раньше плана` : 'В пределах плана', accent: 'text-[#d9653f]', danger: impact.requiresIntervention },
-    { icon: Route, label: 'Критические задачи', value: formatTaskCount(impact.criticalTaskIds.length), detail: 'Задачи без запаса по срокам', accent: 'text-[#4e46b5]' },
+    { icon: Route, label: 'Критические задачи', value: formatTaskCount(impact.criticalTaskIds.length), detail: 'Задачи без временного запаса — их задержка может сдвинуть срок проекта.', accent: 'text-[#4e46b5]', criticalInfo: true },
   ]
   return (
     <div className="space-y-2">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(({ icon: Icon, label, value, detail, accent, danger, progress }) => (
+        {cards.map(({ icon: Icon, label, value, detail, accent, danger, progress, criticalInfo }) => (
           <section key={label} className={`rounded-2xl border bg-white p-4 shadow-panel ${danger ? 'border-[#f2c8b9]' : 'border-[#e7e5ec]'}`}>
           <div className="mb-3 flex items-center justify-between">
             <span className={`grid h-8 w-8 place-items-center rounded-lg bg-[#f4f3f8] ${accent}`}><Icon size={17} strokeWidth={2} /></span>
             {danger && <span className="rounded-full bg-[#fff0e8] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#bf5934]">Требует внимания</span>}
           </div>
-          <p className="text-xs font-medium text-[#858190]">{label}</p>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-[#858190]">
+            <span>{label}</span>
+            {criticalInfo && <TooltipTrigger
+              ariaLabel="Что означает критическая задача"
+              trigger={<span className="grid h-4 w-4 place-items-center text-[#777181]"><Info size={13} /></span>}
+            >
+              <span className="block text-xs font-bold">Что означает критическая задача</span>
+              <span className="mt-1.5 block text-[#dedbe8]">Критическая задача — задача без временного запаса. Если она задержится, это может повлиять на дату завершения проекта.</span>
+              <span className="mt-1.5 block text-[#dedbe8]">В проекте может быть несколько критических ветвей одновременно.</span>
+            </TooltipTrigger>}
+          </div>
           <div className="mt-1 flex items-end justify-between gap-2">
             <p className="text-[22px] font-bold tracking-[-.035em] text-[#29263b]">{value}</p>
           </div>

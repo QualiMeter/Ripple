@@ -81,6 +81,8 @@ The preview route always uses the conflict/source task explicitly selected by th
 
 HTTP mode still uses the pure frontend services for critical path, current unresolved dependency/date conflicts, status consistency, overdue deadlines, project-boundary warnings, risk display, and aggregate metrics. For task updates, status/date consistency is always rebuilt from the tasks and dependencies returned by the refetch; backend analysis cannot replace this current-state result. These services stay behind the workspace adapter and can later be replaced by backend read models without UI changes.
 
+`ImpactAnalysis` exposes both `criticalTaskIds` and `slackDaysByTaskId`. They come from the same single critical-path calculation while the workspace read model is built; React components only present the prepared result and never recalculate CPM.
+
 The adapter stores the latest mutation context per project for the browser session: typed `LastChange`, source task, affected task IDs, backend analysis, and the prior projected end. Initial load uses neutral `session-started` context, not a fabricated task edit. `affectedTaskIds` describes only the latest change; `currentIssues` is recomputed from the complete current graph.
 
 Recovery scenarios remain in domain types for compatibility, but the unimplemented “Как сохранить срок” UI is hidden until a real API/engine is available.

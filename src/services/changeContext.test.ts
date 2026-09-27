@@ -46,6 +46,7 @@ describe('change context', () => {
       lastChange: change,
       affectedTaskIds: [],
       criticalTaskIds: [],
+      slackDaysByTaskId: {},
       atRiskTaskIds: [],
       previousProjectEndDate: '2026-01-20',
       projectedProjectEndDate: '2026-01-20',

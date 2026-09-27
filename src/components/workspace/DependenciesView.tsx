@@ -28,6 +28,7 @@ import { formatFullDate } from '../../utils/date'
 import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
 import { getCurrentIssueLabel, getTaskCurrentIssues } from '../../services/currentProjectAnalysis'
+import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 
 interface DependenciesViewProps {
   tasks: ProjectTask[]
@@ -281,7 +282,7 @@ export function DependenciesView({
     }
   }
 
-  const handleNodePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, taskId: string) => {
+  const handleNodePointerDown = (event: ReactPointerEvent<HTMLElement>, taskId: string) => {
     if (event.button !== 0) return
     event.stopPropagation()
     const origin = positionsRef.current.get(taskId)
@@ -297,7 +298,7 @@ export function DependenciesView({
     }
   }
 
-  const handleNodePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleNodePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     const dx = (event.clientX - drag.start.x) / camera.scale
@@ -312,7 +313,7 @@ export function DependenciesView({
     })
   }
 
-  const handleNodePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleNodePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     if (drag.moved) {
@@ -450,14 +451,21 @@ export function DependenciesView({
                 const primaryIssue = taskIssues[0]
                 const issueLabel = primaryIssue ? getCurrentIssueLabel(primaryIssue) : null
                 return (
-                  <button
+                  <div
                     key={task.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onPointerDown={(event) => handleNodePointerDown(event, task.id)}
                     onPointerMove={handleNodePointerMove}
                     onPointerUp={handleNodePointerUp}
                     onPointerCancel={handleNodePointerUp}
-                    onClick={() => handleNodeClick(task)}
+                    onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) handleNodeClick(task) }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return
+                      if (event.key !== 'Enter' && event.key !== ' ') return
+                      event.preventDefault()
+                      handleNodeClick(task)
+                    }}
                     className={`absolute cursor-grab select-none rounded-2xl border bg-white p-3 text-left shadow-panel transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-0.5 hover:border-[#7568de] hover:shadow-lg active:cursor-grabbing ${affected ? 'border-[#e7774d]' : atRisk ? 'border-[#e7a9ac]' : 'border-[#d6d3dd]'} ${selected ? 'z-10 outline outline-2 outline-offset-2 outline-[#6d5dfb]' : ''}`}
                     style={{ left: position.x, top: position.y, width: nodeWidth, height: nodeHeight }}
                     aria-label={`Открыть задачу «${task.title}»`}
@@ -465,7 +473,7 @@ export function DependenciesView({
                     {affected && <span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[#e7774d]" aria-hidden="true" />}
                     <div className="flex items-start justify-between gap-2">
                       <p className="line-clamp-2 text-xs font-bold leading-4 text-[#403b4d]">{task.title}</p>
-                      <span className="flex shrink-0 flex-col items-end gap-1">{affected && <span className="rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold text-[#b9542f]">Затронуто</span>}{critical && <span className="rounded-full bg-[#efedff] px-1.5 py-0.5 text-[8px] font-bold text-[#5e50c5]">Критическая</span>}</span>
+                      <span className="flex shrink-0 flex-col items-end gap-1">{affected && <span className="rounded-full bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold text-[#b9542f]">Затронуто</span>}{critical && <CriticalTaskBadge slackDays={impact.slackDaysByTaskId[task.id] ?? 0} projectedProjectEndDate={impact.projectedProjectEndDate} />}</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-1.5"><Avatar assignee={assignee} size="sm" /><span className="truncate text-[10px] text-[#6f6a78]">{assignee?.name}</span></div>
@@ -481,7 +489,7 @@ export function DependenciesView({
                         ? <>{issueLabel}{taskIssues.length > 1 && <span className="font-medium"> · {taskIssues.length} проблемы</span>}</>
                         : atRisk ? 'Под риском' : task.riskState === 'watch' ? 'Требует наблюдения' : 'Рисков нет'}
                     </p>
-                  </button>
+                  </div>
                 )
               })}
             </div>

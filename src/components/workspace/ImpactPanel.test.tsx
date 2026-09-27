@@ -25,7 +25,7 @@ const workspace: ProjectWorkspace = {
     affectedTaskIds: ['a', 'b'],
   },
   impact: {
-    sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: [], atRiskTaskIds: [],
+    sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: [], slackDaysByTaskId: {}, atRiskTaskIds: [],
     previousProjectEndDate: '2026-10-31', projectedProjectEndDate: '2026-10-31', projectEndChangeDays: 0, deadlineShiftDays: 0,
     requiresIntervention: false, reasons: [], analyzedAt: '2026-09-27T00:00:00.000Z',
   },
