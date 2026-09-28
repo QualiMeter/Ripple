@@ -28,6 +28,7 @@ import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
 import { getCurrentIssueLabel, getTaskCurrentIssues } from '../../services/currentProjectAnalysis'
 import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
+import { findDependencyDateConflicts } from '../../services/scheduleRules'
 
 interface DependenciesViewProps {
   tasks: ProjectTask[]
@@ -203,6 +204,9 @@ export function DependenciesView({
   const taskById = new Map(tasks.map((task) => [task.id, task]))
   const affectedTaskIdSet = new Set(impact.affectedTaskIds)
   const criticalTaskIdSet = new Set(impact.criticalTaskIds)
+  const dependencyDateConflicts = findDependencyDateConflicts(tasks, dependencies)
+  const conflictDependencyIdSet = new Set(dependencyDateConflicts.map((conflict) => conflict.dependency.id))
+  const conflictSuccessorIdSet = new Set(dependencyDateConflicts.map((conflict) => conflict.successor.id))
 
   const fitToView = useCallback((nextPositions: Map<string, Point>) => {
     const viewport = viewportRef.current
@@ -433,6 +437,7 @@ export function DependenciesView({
                 <defs>
                   <marker id="dependency-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#777282" /></marker>
                   <marker id="dependency-arrow-affected" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#e46f42" /></marker>
+                  <marker id="dependency-arrow-conflict" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#d69025" /></marker>
                 </defs>
                 {dependencies.map((dependency) => {
                   const from = positions.get(dependency.predecessorTaskId)
@@ -443,15 +448,18 @@ export function DependenciesView({
                     impact.sourceTaskId,
                     impact.affectedTaskIds,
                   )
+                  const conflicting = conflictDependencyIdSet.has(dependency.id)
                   return (
                     <path
                       key={dependency.id}
                       d={getEdgePath(from, to)}
                       fill="none"
-                      stroke={highlighted ? '#e46f42' : '#777282'}
-                      strokeWidth={highlighted ? 3 : 2}
+                      data-dependency-conflict={conflicting || undefined}
+                      stroke={highlighted ? '#e46f42' : conflicting ? '#d69025' : '#777282'}
+                      strokeWidth={highlighted || conflicting ? 3 : 2}
                       strokeOpacity={highlighted ? 1 : 0.82}
-                      markerEnd={`url(#${highlighted ? 'dependency-arrow-affected' : 'dependency-arrow'})`}
+                      strokeDasharray={conflicting ? '7 4' : undefined}
+                      markerEnd={`url(#${highlighted ? 'dependency-arrow-affected' : conflicting ? 'dependency-arrow-conflict' : 'dependency-arrow'})`}
                     />
                   )
                 })}
@@ -464,6 +472,7 @@ export function DependenciesView({
                 const affected = affectedTaskIdSet.has(task.id)
                 const atRisk = task.riskState === 'at-risk'
                 const critical = criticalTaskIdSet.has(task.id)
+                const hasScheduleConflict = conflictSuccessorIdSet.has(task.id)
                 const selected = selectedTaskId === task.id
                 const taskIssues = getTaskCurrentIssues(currentIssues, task.id)
                 const primaryIssue = taskIssues[0]
@@ -487,7 +496,11 @@ export function DependenciesView({
                     className={`absolute cursor-grab select-none rounded-2xl border bg-white p-3 text-left shadow-panel transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-0.5 hover:border-[#7568de] hover:shadow-lg active:cursor-grabbing ${affected ? 'border-[#e7774d]' : atRisk ? 'border-[#e7a9ac]' : 'border-[#d6d3dd]'} ${selected ? 'z-10 outline outline-2 outline-offset-2 outline-[#6d5dfb]' : ''}`}
                     style={{ left: position.x, top: position.y, width: nodeWidth, height: nodeHeight }}
                     aria-label={`Открыть задачу «${task.title}»`}
+                    data-task-critical={critical || undefined}
+                    data-task-schedule-conflict={hasScheduleConflict || undefined}
                   >
+                    {critical && <span className="pointer-events-none absolute inset-0 rounded-2xl border-[3px] border-[#7667ed]/45" aria-hidden="true" />}
+                    {hasScheduleConflict && <span className="pointer-events-none absolute -inset-1 rounded-[18px] border-2 border-dashed border-amber-500" aria-hidden="true" />}
                     {affected && <span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[#e7774d]" aria-hidden="true" />}
                     <div className="flex items-start justify-between gap-2">
                       <p className="line-clamp-2 text-xs font-bold leading-4 text-[#403b4d]">{task.title}</p>

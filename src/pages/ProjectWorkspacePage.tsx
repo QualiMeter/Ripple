@@ -29,7 +29,7 @@ import { isHttpApiMode } from '../config/api'
 import { historyApi, isHistoryRealtimeEntity, serverHistoryEntryFromRealtimeData } from '../api/history.api'
 import { serverHistorySession } from '../services/history/serverHistorySession'
 import { projectRealtime } from '../realtime/projectRealtime'
-import { undoServerHistoryEntry } from '../services/history/serverHistoryActions'
+import { undoServerHistoryAndSynchronize } from '../services/history/serverHistoryActions'
 import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfterMutation } from '../services/history/historySyncPolicy'
 
 function WorkspaceSkeleton() {
@@ -240,14 +240,12 @@ export function ProjectWorkspacePage() {
     if (isHttpApiMode) {
       if (!isServerHistoryEntry(entry)) throw new Error('Локальная запись не относится к серверной истории.')
       try {
-        setHistoryEntries(await undoServerHistoryEntry(projectId, entry.id, historyApi, serverHistorySession))
+        const synchronized = await undoServerHistoryAndSynchronize(projectId, entry.id, historyApi, serverHistorySession, projectService.getWorkspace)
+        setHistoryEntries(synchronized.entries)
+        if (synchronized.workspace) setWorkspace(synchronized.workspace)
       } catch (undoError) {
         setHistoryEntries(serverHistorySession.get(projectId) ?? [])
         throw undoError
-      }
-      if (!projectRealtime.isProjectJoined(projectId)) {
-        const synchronized = await projectService.getWorkspace(projectId).catch(() => null)
-        if (synchronized) setWorkspace(synchronized)
       }
       return
     }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImpactReason } from '../../types/impact'
@@ -99,5 +99,57 @@ describe('ImpactPanel current issues', () => {
 
     await waitFor(() => expect(onPreviewScheduleShift).toHaveBeenCalledWith('a'))
     expect(onRequestedPreviewHandled).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the standard two-button preview layout when the project deadline does not change', async () => {
+    render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue({
+      projectId: 'project', sourceTaskId: 'a',
+      taskShifts: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-04', proposedEndDate: '2026-10-05', shiftDays: 1 }],
+      currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
+    })} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    await screen.findByText('Предпросмотр')
+    const actions = document.querySelector('[data-shift-actions="standard"]')
+    expect(actions?.className).toContain('grid-cols-2')
+    expect(actions?.querySelectorAll('button')).toHaveLength(2)
+    expect(document.querySelector('[data-deadline-shift-action="true"]')).toBeNull()
+  })
+
+  it('places the conditional project-deadline action on a full second row', async () => {
+    render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue({
+      projectId: 'project', sourceTaskId: 'a',
+      taskShifts: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-11-01', proposedEndDate: '2026-11-02', shiftDays: 29 }],
+      currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-11-02', projectEndShiftDays: 2,
+    })} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    await screen.findByText('Предпросмотр')
+    const actions = document.querySelector('[data-shift-actions="with-deadline-change"]')
+    const deadlineAction = document.querySelector('[data-deadline-shift-action="true"]')
+    expect(actions?.className).toContain('grid-cols-1 sm:grid-cols-2')
+    expect(actions?.querySelectorAll('button')).toHaveLength(3)
+    expect(deadlineAction?.className).toContain('w-full')
+    expect(deadlineAction?.className).toContain('sm:col-span-2')
+  })
+
+  it('sends distinct confirmation modes from the two deadline actions', async () => {
+    const shiftPreview = {
+      projectId: 'project', sourceTaskId: 'a',
+      taskShifts: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-11-01', proposedEndDate: '2026-11-02', shiftDays: 29 }],
+      currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-11-02', projectEndShiftDays: 2,
+    }
+    const withoutDeadlineChange = vi.fn().mockResolvedValue(undefined)
+    const first = render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue(shiftPreview)} onApplyScheduleShift={withoutDeadlineChange} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    await screen.findByText('Предпросмотр')
+    fireEvent.click(screen.getByRole('button', { name: 'Сдвинуть без изменения срока' }))
+    await waitFor(() => expect(withoutDeadlineChange).toHaveBeenCalledWith(shiftPreview, false))
+    first.unmount()
+
+    const withDeadlineChange = vi.fn().mockResolvedValue(undefined)
+    render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue(shiftPreview)} onApplyScheduleShift={withDeadlineChange} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    await screen.findByText('Предпросмотр')
+    fireEvent.click(screen.getByRole('button', { name: 'Сдвинуть и изменить срок проекта' }))
+    await waitFor(() => expect(withDeadlineChange).toHaveBeenCalledWith(shiftPreview, true))
   })
 })

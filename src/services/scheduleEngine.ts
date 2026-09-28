@@ -8,7 +8,7 @@ import { analyzeCriticalPath } from './criticalPath'
 import { getTodayIsoDate } from '../utils/date'
 import { findCurrentDeadlineIssues } from './deadlineAnalysis'
 import { findDownstreamTaskIds } from './dependencyGraph'
-import { getEarliestSuccessorStart, getTaskEarliestStart } from './scheduleRules'
+import { findDependencyDateConflicts, getTaskEarliestStart } from './scheduleRules'
 
 export { findDownstreamTaskIds } from './dependencyGraph'
 
@@ -56,14 +56,9 @@ export function findScheduleConflicts(
   dependencies: Dependency[],
   candidateTaskIds: string[],
 ): ImpactReason[] {
-  const tasksById = new Map(tasks.map((task) => [task.id, task]))
   const candidates = new Set(candidateTaskIds)
-  return dependencies.flatMap((dependency): ImpactReason[] => {
-    const predecessor = tasksById.get(dependency.predecessorTaskId)
-    const successor = tasksById.get(dependency.successorTaskId)
-    if (!predecessor || !successor || !candidates.has(successor.id)) return []
-    const earliestStart = getEarliestSuccessorStart([predecessor.endDate])!
-    if (successor.startDate >= earliestStart) return []
+  return findDependencyDateConflicts(tasks, dependencies).flatMap(({ predecessor, successor }): ImpactReason[] => {
+    if (!candidates.has(successor.id)) return []
     if (successor.status === 'completed') {
       return [{
         sourceTaskId: predecessor.id,

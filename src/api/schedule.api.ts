@@ -8,6 +8,10 @@ export interface ScheduleApi {
   applyShift(projectId: string, preview: ScheduleShiftPreview, options: ScheduleShiftConfirmationOptions): Promise<{ preview: ScheduleShiftPreview; projectEndDateChanged: boolean }>
 }
 
+export function resolveConfirmedShiftPreview(requested: ScheduleShiftPreview, returned: ScheduleShiftPreview): ScheduleShiftPreview {
+  return returned.taskShifts.length > 0 ? returned : requested
+}
+
 export const httpScheduleApi: ScheduleApi = {
   async previewShift(projectId, request) {
     const dto = await apiRequest<ShiftPreviewDto>(`/api/v1/projects/${projectId}/tasks/${request.sourceTaskId}/shift-preview`, { method: 'POST' })
@@ -17,7 +21,7 @@ export const httpScheduleApi: ScheduleApi = {
     const response = await apiRequest<ShiftConfirmationResponse>(`/api/v1/projects/${projectId}/tasks/${preview.sourceTaskId}/shift-confirm`, {
       method: 'POST', body: JSON.stringify(options),
     })
-    const confirmed = mapShiftPreview(projectId, response.preview)
+    const confirmed = resolveConfirmedShiftPreview(preview, mapShiftPreview(projectId, response.preview))
     return { preview: confirmed, projectEndDateChanged: response.projectEndDateChanged }
   },
 }

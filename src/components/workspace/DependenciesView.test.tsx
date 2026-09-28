@@ -142,4 +142,27 @@ describe('DependenciesView', () => {
     expect(markup).toContain('bg-violet-50')
     expect(markup).toContain('Конфликт состояния')
   })
+
+  it('keeps critical and dependency-conflict graph states visually distinct', () => {
+    const predecessor = { ...task, id: 'a', title: 'A', startDate: '2026-09-11', endDate: '2026-09-14' }
+    const successor = { ...task, id: 'b', title: 'B', startDate: '2026-09-14', endDate: '2026-09-17' }
+    const markup = renderToStaticMarkup(
+      <DependenciesView
+        tasks={[predecessor, successor]}
+        dependencies={[{ id: 'a-b', projectId: task.projectId, predecessorTaskId: 'a', successorTaskId: 'b', type: 'finish-to-start' }]}
+        assignees={[]}
+        impact={{ ...impact, criticalTaskIds: ['b'], slackDaysByTaskId: { b: 0 } }}
+        currentIssues={{ scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] }}
+        onTaskSelect={() => undefined}
+        onCreateDependency={async () => undefined}
+        onDeleteDependency={async () => undefined}
+        onTaskCreate={() => undefined}
+      />,
+    )
+    expect(markup).toContain('data-task-critical="true"')
+    expect(markup).toContain('data-task-schedule-conflict="true"')
+    expect(markup).toContain('border-[3px] border-[#7667ed]/45')
+    expect(markup).toContain('border-dashed border-amber-500')
+    expect(markup).toContain('data-dependency-conflict="true"')
+  })
 })

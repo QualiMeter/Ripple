@@ -1,5 +1,6 @@
 import { ApiError } from '../../api/client'
 import type { HistoryApi } from '../../api/history.api'
+import type { ProjectWorkspace } from '../../types/workspace'
 import type { ServerHistoryEntry } from './historyTypes'
 import type { ServerHistorySession } from './serverHistorySession'
 
@@ -35,4 +36,21 @@ export async function undoServerHistoryEntry(
     }
     throw error
   }
+}
+
+export interface ServerHistoryUndoSynchronization {
+  entries: ServerHistoryEntry[]
+  workspace: ProjectWorkspace | null
+}
+
+export async function undoServerHistoryAndSynchronize(
+  projectId: string,
+  historyId: string,
+  api: HistoryApi,
+  session: ServerHistorySession,
+  loadWorkspace: (projectId: string) => Promise<ProjectWorkspace>,
+): Promise<ServerHistoryUndoSynchronization> {
+  const entries = await undoServerHistoryEntry(projectId, historyId, api, session)
+  const workspace = await loadWorkspace(projectId).catch(() => null)
+  return { entries, workspace }
 }

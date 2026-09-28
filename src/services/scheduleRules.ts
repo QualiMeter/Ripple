@@ -22,6 +22,28 @@ export function getTaskEarliestStart(
   return getEarliestSuccessorStart(predecessorEndDates)
 }
 
+export interface DependencyDateConflict {
+  dependency: Dependency
+  predecessor: ProjectTask
+  successor: ProjectTask
+  requiredStartDate: string
+}
+
+export function findDependencyDateConflicts(
+  tasks: ProjectTask[],
+  dependencies: Dependency[],
+): DependencyDateConflict[] {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]))
+  return dependencies.flatMap((dependency): DependencyDateConflict[] => {
+    const predecessor = tasksById.get(dependency.predecessorTaskId)
+    const successor = tasksById.get(dependency.successorTaskId)
+    if (!predecessor || !successor) return []
+    const requiredStartDate = getEarliestSuccessorStart([predecessor.endDate])!
+    if (successor.startDate >= requiredStartDate) return []
+    return [{ dependency, predecessor, successor, requiredStartDate }]
+  })
+}
+
 export interface InvalidPreviewDependency {
   predecessorTaskId: string
   successorTaskId: string

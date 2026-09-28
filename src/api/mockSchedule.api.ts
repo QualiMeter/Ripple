@@ -1,3 +1,4 @@
+import { getMockProject, updateMockProject } from '../mocks/projectStore'
 import { getMockProjectState, saveMockProjectState } from '../mocks/workspaceStore'
 import { applyScheduleShiftPreview, calculateScheduleShiftPreview } from '../services/scheduleEngine'
 import type { ScheduleApi } from './schedule.api'
@@ -10,7 +11,7 @@ export const mockScheduleApi: ScheduleApi = {
     return calculateScheduleShiftPreview(projectId, state.tasks, state.dependencies, request.sourceTaskId)
   },
 
-  async applyShift(projectId, preview) {
+  async applyShift(projectId, preview, options) {
     await new Promise((resolve) => setTimeout(resolve, 220))
     const state = getMockProjectState(projectId)
     const currentPreview = calculateScheduleShiftPreview(projectId, state.tasks, state.dependencies, preview.sourceTaskId)
@@ -35,6 +36,9 @@ export const mockScheduleApi: ScheduleApi = {
         shiftedTaskIds: currentPreview.taskShifts.map((shift) => shift.taskId),
       },
     })
-    return { preview: currentPreview, projectEndDateChanged: false }
+    const project = getMockProject(projectId)
+    const projectEndDateChanged = Boolean(options.confirmProjectEndDate && project && project.targetEndDate !== currentPreview.proposedProjectEndDate)
+    if (projectEndDateChanged) updateMockProject(projectId, { targetEndDate: currentPreview.proposedProjectEndDate })
+    return { preview: currentPreview, projectEndDateChanged }
   },
 }

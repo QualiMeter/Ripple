@@ -148,4 +148,21 @@ describe('HTTP adapters', () => {
     const confirmCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/shift-confirm'))
     expect(JSON.parse(String(confirmCall?.[1]?.body))).toEqual({ confirmProjectEndDate: true })
   })
+
+  it('keeps the confirmed request preview when the post-confirm backend preview is already empty', async () => {
+    const requestedPreview = {
+      projectId: 'project-1', sourceTaskId: 'task-a',
+      taskShifts: [{ taskId: 'task-b', currentStartDate: '2026-10-14', currentEndDate: '2026-10-16', proposedStartDate: '2026-10-15', proposedEndDate: '2026-10-17', shiftDays: 1 }],
+      currentProjectEndDate: '2026-10-16', proposedProjectEndDate: '2026-10-17', projectEndShiftDays: 1,
+    }
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      preview: { rootTaskId: 'task-a', items: [], currentProjectEndDate: '2026-10-17', proposedProjectEndDate: '2026-10-17', projectEndIncreaseCalendarDays: 0, analysis: [] },
+      projectEndDateChanged: false,
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await httpScheduleApi.applyShift('project-1', requestedPreview, { confirmProjectEndDate: false })
+
+    expect(result.preview).toEqual(requestedPreview)
+  })
 })
