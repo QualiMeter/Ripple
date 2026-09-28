@@ -6,7 +6,6 @@ import {
   useState,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from 'react'
 import {
   ArrowRight,
@@ -115,8 +114,18 @@ function storePositions(storageKey: string, positions: Map<string, Point>) {
   }
 }
 
-function clampScale(scale: number) {
+export function clampScale(scale: number) {
   return Math.min(maxScale, Math.max(minScale, scale))
+}
+
+export function calculateWheelZoom(camera: Camera, deltaY: number, center: Point): Camera {
+  const scale = clampScale(camera.scale * Math.exp(-deltaY * 0.001))
+  const ratio = scale / camera.scale
+  return {
+    scale,
+    x: center.x - (center.x - camera.x) * ratio,
+    y: center.y - (center.y - camera.y) * ratio,
+  }
 }
 
 function getConnectorPoints(from: Point, to: Point) {
@@ -228,6 +237,25 @@ export function DependenciesView({
     return () => cancelAnimationFrame(frame)
   }, [automaticPositions, fitToView, storageKey])
 
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const handleNativeWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const bounds = viewport.getBoundingClientRect()
+      const deltaY = event.deltaY * (event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? Math.max(1, viewport.clientHeight) : 1)
+      setCamera((current) => calculateWheelZoom(current, deltaY, {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      }))
+    }
+    viewport.addEventListener('wheel', handleNativeWheel, { passive: false })
+    return () => viewport.removeEventListener('wheel', handleNativeWheel)
+  }, [tasks.length])
+
   const updateScale = (nextScale: number, center?: Point) => {
     const scale = clampScale(nextScale)
     const viewport = viewportRef.current
@@ -240,15 +268,6 @@ export function DependenciesView({
       x: zoomCenter.x - (zoomCenter.x - current.x) * (scale / current.scale),
       y: zoomCenter.y - (zoomCenter.y - current.y) * (scale / current.scale),
     }))
-  }
-
-  const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const bounds = event.currentTarget.getBoundingClientRect()
-    updateScale(camera.scale * (event.deltaY > 0 ? 0.9 : 1.1), {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    })
   }
 
   const handleCanvasPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -400,7 +419,6 @@ export function DependenciesView({
               backgroundSize: `${22 * camera.scale}px ${22 * camera.scale}px`,
               backgroundPosition: `${camera.x}px ${camera.y}px`,
             }}
-            onWheel={handleWheel}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={stopPanning}

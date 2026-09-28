@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectTask } from '../../types/task'
-import { DependenciesView } from './DependenciesView'
+import { calculateWheelZoom, clampScale, DependenciesView } from './DependenciesView'
 
 const task: ProjectTask = {
   id: 'task-1',
@@ -37,6 +37,24 @@ const impact: ImpactAnalysis = {
 }
 
 describe('DependenciesView', () => {
+  it('zooms smoothly in both directions and clamps the scale', () => {
+    const camera = { x: 20, y: 30, scale: 1 }
+    expect(calculateWheelZoom(camera, -100, { x: 100, y: 100 }).scale).toBeGreaterThan(1)
+    expect(calculateWheelZoom(camera, 100, { x: 100, y: 100 }).scale).toBeLessThan(1)
+    expect(clampScale(100)).toBe(1.6)
+    expect(clampScale(0.01)).toBe(0.45)
+  })
+
+  it('keeps the graph point beneath the cursor fixed while zooming', () => {
+    const camera = { x: 20, y: 30, scale: 1 }
+    const center = { x: 140, y: 110 }
+    const before = { x: (center.x - camera.x) / camera.scale, y: (center.y - camera.y) / camera.scale }
+    const zoomed = calculateWheelZoom(camera, -80, center)
+    const after = { x: (center.x - zoomed.x) / zoomed.scale, y: (center.y - zoomed.y) / zoomed.scale }
+    expect(after.x).toBeCloseTo(before.x)
+    expect(after.y).toBeCloseTo(before.y)
+  })
+
   it('shows task dates in the graph node using the full Russian date format', () => {
     const markup = renderToStaticMarkup(
       <DependenciesView
