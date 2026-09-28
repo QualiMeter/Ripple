@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowRight, Calculator, GitBranch, MoveRight, TriangleAlert } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
@@ -14,9 +14,11 @@ interface ImpactPanelProps {
   onPreviewScheduleShift: (sourceTaskId: string) => Promise<ScheduleShiftPreview>
   onApplyScheduleShift: (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => Promise<void>
   onTaskSelect: (taskId: string) => void
+  requestedPreviewSourceId?: string | null
+  onRequestedPreviewHandled?: () => void
 }
 
-export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect }: ImpactPanelProps) {
+export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled }: ImpactPanelProps) {
   const [preview, setPreview] = useState<ScheduleShiftPreview | null>(null)
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -40,7 +42,7 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
     { id: 'deadline', title: 'Просроченные сроки', items: currentIssues.deadlineIssues },
   ]
   const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
-  const calculatePreview = async (sourceTaskId: string) => {
+  const calculatePreview = useCallback(async (sourceTaskId: string) => {
     setIsCalculating(true)
     setPreviewMessage(null)
     try {
@@ -52,7 +54,13 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
     } finally {
       setIsCalculating(false)
     }
-  }
+  }, [onPreviewScheduleShift])
+
+  useEffect(() => {
+    if (!requestedPreviewSourceId) return
+    onRequestedPreviewHandled?.()
+    void calculatePreview(requestedPreviewSourceId)
+  }, [calculatePreview, onRequestedPreviewHandled, requestedPreviewSourceId])
 
   const applyPreview = async (confirmProjectEndDate: boolean) => {
     if (!preview) return

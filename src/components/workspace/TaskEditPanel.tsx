@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { CalendarDays, Link2, Plus, Save, Trash2, TriangleAlert, Unlink, X } from 'lucide-react'
 import type { Assignee, ProjectTask, TaskStatus, TaskUpdateRequest } from '../../types/task'
 import type { CreateDependencyRequest, Dependency } from '../../types/dependency'
@@ -7,6 +7,8 @@ import type { Employee } from '../../types/employee'
 import { EmployeeCreateAction } from '../employees/EmployeeCreateAction'
 import { getTaskCompletionError } from '../../services/taskStatusConsistency'
 import { getErrorMessage } from '../../utils/error'
+import type { TaskAnalysisMessage } from '../../types/taskAnalysis'
+import { TaskAnalysisSection } from './TaskAnalysisSection'
 
 interface TaskEditPanelProps {
   task: ProjectTask
@@ -20,6 +22,9 @@ interface TaskEditPanelProps {
   onCreateDependency: (request: CreateDependencyRequest) => Promise<void>
   onDeleteDependency: (dependencyId: string) => Promise<void>
   onCreateEmployee: (name: string) => Promise<Employee>
+  onLoadAnalysis: (projectId: string, taskId: string) => Promise<TaskAnalysisMessage[]>
+  onOpenTask: (taskId: string) => void
+  onRequestScheduleShift: (sourceTaskId: string) => void
 }
 
 const statusOptions: Array<{ value: TaskStatus; label: string }> = [
@@ -31,7 +36,7 @@ const statusOptions: Array<{ value: TaskStatus; label: string }> = [
 
 type EditableTaskField = keyof TaskUpdateRequest
 
-export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMode = 'local', onClose, onSave, onDelete, onCreateDependency, onDeleteDependency, onCreateEmployee }: TaskEditPanelProps) {
+export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMode = 'local', onClose, onSave, onDelete, onCreateDependency, onDeleteDependency, onCreateEmployee, onLoadAnalysis, onOpenTask, onRequestScheduleShift }: TaskEditPanelProps) {
   const [title, setTitle] = useState(task.title)
   const [startDate, setStartDate] = useState(task.startDate)
   const [endDate, setEndDate] = useState(task.endDate)
@@ -49,6 +54,8 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
   const dirtyFieldsRef = useRef(new Set<EditableTaskField>())
   const previousTaskRef = useRef(task)
   const [remoteConflictFields, setRemoteConflictFields] = useState<EditableTaskField[]>([])
+  const [analysisRefreshKey, setAnalysisRefreshKey] = useState(0)
+  const loadTaskAnalysis = useCallback((taskId: string) => onLoadAnalysis(task.projectId, taskId), [onLoadAnalysis, task.projectId])
 
   const markDirty = (field: EditableTaskField) => {
     dirtyFieldsRef.current.add(field)
@@ -60,6 +67,10 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
     setEndDate(task.endDate)
     setAssigneeId(task.assigneeId)
     setStatus(task.status)
+    setRelatedTaskId(tasks.find((candidate) => candidate.id !== task.id)?.id ?? '')
+    setConfirmDelete(false)
+    setDependencyError(null)
+    setError(null)
     dirtyFieldsRef.current.clear()
     setRemoteConflictFields([])
     previousTaskRef.current = task
@@ -153,6 +164,7 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
         successorTaskId: relationDirection === 'predecessor' ? task.id : relatedTaskId,
         type: 'finish-to-start',
       })
+      setAnalysisRefreshKey((value) => value + 1)
     } catch (caughtError) {
       setDependencyError(caughtError instanceof Error ? caughtError.message : 'Не удалось создать зависимость.')
     } finally {
@@ -165,6 +177,7 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
     setDeletingDependencyId(dependencyId)
     try {
       await onDeleteDependency(dependencyId)
+      setAnalysisRefreshKey((value) => value + 1)
     } catch (caughtError) {
       setDependencyError(caughtError instanceof Error ? caughtError.message : 'Не удалось удалить зависимость.')
     } finally {
@@ -231,6 +244,16 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
                 {completionError && <span className="mt-2 block rounded-lg bg-rose-50 px-3 py-2 text-[11px] leading-4 text-rose-700">{completionError}</span>}
               </label>
             </div>
+
+            <TaskAnalysisSection
+              key={task.id}
+              taskId={task.id}
+              tasks={tasks}
+              refreshKey={`${analysisRefreshKey}:${task.title}:${task.startDate}:${task.endDate}:${task.assigneeId}:${task.status}`}
+              loadAnalysis={loadTaskAnalysis}
+              onOpenTask={onOpenTask}
+              onRequestScheduleShift={onRequestScheduleShift}
+            />
 
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
               <div className="mb-3 flex items-center gap-2 text-xs font-bold text-[#494456]"><Link2 size={15} className="text-[#6d5dfb]" /> Зависимости</div>

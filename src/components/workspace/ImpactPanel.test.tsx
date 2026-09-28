@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImpactReason } from '../../types/impact'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { ImpactPanel } from './ImpactPanel'
@@ -31,6 +33,8 @@ const workspace: ProjectWorkspace = {
     requiresIntervention: false, reasons: [], analyzedAt: '2026-09-27T00:00:00.000Z',
   },
 }
+
+afterEach(cleanup)
 
 describe('ImpactPanel current issues', () => {
   it('shows all issue categories and their total count', () => {
@@ -76,5 +80,24 @@ describe('ImpactPanel current issues', () => {
     expect(markup).toContain('Завершённую задачу нельзя сдвинуть автоматически. Проверьте фактические даты вручную.')
     expect(markup).toContain('Открыть задачу')
     expect(markup).not.toContain('Рассчитать сдвиг')
+  })
+
+  it('runs a one-shot requested preview through the existing schedule flow', async () => {
+    const onPreviewScheduleShift = vi.fn().mockResolvedValue({
+      projectId: 'project', sourceTaskId: 'a', taskShifts: [],
+      currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
+    })
+    const onRequestedPreviewHandled = vi.fn()
+    render(<ImpactPanel
+      workspace={workspace}
+      onPreviewScheduleShift={onPreviewScheduleShift}
+      onApplyScheduleShift={async () => undefined}
+      onTaskSelect={() => undefined}
+      requestedPreviewSourceId="a"
+      onRequestedPreviewHandled={onRequestedPreviewHandled}
+    />)
+
+    await waitFor(() => expect(onPreviewScheduleShift).toHaveBeenCalledWith('a'))
+    expect(onRequestedPreviewHandled).toHaveBeenCalledTimes(1)
   })
 })

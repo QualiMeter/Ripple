@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dependencyDeletePath, dependencyId, fromBackendTaskStatus, mapDependency, mapEmployee, mapProject, mapShiftPreview, mapTask, toBackendTaskStatus, toCreateProjectDto, toCreateTaskDto, toUpdateProjectDto } from './mappers'
+import { dependencyDeletePath, dependencyId, fromBackendTaskStatus, mapDependency, mapEmployee, mapProject, mapShiftPreview, mapTask, mapTaskAnalysisMessage, toBackendTaskStatus, toCreateProjectDto, toCreateTaskDto, toUpdateProjectDto } from './mappers'
 
 describe('backend mappers', () => {
   it('maps project endDate to targetEndDate and back for creation', () => {
@@ -40,6 +40,14 @@ describe('backend mappers', () => {
     expect(dependencyDeletePath('project', dependency)).toBe('/api/v1/projects/project/dependencies/a/b')
     const preview = mapShiftPreview('project', { rootTaskId: 'a', currentProjectEndDate: '2026-10-03', proposedProjectEndDate: '2026-10-05', projectEndIncreaseCalendarDays: '2', analysis: [], items: [{ taskId: 'b', taskName: 'B', originalStartDate: '2026-10-02', originalEndDate: '2026-10-03', proposedStartDate: '2026-10-04', proposedEndDate: '2026-10-05', shiftCalendarDays: '2', completedRequiresManualResolution: true, reason: 'Факт' }] })
     expect(preview.taskShifts[0]).toMatchObject({ shiftDays: 2, completedRequiresManualResolution: true })
+  })
+
+  it('uses the existing numeric severity semantics for detailed task analysis', () => {
+    const dto = { severity: 0, triggerTaskId: 'task', triggerTaskName: 'Задача', affectedTaskIds: [], affectedTaskNames: [], description: 'Описание', actions: [] }
+    expect(mapTaskAnalysisMessage(dto).severity).toBe('info')
+    expect(mapTaskAnalysisMessage({ ...dto, severity: 1 }).severity).toBe('warning')
+    expect(mapTaskAnalysisMessage({ ...dto, severity: 2 }).severity).toBe('error')
+    expect(mapTaskAnalysisMessage({ ...dto, severity: 7 }).severity).toBe('error')
   })
 
   it('assembles the full backend project PUT object from a partial UI patch', () => {

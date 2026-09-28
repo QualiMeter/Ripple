@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpProjectsApi } from '../projects.api'
 import { httpScheduleApi } from '../schedule.api'
 import { httpEmployeesApi } from '../employees.api'
+import { httpTasksApi } from '../tasks.api'
 import { getHttpProjectSession, setHttpProjectSession } from './session'
 
 const projectDetails = {
@@ -43,6 +44,38 @@ describe('HTTP adapters', () => {
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/v1\/projects\/project-1\/tasks\/task-a\/shift-preview$/)
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' })
     expect(fetchMock.mock.calls[0][1].body).toBeUndefined()
+  })
+
+  it('loads and maps detailed task analysis without losing actions', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([{
+      severity: 1,
+      triggerTaskId: 'task',
+      triggerTaskName: 'Backend',
+      affectedTaskIds: ['frontend', 'testing'],
+      affectedTaskNames: ['Frontend', 'Тестирование'],
+      description: 'Конфликт до 2026-06-02.',
+      actions: [
+        { code: 'open-task', label: 'Открыть Frontend', targetTaskId: 'frontend' },
+        { code: 'preview-shift', label: 'Рассчитать сдвиг', targetTaskId: null },
+      ],
+    }]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await httpTasksApi.getAnalysis('project', 'task')
+
+    expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe('/api/v1/projects/project/tasks/task/analysis')
+    expect(result).toEqual([{
+      severity: 'warning',
+      triggerTaskId: 'task',
+      triggerTaskName: 'Backend',
+      affectedTaskIds: ['frontend', 'testing'],
+      affectedTaskNames: ['Frontend', 'Тестирование'],
+      description: 'Конфликт до 02.06.2026.',
+      actions: [
+        { code: 'open-task', label: 'Открыть Frontend', targetTaskId: 'frontend' },
+        { code: 'preview-shift', label: 'Рассчитать сдвиг', targetTaskId: null },
+      ],
+    }])
   })
 
   it('uses the documented project list, detail and employee URLs', async () => {

@@ -5,12 +5,14 @@ import { MetricCards } from './MetricCards'
 import { TaskList } from './TaskList'
 import { Timeline } from './Timeline'
 
-export function OverviewWorkspaceView({ workspace, onTaskSelect, onTaskCreate, onPreviewScheduleShift, onApplyScheduleShift }: {
+export function OverviewWorkspaceView({ workspace, onTaskSelect, onTaskCreate, onPreviewScheduleShift, onApplyScheduleShift, requestedPreviewSourceId, onRequestedPreviewHandled }: {
   workspace: ProjectWorkspace
   onTaskSelect: (taskId: string) => void
   onTaskCreate: () => void
   onPreviewScheduleShift: (sourceTaskId: string) => Promise<ScheduleShiftPreview>
   onApplyScheduleShift: (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => Promise<void>
+  requestedPreviewSourceId?: string | null
+  onRequestedPreviewHandled?: () => void
 }) {
   return <>
     <MetricCards workspace={workspace} />
@@ -19,7 +21,7 @@ export function OverviewWorkspaceView({ workspace, onTaskSelect, onTaskCreate, o
         <Timeline project={workspace.project} tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} onTaskSelect={(task) => onTaskSelect(task.id)} />
         <TaskList tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} affectedTaskIds={workspace.impact.affectedTaskIds} criticalTaskIds={workspace.impact.criticalTaskIds} slackDaysByTaskId={workspace.impact.slackDaysByTaskId} projectedProjectEndDate={workspace.impact.projectedProjectEndDate} currentIssues={workspace.currentIssues} onTaskSelect={(task) => onTaskSelect(task.id)} onTaskCreate={onTaskCreate} />
       </div>
-      <ImpactPanel workspace={workspace} onPreviewScheduleShift={onPreviewScheduleShift} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={onTaskSelect} />
+      <ImpactPanel workspace={workspace} onPreviewScheduleShift={onPreviewScheduleShift} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={onTaskSelect} requestedPreviewSourceId={requestedPreviewSourceId} onRequestedPreviewHandled={onRequestedPreviewHandled} />
     </div>
   </>
 }

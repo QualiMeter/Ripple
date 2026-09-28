@@ -3,6 +3,7 @@ import type { Employee } from '../../types/employee'
 import type { ImpactReason } from '../../types/impact'
 import type { Project, ProjectNavigationItem } from '../../types/project'
 import type { ScheduleShiftPreview } from '../../types/schedule'
+import type { TaskAnalysisMessage } from '../../types/taskAnalysis'
 import type { ProjectTask, TaskCreateRequest, TaskStatus, TaskUpdateRequest } from '../../types/task'
 import type {
   AnalysisMessageDto, BackendCreateProjectRequest, BackendCreateTaskRequest, BackendTaskStatus,
@@ -10,6 +11,7 @@ import type {
   ProjectDetailsDto, ProjectListItemDto, ShiftPreviewDto, TaskListItemDto,
 } from './types'
 import { formatIsoDatesInText } from '../../utils/date'
+import { isScheduleShiftActionCode } from '../../services/taskAnalysis'
 
 const plannedDates = new Map<string, { startDate: string; endDate: string }>()
 
@@ -91,9 +93,22 @@ export function mapAnalysisMessage(dto: AnalysisMessageDto): ImpactReason {
     sourceTaskId: dto.triggerTaskId, affectedTaskIds: dto.affectedTaskIds ?? [], reason: formatIsoDatesInText(dto.description),
     consequence: formatIsoDatesInText(action?.label ?? 'Проверьте связанные задачи и примите решение вручную.'),
     severity: severityNumber >= 2 ? 'error' : severityNumber === 1 ? 'warning' : 'info',
-    action: action?.code.toLowerCase().includes('shift')
+    action: action && isScheduleShiftActionCode(action.code)
       ? { type: 'preview-shift' }
       : action?.targetTaskId ? { type: 'open-task', taskId: action.targetTaskId } : undefined,
+  }
+}
+
+export function mapTaskAnalysisMessage(dto: AnalysisMessageDto): TaskAnalysisMessage {
+  const severityNumber = Number(dto.severity)
+  return {
+    severity: severityNumber >= 2 ? 'error' : severityNumber === 1 ? 'warning' : 'info',
+    triggerTaskId: dto.triggerTaskId,
+    triggerTaskName: dto.triggerTaskName,
+    affectedTaskIds: dto.affectedTaskIds ?? [],
+    affectedTaskNames: dto.affectedTaskNames ?? [],
+    description: formatIsoDatesInText(dto.description),
+    actions: (dto.actions ?? []).map((action) => ({ ...action })),
   }
 }
 

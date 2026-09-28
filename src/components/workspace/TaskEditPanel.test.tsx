@@ -21,6 +21,7 @@ function props(currentTask: ProjectTask, onSave = vi.fn().mockResolvedValue(unde
     onClose: vi.fn(), onDelete: vi.fn().mockResolvedValue(undefined),
     onCreateDependency: vi.fn().mockResolvedValue(undefined), onDeleteDependency: vi.fn().mockResolvedValue(undefined),
     onCreateEmployee: vi.fn(),
+    onLoadAnalysis: vi.fn().mockResolvedValue([]), onOpenTask: vi.fn(), onRequestScheduleShift: vi.fn(),
   }
 }
 
@@ -56,5 +57,35 @@ describe('TaskEditPanel realtime synchronization', () => {
     expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe('Локальное название')
     fireEvent.click(screen.getByRole('button', { name: 'Обновить данные' }))
     expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe('Удалённое название')
+  })
+
+  it('refreshes task analysis after dependency mutations', async () => {
+    const otherTask = { ...task, id: 'other', title: 'Связанная задача' }
+    const dependency = { id: 'dependency', projectId: 'project', predecessorTaskId: task.id, successorTaskId: otherTask.id, type: 'finish-to-start' as const }
+    const onLoadAnalysis = vi.fn().mockResolvedValue([])
+    const onCreateDependency = vi.fn().mockResolvedValue(undefined)
+    const onDeleteDependency = vi.fn().mockResolvedValue(undefined)
+    render(<TaskEditPanel {...props(task)} tasks={[task, otherTask]} dependencies={[dependency]} onLoadAnalysis={onLoadAnalysis} onCreateDependency={onCreateDependency} onDeleteDependency={onDeleteDependency} />)
+    await waitFor(() => expect(onLoadAnalysis).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить зависимость' }))
+    await waitFor(() => expect(onDeleteDependency).toHaveBeenCalledWith('dependency'))
+    await waitFor(() => expect(onLoadAnalysis).toHaveBeenCalledTimes(2))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить связь' }))
+    await waitFor(() => expect(onCreateDependency).toHaveBeenCalled())
+    await waitFor(() => expect(onLoadAnalysis).toHaveBeenCalledTimes(3))
+  })
+
+  it('loads analysis only for the task currently opened in the panel', async () => {
+    const otherTask = { ...task, id: 'other', title: 'Другая задача' }
+    const onLoadAnalysis = vi.fn().mockResolvedValue([])
+    const baseProps = props(task)
+    const view = render(<TaskEditPanel {...baseProps} tasks={[task, otherTask]} onLoadAnalysis={onLoadAnalysis} />)
+    await waitFor(() => expect(onLoadAnalysis).toHaveBeenCalledWith('project', 'task'))
+
+    view.rerender(<TaskEditPanel {...baseProps} task={otherTask} tasks={[task, otherTask]} onLoadAnalysis={onLoadAnalysis} />)
+    await waitFor(() => expect(onLoadAnalysis).toHaveBeenCalledWith('project', 'other'))
+    expect(onLoadAnalysis).toHaveBeenCalledTimes(2)
   })
 })

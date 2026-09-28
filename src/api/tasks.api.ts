@@ -1,12 +1,14 @@
 import type { ProjectTask, TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { ImpactReason } from '../types/impact'
 import type { TaskMutationResult } from '../types/mutation'
+import type { TaskAnalysisMessage } from '../types/taskAnalysis'
 import { apiRequest } from './client'
 import type { AnalysisMessageDto, TaskMutationResponse } from './backend/types'
-import { mapAnalysisMessage, mapTask, rememberPlannedDates, toCreateTaskDto, toUpdateTaskDto } from './backend/mappers'
+import { mapAnalysisMessage, mapTask, mapTaskAnalysisMessage, rememberPlannedDates, toCreateTaskDto, toUpdateTaskDto } from './backend/mappers'
 
 export interface TasksApi {
   getTask(projectId: string, taskId: string): Promise<ProjectTask>
+  getAnalysis(projectId: string, taskId: string): Promise<TaskAnalysisMessage[]>
   createTask(projectId: string, request: TaskCreateRequest): Promise<TaskMutationResult>
   updateTask(projectId: string, taskId: string, currentTask: ProjectTask, update: TaskUpdateRequest): Promise<TaskMutationResult>
   deleteTask(projectId: string, taskId: string): Promise<ImpactReason[]>
@@ -15,6 +17,10 @@ export interface TasksApi {
 export const httpTasksApi: TasksApi = {
   async getTask(projectId, taskId) {
     return mapTask(await apiRequest<import('./backend/types').TaskDetailsDto>(`/api/v1/projects/${projectId}/tasks/${taskId}`))
+  },
+  async getAnalysis(projectId, taskId) {
+    const response = await apiRequest<AnalysisMessageDto[]>(`/api/v1/projects/${projectId}/tasks/${taskId}/analysis`)
+    return (response ?? []).map(mapTaskAnalysisMessage)
   },
   async createTask(projectId, request) {
     const response = await apiRequest<TaskMutationResponse>(`/api/v1/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(toCreateTaskDto(request)) })
@@ -43,6 +49,7 @@ export const tasksApi: TasksApi = mode === 'http'
         if (!task) throw new Error('Задача не найдена.')
         return task
       },
+      getAnalysis: async () => [],
       createTask: async (projectId, request) => {
         const { mockTasksApi } = await import('./mockTasks.api')
         return { task: await mockTasksApi.createTask(projectId, request), analysis: [] }

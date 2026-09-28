@@ -8,6 +8,7 @@ import type { CreateDependencyRequest } from '../types/dependency'
 import type { CreateEmployeeRequest, Employee, UpdateEmployeeRequest } from '../types/employee'
 import type { CreateProjectRequest, Project, ProjectNavigationItem, UpdateProjectRequest } from '../types/project'
 import type { ScheduleShiftPreview } from '../types/schedule'
+import type { TaskAnalysisMessage } from '../types/taskAnalysis'
 import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { ProjectWorkspace } from '../types/workspace'
 import { buildTaskUpdateChange } from './changeContext'
@@ -28,6 +29,7 @@ export interface ProjectService {
   updateEmployee(workspace: ProjectWorkspace, employeeId: string, request: UpdateEmployeeRequest): Promise<WorkspaceEntityMutation<Employee>>
   deleteEmployee(workspace: ProjectWorkspace, employeeId: string): Promise<ProjectWorkspace>
   getWorkspace(projectId: string): Promise<ProjectWorkspace>
+  getTaskAnalysis(projectId: string, taskId: string): Promise<TaskAnalysisMessage[]>
   updateTask(workspace: ProjectWorkspace, taskId: string, update: TaskUpdateRequest): Promise<ProjectWorkspace>
   createTask(workspace: ProjectWorkspace, request: TaskCreateRequest): Promise<ProjectWorkspace>
   deleteTask(workspace: ProjectWorkspace, taskId: string): Promise<ProjectWorkspace>
@@ -80,6 +82,7 @@ export const projectService: ProjectService = {
     return rebuildWorkspaceDerivedState(removeEmployee(workspace, employeeId))
   },
   getWorkspace: (projectId) => projectsApi.getWorkspace(projectId),
+  getTaskAnalysis: (projectId, taskId) => tasksApi.getAnalysis(projectId, taskId),
   async updateTask(workspace, taskId, update) {
     const currentTask = workspace.tasks.find((task) => task.id === taskId)
     if (!currentTask) throw new Error('Задача не найдена.')

@@ -48,6 +48,7 @@ The adapter maps `EmployeeDto` to the project-scoped frontend `Employee`. Before
 - `GET /api/v1/projects/{projectId}/tasks`
 - `POST /api/v1/projects/{projectId}/tasks`
 - `GET /api/v1/projects/{projectId}/tasks/{taskId}`
+- `GET /api/v1/projects/{projectId}/tasks/{taskId}/analysis`
 - `PUT /api/v1/projects/{projectId}/tasks/{taskId}`
 - `DELETE /api/v1/projects/{projectId}/tasks/{taskId}?confirm=true`
 
@@ -67,6 +68,8 @@ The backend does not currently return planned/baseline dates. In HTTP mode, the 
 Task POST/PUT responses are `TaskMutationResponse`; the adapter unwraps `task` and `analysis`. The confirmed task is upserted into the current workspace and derived presentation state is rebuilt locally, without a project-details refetch. DELETE removes the task and its incident edges locally after REST success.
 
 For a finish-to-start dependency, `PUT` with `status=Completed` is invalid while any direct predecessor is not completed. The frontend validates this before the request for immediate UX, and the ASP.NET backend is expected to enforce the same business rule and return `409 Conflict` with a user-readable message. Starting the task (`InProgress`) remains allowed and produces a consistency warning instead of a blocking error.
+
+Detailed task analysis is loaded lazily only while that task's edit panel is open. `AnalysisMessageDto` maps to a dedicated `TaskAnalysisMessage`, preserving every backend action and formatting ISO dates only for presentation. This model is separate from the project-level `ImpactReason`, whose intentionally compact mapping remains unchanged. A known shift recommendation delegates to the existing explicit schedule-preview flow; unknown future action codes remain visible as non-interactive recommendations. Mock mode returns an empty analysis without introducing parallel business rules.
 
 ### Dependencies
 
