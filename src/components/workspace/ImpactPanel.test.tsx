@@ -152,4 +152,48 @@ describe('ImpactPanel current issues', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сдвинуть и изменить срок проекта' }))
     await waitFor(() => expect(withDeadlineChange).toHaveBeenCalledWith(shiftPreview, true))
   })
+
+  it('keeps shift confirmation single-flight until confirm and project resync finish', async () => {
+    let resolveApply!: () => void
+    const pendingApply = new Promise<void>((resolve) => { resolveApply = resolve })
+    const onApplyScheduleShift = vi.fn(() => pendingApply)
+    const shiftPreview = {
+      projectId: 'project', sourceTaskId: 'a',
+      taskShifts: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-04', proposedEndDate: '2026-10-05', shiftDays: 1 }],
+      currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
+    }
+    render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue(shiftPreview)} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    await screen.findByText('Предпросмотр')
+    const confirm = screen.getByRole('button', { name: 'Подтвердить' })
+    confirm.click()
+    confirm.click()
+    expect(onApplyScheduleShift).toHaveBeenCalledTimes(1)
+    resolveApply()
+    await waitFor(() => expect(screen.queryByText('Предпросмотр')).toBeNull())
+  })
+
+  it('does not offer confirmation when every preview item requires manual resolution', async () => {
+    const onApplyScheduleShift = vi.fn().mockResolvedValue(undefined)
+    render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue({
+      projectId: 'project', sourceTaskId: 'a',
+      taskShifts: [{
+        taskId: 'b',
+        currentStartDate: '2026-10-03', currentEndDate: '2026-10-04',
+        proposedStartDate: '2026-10-03', proposedEndDate: '2026-10-04',
+        shiftDays: 0,
+        completedRequiresManualResolution: true,
+        reason: 'Завершённую задачу нельзя сдвинуть автоматически.',
+      }],
+      currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
+    })} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={() => undefined} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    await screen.findByText('Предпросмотр')
+
+    expect(screen.getByText('Автоматически сдвинуть задачи нельзя. Завершённые работы требуют ручной проверки фактических дат.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Сдвинуть без изменения срока' })).toBeNull()
+    expect(onApplyScheduleShift).not.toHaveBeenCalled()
+  })
 })

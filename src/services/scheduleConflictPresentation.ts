@@ -1,5 +1,5 @@
 import type { Dependency } from '../types/dependency'
-import type { ImpactReason } from '../types/impact'
+import type { CurrentProjectIssues, ImpactReason } from '../types/impact'
 import type { ProjectTask } from '../types/task'
 import { getEarliestSuccessorStart } from './scheduleRules'
 
@@ -30,4 +30,14 @@ export function describeScheduleConflict(
     earliestStartDate: getEarliestSuccessorStart([predecessor.endDate])!,
     completedSuccessor: successor.status === 'completed',
   }
+}
+
+export function listScheduleConflictPresentations(
+  currentIssues: CurrentProjectIssues,
+  tasks: ProjectTask[],
+  dependencies: Dependency[],
+): ScheduleConflictPresentation[] {
+  return currentIssues.scheduleConflicts
+    .map((reason) => describeScheduleConflict(reason, tasks, dependencies))
+    .filter((conflict): conflict is ScheduleConflictPresentation => Boolean(conflict))
 }

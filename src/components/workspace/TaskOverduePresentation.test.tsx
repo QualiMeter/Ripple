@@ -64,7 +64,7 @@ describe('task overdue presentation', () => {
   })
 
   it('adds an overdue marker without replacing the timeline visual state', () => {
-    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task('in-progress')]} dependencies={dependencies} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-09-27" />)
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task('in-progress')]} dependencies={dependencies} assignees={assignees} impact={impact} currentIssues={currentIssues} onTaskSelect={() => undefined} today="2026-09-27" />)
     expect(markup).toContain('Просрочено')
     expect(markup).toContain('data-task-visual-state="in-progress"')
     expect(markup).toContain('ring-rose-500')

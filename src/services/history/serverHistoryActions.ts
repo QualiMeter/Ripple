@@ -50,7 +50,8 @@ export async function undoServerHistoryAndSynchronize(
   session: ServerHistorySession,
   loadWorkspace: (projectId: string) => Promise<ProjectWorkspace>,
 ): Promise<ServerHistoryUndoSynchronization> {
-  const entries = await undoServerHistoryEntry(projectId, historyId, api, session)
+  const entriesAfterUndo = await undoServerHistoryEntry(projectId, historyId, api, session)
   const workspace = await loadWorkspace(projectId).catch(() => null)
+  const entries = await session.refresh(projectId, api).catch(() => entriesAfterUndo)
   return { entries, workspace }
 }

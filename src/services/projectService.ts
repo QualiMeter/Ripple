@@ -13,7 +13,7 @@ import type { TaskCreateRequest, TaskUpdateRequest } from '../types/task'
 import type { ProjectWorkspace } from '../types/workspace'
 import { buildTaskUpdateChange } from './changeContext'
 import { validateProjectInput } from './projectValidation'
-import { applyScheduleShiftPreview, findDownstreamTaskIds } from './scheduleEngine'
+import { findDownstreamTaskIds } from './scheduleEngine'
 import { assertValidScheduleShiftPreview } from './scheduleRules'
 import { validateTaskCompletion } from './taskStatusConsistency'
 import { patchProject, rebuildWorkspaceDerivedState, removeDependency, removeEmployee, removeTask, upsertDependency, upsertEmployee, upsertTask } from './workspaceState'
@@ -162,16 +162,14 @@ export const projectService: ProjectService = {
   async applyScheduleShift(workspace, preview, confirmProjectEndDate) {
     assertValidScheduleShiftPreview(workspace.tasks, workspace.dependencies, preview)
     const response = await scheduleApi.applyShift(workspace.project.id, preview, { confirmProjectEndDate })
-    let base = { ...workspace, tasks: applyScheduleShiftPreview(workspace.tasks, response.preview) }
-    if (confirmProjectEndDate && response.projectEndDateChanged) base = patchProject(base, { targetEndDate: response.preview.proposedProjectEndDate })
     const shiftedTaskIds = response.preview.taskShifts.map((shift) => shift.taskId)
-    const next = rebuildWorkspaceDerivedState(base, {
+    setHttpProjectSession(workspace.project.id, {
       sourceTaskId: preview.sourceTaskId,
       affectedTaskIds: shiftedTaskIds,
       lastChange: { kind: 'schedule-shift-applied', sourceTaskId: preview.sourceTaskId, shiftedTaskIds },
-      previousProjectedEndDate: workspace.project.projectedEndDate,
+      analysis: [],
+      previousProjectEndDate: workspace.project.projectedEndDate,
     })
-    rememberAnalysis(next)
-    return next
+    return projectsApi.getWorkspace(workspace.project.id)
   },
 }

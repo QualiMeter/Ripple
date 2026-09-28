@@ -2,7 +2,7 @@ import type { Dependency } from '../types/dependency'
 import type { CurrentProjectIssues } from '../types/impact'
 import type { ProjectTask } from '../types/task'
 import { analyzeTaskOverdue, type TaskOverdueInfo } from './deadlineAnalysis'
-import { describeScheduleConflict } from './scheduleConflictPresentation'
+import { listScheduleConflictPresentations } from './scheduleConflictPresentation'
 import { getTaskEarliestStart } from './scheduleRules'
 import { selectTasksRequiringAttention } from './taskAttention'
 
@@ -28,10 +28,7 @@ export function buildTaskPlanRows({ tasks, dependencies, criticalTaskIds, slackD
 }): TaskPlanRow[] {
   const tasksById = new Map(tasks.map((task) => [task.id, task]))
   const criticalIds = new Set(criticalTaskIds)
-  const conflictSuccessorIds = new Set(currentIssues.scheduleConflicts.flatMap((reason) => {
-    const conflict = describeScheduleConflict(reason, tasks, dependencies)
-    return conflict ? [conflict.successor.id] : []
-  }))
+  const conflictSuccessorIds = new Set(listScheduleConflictPresentations(currentIssues, tasks, dependencies).map((conflict) => conflict.successor.id))
 
   return tasks.map((task) => {
     const predecessors = dependencies

@@ -28,7 +28,7 @@ import { Avatar } from '../common/Avatar'
 import { StatusBadge } from '../common/StatusBadge'
 import { getCurrentIssueLabel, getTaskCurrentIssues } from '../../services/currentProjectAnalysis'
 import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
-import { findDependencyDateConflicts } from '../../services/scheduleRules'
+import { listScheduleConflictPresentations } from '../../services/scheduleConflictPresentation'
 
 interface DependenciesViewProps {
   tasks: ProjectTask[]
@@ -204,8 +204,8 @@ export function DependenciesView({
   const taskById = new Map(tasks.map((task) => [task.id, task]))
   const affectedTaskIdSet = new Set(impact.affectedTaskIds)
   const criticalTaskIdSet = new Set(impact.criticalTaskIds)
-  const dependencyDateConflicts = findDependencyDateConflicts(tasks, dependencies)
-  const conflictDependencyIdSet = new Set(dependencyDateConflicts.map((conflict) => conflict.dependency.id))
+  const dependencyDateConflicts = listScheduleConflictPresentations(currentIssues, tasks, dependencies)
+  const conflictDependencyIdSet = new Set(dependencyDateConflicts.map((conflict) => `${conflict.predecessor.id}->${conflict.successor.id}`))
   const conflictSuccessorIdSet = new Set(dependencyDateConflicts.map((conflict) => conflict.successor.id))
 
   const fitToView = useCallback((nextPositions: Map<string, Point>) => {
@@ -448,7 +448,7 @@ export function DependenciesView({
                     impact.sourceTaskId,
                     impact.affectedTaskIds,
                   )
-                  const conflicting = conflictDependencyIdSet.has(dependency.id)
+                  const conflicting = conflictDependencyIdSet.has(`${dependency.predecessorTaskId}->${dependency.successorTaskId}`)
                   return (
                     <path
                       key={dependency.id}

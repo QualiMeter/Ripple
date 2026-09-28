@@ -1,17 +1,22 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { scheduleApi } from '../api/schedule.api'
+import { projectsApi } from '../api/projects.api'
 import { TaskList } from '../components/workspace/TaskList'
 import { Timeline } from '../components/workspace/Timeline'
 import type { Dependency } from '../types/dependency'
 import type { ProjectTask } from '../types/task'
 import type { ProjectWorkspace } from '../types/workspace'
 import type { ScheduleShiftPreview } from '../types/schedule'
-import { buildCurrentProjectIssues, buildImpactAnalysis } from './scheduleEngine'
+import { applyScheduleShiftPreview, buildCurrentProjectIssues, buildImpactAnalysis } from './scheduleEngine'
 import { projectService } from './projectService'
+import { patchProject, rebuildWorkspaceDerivedState } from './workspaceState'
 
 vi.mock('../api/schedule.api', () => ({
   scheduleApi: { previewShift: vi.fn(), applyShift: vi.fn() },
+}))
+vi.mock('../api/projects.api', () => ({
+  projectsApi: { getWorkspace: vi.fn() },
 }))
 
 const tasks: ProjectTask[] = [
@@ -41,6 +46,14 @@ function workspace(): ProjectWorkspace {
   }
 }
 
+function serverWorkspace(targetEndDate = '2026-09-16'): ProjectWorkspace {
+  const current = workspace()
+  const shifted = { ...current, tasks: applyScheduleShiftPreview(current.tasks, preview) }
+  return rebuildWorkspaceDerivedState(targetEndDate === current.project.targetEndDate
+    ? shifted
+    : patchProject(shifted, { targetEndDate }))
+}
+
 afterEach(() => {
   vi.clearAllMocks()
   vi.unstubAllGlobals()
@@ -49,6 +62,7 @@ afterEach(() => {
 describe('confirmed schedule shift workspace update', () => {
   it('updates Plan and Timeline immediately and removes the resolved conflict', async () => {
     vi.mocked(scheduleApi.applyShift).mockResolvedValue({ preview, projectEndDateChanged: false })
+    vi.mocked(projectsApi.getWorkspace).mockResolvedValue(serverWorkspace())
     const reload = vi.fn()
     vi.stubGlobal('location', { reload })
     const before = workspace()
@@ -61,9 +75,12 @@ describe('confirmed schedule shift workspace update', () => {
     expect(before.tasks.find((task) => task.id === 'B')).toMatchObject({ startDate: '2026-09-14', endDate: '2026-09-16' })
     expect(updated.currentIssues.scheduleConflicts).toEqual([])
     expect(reload).not.toHaveBeenCalled()
+    expect(projectsApi.getWorkspace).toHaveBeenCalledTimes(1)
+    expect(projectsApi.getWorkspace).toHaveBeenCalledWith('project')
+    expect(vi.mocked(scheduleApi.applyShift).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(projectsApi.getWorkspace).mock.invocationCallOrder[0])
 
     const plan = renderToStaticMarkup(<TaskList tasks={updated.tasks} dependencies={updated.dependencies} assignees={updated.assignees} affectedTaskIds={updated.impact.affectedTaskIds} criticalTaskIds={updated.impact.criticalTaskIds} slackDaysByTaskId={updated.impact.slackDaysByTaskId} projectedProjectEndDate={updated.impact.projectedProjectEndDate} currentIssues={updated.currentIssues} today="2026-09-12" onTaskSelect={() => undefined} onTaskCreate={() => undefined} />)
-    const timeline = renderToStaticMarkup(<Timeline project={updated.project} tasks={updated.tasks} dependencies={updated.dependencies} assignees={updated.assignees} impact={updated.impact} today="2026-09-12" onTaskSelect={() => undefined} />)
+    const timeline = renderToStaticMarkup(<Timeline project={updated.project} tasks={updated.tasks} dependencies={updated.dependencies} assignees={updated.assignees} impact={updated.impact} currentIssues={updated.currentIssues} today="2026-09-12" onTaskSelect={() => undefined} />)
     expect(plan).toContain('15 сент.')
     expect(plan).toContain('17 сент.')
     expect(timeline).toContain('data-task-start-date="2026-09-15"')
@@ -72,6 +89,7 @@ describe('confirmed schedule shift workspace update', () => {
 
   it('updates task dates without changing the project deadline when it is not confirmed', async () => {
     vi.mocked(scheduleApi.applyShift).mockResolvedValue({ preview, projectEndDateChanged: false })
+    vi.mocked(projectsApi.getWorkspace).mockResolvedValue(serverWorkspace())
     const updated = await projectService.applyScheduleShift(workspace(), preview, false)
     expect(updated.tasks.find((task) => task.id === 'B')?.endDate).toBe('2026-09-17')
     expect(updated.project.targetEndDate).toBe('2026-09-16')
@@ -80,6 +98,7 @@ describe('confirmed schedule shift workspace update', () => {
 
   it('updates both task dates and the project deadline after explicit confirmation', async () => {
     vi.mocked(scheduleApi.applyShift).mockResolvedValue({ preview, projectEndDateChanged: true })
+    vi.mocked(projectsApi.getWorkspace).mockResolvedValue(serverWorkspace('2026-09-17'))
     const updated = await projectService.applyScheduleShift(workspace(), preview, true)
     expect(updated.tasks.find((task) => task.id === 'B')?.endDate).toBe('2026-09-17')
     expect(updated.project.targetEndDate).toBe('2026-09-17')
@@ -91,5 +110,16 @@ describe('confirmed schedule shift workspace update', () => {
     const snapshot = structuredClone(before)
     await expect(projectService.applyScheduleShift(before, preview, false)).rejects.toThrow('Backend unavailable')
     expect(before).toEqual(snapshot)
+    expect(projectsApi.getWorkspace).not.toHaveBeenCalled()
+  })
+
+  it('does not simulate preview dates when the authoritative project reload still returns old dates', async () => {
+    vi.mocked(scheduleApi.applyShift).mockResolvedValue({ preview, projectEndDateChanged: false })
+    vi.mocked(projectsApi.getWorkspace).mockResolvedValue(workspace())
+
+    const updated = await projectService.applyScheduleShift(workspace(), preview, false)
+
+    expect(updated.tasks.find((task) => task.id === 'B')).toMatchObject({ startDate: '2026-09-14', endDate: '2026-09-16' })
+    expect(projectsApi.getWorkspace).toHaveBeenCalledTimes(1)
   })
 })

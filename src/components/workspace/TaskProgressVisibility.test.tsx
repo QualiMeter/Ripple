@@ -34,20 +34,20 @@ describe('task progress presentation', () => {
   })
 
   it('uses the same violet visual state for a non-critical in-progress timeline task', () => {
-    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} currentIssues={currentIssues} onTaskSelect={() => undefined} today="2026-06-03" />)
     expect(markup.match(/data-task-visual-state="in-progress"/g)).toHaveLength(2)
     expect(markup).toContain('bg-[#7768ed]')
   })
 
   it('keeps criticality separate from a violet in-progress status', () => {
-    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={{ ...impact, criticalTaskIds: [task.id] }} onTaskSelect={() => undefined} today="2026-06-03" />)
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={{ ...impact, criticalTaskIds: [task.id] }} currentIssues={currentIssues} onTaskSelect={() => undefined} today="2026-06-03" />)
     expect(markup).toContain('data-task-visual-state="in-progress"')
     expect(markup).toContain('Критическая')
   })
 
   it('shows a not-started task as gray in Timeline and TaskList', () => {
     const notStarted = { ...task, status: 'not-started' as const }
-    const timelineMarkup = renderToStaticMarkup(<Timeline project={project} tasks={[notStarted]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
+    const timelineMarkup = renderToStaticMarkup(<Timeline project={project} tasks={[notStarted]} assignees={assignees} impact={impact} currentIssues={currentIssues} onTaskSelect={() => undefined} today="2026-06-03" />)
     const listMarkup = renderToStaticMarkup(<TaskList tasks={[notStarted]} assignees={assignees} affectedTaskIds={[]} criticalTaskIds={[]} slackDaysByTaskId={{ [notStarted.id]: 1 }} projectedProjectEndDate={project.projectedEndDate} currentIssues={attentionIssues} onTaskSelect={() => undefined} onTaskCreate={() => undefined} />)
     expect(timelineMarkup).toContain('data-task-visual-state="not-started"')
     expect(listMarkup).toContain('data-task-visual-state="not-started"')
@@ -55,7 +55,7 @@ describe('task progress presentation', () => {
   })
 
   it('uses a solid full-period timeline bar without task progress fill', () => {
-    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} onTaskSelect={() => undefined} today="2026-06-03" />)
+    const markup = renderToStaticMarkup(<Timeline project={project} tasks={[task]} assignees={assignees} impact={impact} currentIssues={currentIssues} onTaskSelect={() => undefined} today="2026-06-03" />)
     expect(markup).not.toContain('width:62%')
     expect(markup).not.toContain('bg-white/20')
     expect(markup).toContain('Сегодня: 03.06.2026')

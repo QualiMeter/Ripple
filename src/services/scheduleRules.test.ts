@@ -29,6 +29,14 @@ describe('finish-to-start calendar rule', () => {
     expect(preview.taskShifts[0]).toMatchObject({ proposedStartDate: '2026-10-15', proposedEndDate: '2026-10-19' })
   })
 
+  it('moves a five-day successor from 1 October to the first valid day after 8 October', () => {
+    const tasks = [task('A', '2026-10-01', '2026-10-08'), task('B', '2026-10-01', '2026-10-05')]
+    const preview = calculateScheduleShiftPreview('project', tasks, [dependency('a-b', 'A', 'B')], 'A')
+    expect(preview.taskShifts).toEqual([
+      expect.objectContaining({ taskId: 'B', proposedStartDate: '2026-10-09', proposedEndDate: '2026-10-13', shiftDays: 8 }),
+    ])
+  })
+
   it('does not shift a successor already starting the next day', () => {
     const tasks = [task('A', '2026-10-11', '2026-10-14'), task('B', '2026-10-15', '2026-10-18')]
     expect(calculateScheduleShiftPreview('project', tasks, [dependency('a-b', 'A', 'B')], 'A').taskShifts).toEqual([])

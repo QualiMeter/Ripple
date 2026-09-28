@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Calculator, GitBranch, MoveRight, TriangleAlert } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
@@ -23,6 +23,7 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [isApplying, setIsApplying] = useState(false)
+  const applyInFlightRef = useRef(false)
   const [selectedPreviewSourceId, setSelectedPreviewSourceId] = useState('')
   const { impact, currentIssues, tasks } = workspace
   const affected = impact.affectedTaskIds
@@ -42,6 +43,10 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
     { id: 'deadline', title: 'Просроченные сроки', items: currentIssues.deadlineIssues },
   ]
   const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
+  const hasApplicablePreviewShifts = preview?.taskShifts.some((shift) => (
+    !shift.completedRequiresManualResolution
+    && (shift.currentStartDate !== shift.proposedStartDate || shift.currentEndDate !== shift.proposedEndDate)
+  )) ?? false
   const calculatePreview = useCallback(async (sourceTaskId: string) => {
     setIsCalculating(true)
     setPreviewMessage(null)
@@ -63,7 +68,8 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
   }, [calculatePreview, onRequestedPreviewHandled, requestedPreviewSourceId])
 
   const applyPreview = async (confirmProjectEndDate: boolean) => {
-    if (!preview) return
+    if (!preview || applyInFlightRef.current) return
+    applyInFlightRef.current = true
     setIsApplying(true)
     setPreviewMessage(null)
     try {
@@ -72,6 +78,7 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
     } catch (error) {
       setPreviewMessage(getErrorMessage(error, 'Предпросмотр устарел или не удалось применить сдвиг. Выполните расчёт повторно.'))
     } finally {
+      applyInFlightRef.current = false
       setIsApplying(false)
     }
   }
@@ -186,7 +193,8 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
           </div>
           <div className="mt-3 border-t border-[#e7e2fb] pt-2 text-[10px] text-[#777181]">Завершение проекта: <strong className="text-[#474252]">{formatShortDate(preview.currentProjectEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(preview.proposedProjectEndDate)}</strong> ({preview.projectEndShiftDays > 0 ? '+' : ''}{preview.projectEndShiftDays} дн.)</div>
           {preview.projectEndShiftDays > 0 && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-4 text-amber-800">Предлагаемый сдвиг выходит за текущий срок проекта. Изменить плановый срок можно только отдельным явным подтверждением.</p>}
-          <div data-shift-actions={preview.projectEndShiftDays > 0 ? 'with-deadline-change' : 'standard'} className={`mt-3 grid gap-2 ${preview.projectEndShiftDays > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}><button type="button" disabled={isApplying} onClick={() => setPreview(null)} className="rounded-xl border border-[#dedbe4] px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplying} onClick={confirmShiftWithoutDeadlineChange} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplying ? 'Применение…' : preview.projectEndShiftDays > 0 ? 'Сдвинуть без изменения срока' : 'Подтвердить'}</button>{preview.projectEndShiftDays > 0 && <button data-deadline-shift-action="true" type="button" disabled={isApplying} onClick={confirmShiftWithDeadlineChange} className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-800 disabled:opacity-60 sm:col-span-2">Сдвинуть и изменить срок проекта</button>}</div>
+          {!hasApplicablePreviewShifts && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-4 text-amber-800">Автоматически сдвинуть задачи нельзя. Завершённые работы требуют ручной проверки фактических дат.</p>}
+          {hasApplicablePreviewShifts && <div data-shift-actions={preview.projectEndShiftDays > 0 ? 'with-deadline-change' : 'standard'} className={`mt-3 grid gap-2 ${preview.projectEndShiftDays > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}><button type="button" disabled={isApplying} onClick={() => setPreview(null)} className="rounded-xl border border-[#dedbe4] px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplying} onClick={confirmShiftWithoutDeadlineChange} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplying ? 'Применение…' : preview.projectEndShiftDays > 0 ? 'Сдвинуть без изменения срока' : 'Подтвердить'}</button>{preview.projectEndShiftDays > 0 && <button data-deadline-shift-action="true" type="button" disabled={isApplying} onClick={confirmShiftWithDeadlineChange} className="w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-800 disabled:opacity-60 sm:col-span-2">Сдвинуть и изменить срок проекта</button>}</div>}
         </div>}
         {previewMessage && <p className="mt-3 rounded-lg bg-[#f5f3fa] px-3 py-2 text-[10px] leading-4 text-[#716b7b]" role="status">{previewMessage}</p>}
       </section>

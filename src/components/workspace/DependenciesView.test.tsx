@@ -152,7 +152,10 @@ describe('DependenciesView', () => {
         dependencies={[{ id: 'a-b', projectId: task.projectId, predecessorTaskId: 'a', successorTaskId: 'b', type: 'finish-to-start' }]}
         assignees={[]}
         impact={{ ...impact, criticalTaskIds: ['b'], slackDaysByTaskId: { b: 0 } }}
-        currentIssues={{ scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] }}
+        currentIssues={{
+          scheduleConflicts: [{ sourceTaskId: 'a', affectedTaskIds: ['b'], reason: 'Задача начинается раньше допустимой даты.', consequence: 'Проверить', severity: 'warning' }],
+          statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'],
+        }}
         onTaskSelect={() => undefined}
         onCreateDependency={async () => undefined}
         onDeleteDependency={async () => undefined}

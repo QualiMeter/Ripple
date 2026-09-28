@@ -4,6 +4,7 @@ import type { Dependency } from '../../types/dependency'
 import type { ImpactAnalysis } from '../../types/impact'
 import type { ProjectSummary } from '../../types/project'
 import type { ProjectTask } from '../../types/task'
+import { buildCurrentProjectIssues } from '../../services/scheduleEngine'
 import { Timeline } from './Timeline'
 
 const project: ProjectSummary = {
@@ -25,7 +26,7 @@ function impact(criticalTaskIds: string[] = []): ImpactAnalysis {
 }
 
 function renderTimeline(tasks: ProjectTask[], dependencies: Dependency[] = [], criticalTaskIds: string[] = []) {
-  return renderToStaticMarkup(<Timeline project={project} tasks={tasks} dependencies={dependencies} assignees={[]} impact={impact(criticalTaskIds)} onTaskSelect={() => undefined} today="2026-09-11" />)
+  return renderToStaticMarkup(<Timeline project={project} tasks={tasks} dependencies={dependencies} assignees={[]} impact={impact(criticalTaskIds)} currentIssues={buildCurrentProjectIssues(project, tasks, dependencies, '2026-09-11')} onTaskSelect={() => undefined} today="2026-09-11" />)
 }
 
 describe('Timeline schedule visual states', () => {

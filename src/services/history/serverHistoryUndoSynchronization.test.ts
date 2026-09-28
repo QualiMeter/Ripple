@@ -28,12 +28,13 @@ function workspace(taskStartDate: string, taskEndDate: string, targetEndDate: st
 }
 
 function historyApi(): HistoryApi {
+  const undoneEntry = {
+    source: 'server' as const, id: 'shift-history', projectId: 'project', operationType: 'ScheduleShift',
+    description: 'Автоматический сдвиг', createdAt: '2026-09-20T00:00:00.000Z', canUndo: false, undone: true,
+  }
   return {
-    listHistory: vi.fn().mockResolvedValue([]),
-    undoHistoryEntry: vi.fn().mockResolvedValue({
-      source: 'server', id: 'shift-history', projectId: 'project', operationType: 'ScheduleShift',
-      description: 'Автоматический сдвиг', createdAt: '2026-09-20T00:00:00.000Z', canUndo: false, undone: true,
-    }),
+    listHistory: vi.fn().mockResolvedValue([undoneEntry]),
+    undoHistoryEntry: vi.fn().mockResolvedValue(undoneEntry),
   }
 }
 
@@ -60,6 +61,8 @@ describe('server History Undo workspace synchronization', () => {
 
     expect(api.undoHistoryEntry).toHaveBeenCalledWith('project', 'shift-history')
     expect(loadWorkspace).toHaveBeenCalledTimes(1)
+    expect(api.listHistory).toHaveBeenCalledTimes(1)
+    expect(loadWorkspace.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.listHistory).mock.invocationCallOrder[0])
     expect(result.workspace?.tasks[0]).toMatchObject({ startDate: '2026-09-14', endDate: '2026-09-16' })
     expect(result.workspace?.project.targetEndDate).toBe('2026-09-20')
     expect(result.entries.find((entry) => entry.id === 'shift-history')).toMatchObject({ canUndo: false, undone: true })

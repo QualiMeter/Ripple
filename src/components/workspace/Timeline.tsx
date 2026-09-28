@@ -1,12 +1,12 @@
 import { TriangleAlert } from 'lucide-react'
-import type { ImpactAnalysis } from '../../types/impact'
+import type { CurrentProjectIssues, ImpactAnalysis } from '../../types/impact'
 import type { Dependency } from '../../types/dependency'
 import type { ProjectSummary } from '../../types/project'
 import type { Assignee, ProjectTask } from '../../types/task'
 import { calendarDaysBetween, formatFullDate, formatShortDate, getTodayIsoDate } from '../../utils/date'
 import { getTaskVisualState, taskVisualStateClasses } from '../../services/taskVisualState'
 import { analyzeTaskOverdue } from '../../services/deadlineAnalysis'
-import { findDependencyDateConflicts } from '../../services/scheduleRules'
+import { listScheduleConflictPresentations } from '../../services/scheduleConflictPresentation'
 import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 import { OverdueTaskBadge } from '../common/OverdueTaskBadge'
 import { TooltipTrigger } from '../common/TooltipTrigger'
@@ -21,14 +21,14 @@ function barPosition(task: ProjectTask, rangeStart: number, rangeEnd: number) {
   return { left: `${start}%`, width: `${Math.min(width, 100 - start)}%` }
 }
 
-export function Timeline({ project, tasks, assignees, impact, dependencies = [], onTaskSelect, today = getTodayIsoDate() }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis; dependencies?: Dependency[]; onTaskSelect: (task: ProjectTask) => void; today?: string }) {
+export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, today = getTodayIsoDate() }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis; currentIssues: CurrentProjectIssues; dependencies?: Dependency[]; onTaskSelect: (task: ProjectTask) => void; today?: string }) {
   const visibleTasks = tasks
   const criticalTaskIds = new Set(impact.criticalTaskIds)
-  const dependencyConflicts = findDependencyDateConflicts(tasks, dependencies)
+  const dependencyConflicts = listScheduleConflictPresentations(currentIssues, tasks, dependencies)
   const conflictsBySuccessorId = new Map<string, typeof dependencyConflicts>()
   dependencyConflicts.forEach((conflict) => {
     conflictsBySuccessorId.set(conflict.successor.id, [...(conflictsBySuccessorId.get(conflict.successor.id) ?? []), conflict]
-      .sort((left, right) => right.requiredStartDate.localeCompare(left.requiredStartDate)))
+      .sort((left, right) => right.earliestStartDate.localeCompare(left.earliestStartDate)))
   })
   const startCandidates = [project.startDate, ...tasks.map((task) => task.startDate)]
   const endCandidates = [project.targetEndDate, project.projectedEndDate, ...tasks.map((task) => task.endDate)]
@@ -95,7 +95,7 @@ export function Timeline({ project, tasks, assignees, impact, dependencies = [],
                   {hasScheduleConflict && <span className="absolute top-1/2 z-20 -translate-y-1/2" style={{ left: `calc(${position.left} + ${position.width} - 9px)` }}>
                     <TooltipTrigger ariaLabel={`Конфликт зависимости для задачи «${task.title}»`} trigger={<span className="grid h-5 w-5 place-items-center rounded-full border border-amber-300 bg-amber-50 text-amber-700 shadow-sm"><TriangleAlert size={12} aria-hidden="true" /></span>}>
                       <span className="block text-xs font-bold">Конфликт зависимости</span>
-                      <span className="mt-1.5 block space-y-1 text-[#dedbe8]">{taskConflicts.map((conflict) => <span key={conflict.dependency.id} className="block">Задача начинается {formatFullDate(task.startDate)}. После «{conflict.predecessor.title}» она может начаться не раньше {formatFullDate(conflict.requiredStartDate)}.</span>)}</span>
+                      <span className="mt-1.5 block space-y-1 text-[#dedbe8]">{taskConflicts.map((conflict) => <span key={`${conflict.predecessor.id}-${conflict.successor.id}`} className="block">Задача начинается {formatFullDate(task.startDate)}. После «{conflict.predecessor.title}» она может начаться не раньше {formatFullDate(conflict.earliestStartDate)}.</span>)}</span>
                     </TooltipTrigger>
                   </span>}
                   {task.id === impact.sourceTaskId && calendarDaysBetween(task.plannedEndDate, task.endDate) > 0 && <span className="absolute right-[2%] top-1/2 -translate-y-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[9px] font-bold text-[#b9542f]">+{calendarDaysBetween(task.plannedEndDate, task.endDate)} дн.</span>}
