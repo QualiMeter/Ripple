@@ -55,6 +55,7 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
   const previousTaskRef = useRef(task)
   const [remoteConflictFields, setRemoteConflictFields] = useState<EditableTaskField[]>([])
   const [analysisRefreshKey, setAnalysisRefreshKey] = useState(0)
+  const [createdAssignees, setCreatedAssignees] = useState<Employee[]>([])
   const loadTaskAnalysis = useCallback((taskId: string) => onLoadAnalysis(task.projectId, taskId), [onLoadAnalysis, task.projectId])
 
   const markDirty = (field: EditableTaskField) => {
@@ -185,7 +186,16 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
     }
   }
 
-  const selectedAssignee = assignees.find((assignee) => assignee.id === assigneeId)
+  const availableAssignees = [
+    ...assignees,
+    ...createdAssignees.filter(
+        (employee) => !assignees.some((assignee) => assignee.id === employee.id),
+    ),
+  ]
+
+  const selectedAssignee = availableAssignees.find(
+      (assignee) => assignee.id === assigneeId,
+  )
   const taskById = new Map(tasks.map((candidate) => [candidate.id, candidate]))
   const predecessorDependencies = dependencies.filter((dependency) => dependency.successorTaskId === task.id)
   const successorDependencies = dependencies.filter((dependency) => dependency.predecessorTaskId === task.id)
@@ -231,11 +241,23 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
               <label className="block text-xs font-semibold text-[#615c6d]">
                 Ответственный
-                {assignees.length > 0 && <select className={inputClassName} value={assigneeId} onChange={(event) => { markDirty('assigneeId'); setAssigneeId(event.target.value) }}>{assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}{assignee.role ? ` · ${assignee.role}` : ''}</option>)}</select>}
+                {availableAssignees.length > 0 && 0 && <select className={inputClassName} value={assigneeId} onChange={(event) => { markDirty('assigneeId'); setAssigneeId(event.target.value) }}>{availableAssignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}{assignee.role ? ` · ${assignee.role}` : ''}</option>)}</select>}
               </label>
               {selectedAssignee && <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-[#f7f6f9] p-2.5"><Avatar assignee={selectedAssignee} /><div><p className="text-xs font-semibold text-[#4c4758]">{selectedAssignee.name}</p><p className="text-[10px] text-[#918c9a]">{selectedAssignee.role}</p></div></div>}
-              {assignees.length === 0 && <p className="mt-2 rounded-xl border border-dashed border-[#d9d5e0] bg-[#faf9fb] p-3 text-[11px] text-[#777180]">Добавьте сотрудника, чтобы выбрать ответственного.</p>}
-              <EmployeeCreateAction onCreate={onCreateEmployee} onCreated={(employee) => { markDirty('assigneeId'); setAssigneeId(employee.id) }} />
+              {availableAssignees.length === 0 && <p className="mt-2 rounded-xl border border-dashed border-[#d9d5e0] bg-[#faf9fb] p-3 text-[11px] text-[#777180]">Добавьте сотрудника, чтобы выбрать ответственного.</p>}
+              <EmployeeCreateAction
+                  onCreate={onCreateEmployee}
+                  onCreated={(employee) => {
+                    setCreatedAssignees((current) =>
+                        current.some((candidate) => candidate.id === employee.id)
+                            ? current
+                            : [...current, employee],
+                    )
+
+                    markDirty('assigneeId')
+                    setAssigneeId(employee.id)
+                  }}
+              />
               <label className="mt-4 block text-xs font-semibold text-[#615c6d]">
                 Статус
                 <select className={inputClassName} value={status} onChange={(event) => { markDirty('status'); setStatus(event.target.value as TaskStatus) }}>

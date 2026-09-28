@@ -28,6 +28,7 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
   const [status, setStatus] = useState<TaskStatus>('not-started')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createdAssignees, setCreatedAssignees] = useState<Employee[]>([])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -66,8 +67,16 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
       setIsSaving(false)
     }
   }
+  const availableAssignees = [
+    ...assignees,
+    ...createdAssignees.filter(
+        (employee) => !assignees.some((assignee) => assignee.id === employee.id),
+    ),
+  ]
 
-  const selectedAssignee = assignees.find((assignee) => assignee.id === assigneeId)
+  const selectedAssignee = availableAssignees.find(
+      (assignee) => assignee.id === assigneeId,
+  )
   const inputClassName = 'mt-1.5 w-full rounded-xl border border-[#dedce6] bg-white px-3 py-2.5 text-sm text-[#363244] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10'
 
   return (
@@ -97,9 +106,20 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
             </div>
 
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
-              {assignees.length > 0 ? <label className="block text-xs font-semibold text-[#615c6d]">Ответственный<select className={inputClassName} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}{assignee.role ? ` · ${assignee.role}` : ''}</option>)}</select></label> : <div className="rounded-xl border border-dashed border-[#d9d5e0] bg-[#faf9fb] p-3"><p className="text-xs font-semibold text-[#5c5766]">В проекте пока нет сотрудников</p><p className="mt-1 text-[10px] leading-4 text-[#918c9a]">Добавьте сотрудника, чтобы назначить ответственного.</p></div>}
+              {availableAssignees.length > 0 ? <label className="block text-xs font-semibold text-[#615c6d]">Ответственный<select className={inputClassName} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{availableAssignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}{assignee.role ? ` · ${assignee.role}` : ''}</option>)}</select></label> : <div className="rounded-xl border border-dashed border-[#d9d5e0] bg-[#faf9fb] p-3"><p className="text-xs font-semibold text-[#5c5766]">В проекте пока нет сотрудников</p><p className="mt-1 text-[10px] leading-4 text-[#918c9a]">Добавьте сотрудника, чтобы назначить ответственного.</p></div>}
               {selectedAssignee && <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-[#f7f6f9] p-2.5"><Avatar assignee={selectedAssignee} /><div><p className="text-xs font-semibold text-[#4c4758]">{selectedAssignee.name}</p><p className="text-[10px] text-[#918c9a]">{selectedAssignee.role}</p></div></div>}
-              <EmployeeCreateAction onCreate={onCreateEmployee} onCreated={(employee) => setAssigneeId(employee.id)} />
+              <EmployeeCreateAction
+                  onCreate={onCreateEmployee}
+                  onCreated={(employee) => {
+                    setCreatedAssignees((current) =>
+                        current.some((candidate) => candidate.id === employee.id)
+                            ? current
+                            : [...current, employee],
+                    )
+
+                    setAssigneeId(employee.id)
+                  }}
+              />
               <label className="mt-4 block text-xs font-semibold text-[#615c6d]">Статус<select className={inputClassName} value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             </div>
 
