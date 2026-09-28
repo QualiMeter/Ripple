@@ -12,7 +12,7 @@ import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 import { OverdueTaskBadge } from '../common/OverdueTaskBadge'
 import { StatusBadge } from '../common/StatusBadge'
 import { TooltipTrigger } from '../common/TooltipTrigger'
-
+import { TruncatedText } from '../common/TruncatedText'
 interface TaskListProps {
   tasks: ProjectTask[]
   assignees: Assignee[]
@@ -99,7 +99,10 @@ export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, s
               const affected = affectedTaskIdSet.has(row.task.id)
               const visualState = getTaskVisualState(row.task, { affected })
               return <tr key={row.task.id} role="button" tabIndex={0} aria-label={`Открыть задачу «${row.task.title}»`} className="group cursor-pointer border-t border-[#efedf2] hover:bg-[#fcfbfd] focus:bg-[#fcfbfd] focus:outline-none" onClick={(event) => handleTaskPlanRowClick(event, row.task, onTaskSelect)} onKeyDown={(event) => openFromKeyboard(event, row.task, onTaskSelect)}>
-                <td className="px-5 py-3"><div className="flex items-start gap-2.5"><span data-task-visual-state={visualState} className={`mt-1 h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} /><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold text-[#464152]">{row.task.title}</p><TaskBadges row={row} affected={affected} projectedProjectEndDate={projectedProjectEndDate} /></div>{row.task.changeNote && <p className="mt-0.5 text-[10px] text-[#b26042]">{row.task.changeNote}</p>}</div></div></td>
+                <td className="px-5 py-3"><div className="flex items-start gap-2.5"><span data-task-visual-state={visualState} className={`mt-1 h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} /><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><TruncatedText
+                    text={row.task.title}
+                    className="text-xs font-semibold text-[#464152]"
+                /><TaskBadges row={row} affected={affected} projectedProjectEndDate={projectedProjectEndDate} /></div>{row.task.changeNote && <p className="mt-0.5 text-[10px] text-[#b26042]">{row.task.changeNote}</p>}</div></div></td>
                 <td className="px-3 py-3"><div className="flex items-center gap-2"><Avatar assignee={assignee} size="sm" /><span className="text-[11px] text-[#6f6a79]">{assignee?.name}</span></div></td>
                 <td className="px-3 py-3"><div className="flex flex-wrap items-center gap-1.5"><StatusBadge status={row.task.status} risk={row.task.riskState} />{row.overdue && <OverdueTaskBadge overdue={row.overdue} status={row.task.status} />}</div></td>
                 <td className="whitespace-nowrap px-3 py-3 text-[11px] font-semibold text-[#696474]">{formatShortDate(row.task.startDate)} — {formatShortDate(row.task.endDate)}</td>

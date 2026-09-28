@@ -10,6 +10,7 @@ import { listScheduleConflictPresentations } from '../../services/scheduleConfli
 import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 import { OverdueTaskBadge } from '../common/OverdueTaskBadge'
 import { TooltipTrigger } from '../common/TooltipTrigger'
+import { TruncatedText } from '../common/TruncatedText'
 
 const dayMs = 86_400_000
 const columnCount = 7
@@ -76,7 +77,19 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
                   <span data-task-visual-state={visualState} className={`h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} />
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-1.5"><p className={`truncate text-xs text-[#444051] ${critical ? 'font-bold' : 'font-semibold'}`}>{task.title}</p>{critical && <CriticalTaskBadge slackDays={impact.slackDaysByTaskId[task.id] ?? 0} projectedProjectEndDate={impact.projectedProjectEndDate} className="shrink-0" />}</div>
-                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5"><p className="truncate text-[10px] text-[#9a96a3]">{assignee?.name}</p>{overdue && <OverdueTaskBadge overdue={overdue} status={task.status} compact />}</div>
+                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                      <TruncatedText
+                          text={assignee?.name ?? 'Не назначен'}
+                          className="text-[10px] text-[#9a96a3]"
+                      />
+                      {overdue && (
+                          <OverdueTaskBadge
+                              overdue={overdue}
+                              status={task.status}
+                              compact
+                          />
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="relative min-h-[48px] bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
