@@ -23,6 +23,7 @@ export function EmployeeFormPanel({ title, submitLabel, initialName = '', onClos
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
+    event.stopPropagation()
     if (!name.trim()) {
       setError('Введите имя сотрудника.')
       return
