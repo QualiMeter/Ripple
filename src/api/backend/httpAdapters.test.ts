@@ -3,6 +3,7 @@ import { httpProjectsApi } from '../projects.api'
 import { httpScheduleApi } from '../schedule.api'
 import { httpEmployeesApi } from '../employees.api'
 import { httpTasksApi } from '../tasks.api'
+import { httpDiagnosticsApi } from '../diagnostics.api'
 import { getHttpProjectSession, setHttpProjectSession } from './session'
 
 const projectDetails = {
@@ -35,6 +36,19 @@ describe('HTTP adapters', () => {
       expect.objectContaining({ method: 'DELETE' }),
     )
     expect(getHttpProjectSession('project-1').lastChange).toEqual({ kind: 'session-started' })
+  })
+
+  it('loads project diagnostics from the documented project endpoint', async () => {
+    const diagnostics = {
+      generatedAt: '2026-09-28T18:00:00Z', project: {}, employees: [], tasks: [], dependencies: [],
+      projectAnalysis: [], taskAnalysis: {}, history: [],
+    }
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(diagnostics), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(httpDiagnosticsApi.getProjectDiagnostics('project-1')).resolves.toEqual(diagnostics)
+    expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe('/api/v1/projects/project-1/diagnostics')
+    expect(fetchMock.mock.calls[0][1]?.method).toBeUndefined()
   })
 
   it('requests shift preview from the explicitly selected source task', async () => {

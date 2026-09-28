@@ -8,7 +8,7 @@ The UI consumes stable domain models from `src/types`. ASP.NET transport DTOs an
 - `VITE_API_MODE=http` uses the Railway ASP.NET API.
 - `VITE_API_URL` is the origin only; the client adds `/api/v1`. The default is `https://mvp-action.up.railway.app`.
 
-The checked contract is the supplied OpenAPI document (`v1.json`). Scalar is available at `/scalar` on the backend.
+The checked contract is the current backend OpenAPI document at `/openapi/v1.json`. Scalar is available at `/scalar` on the backend.
 
 ## Backend routes
 
@@ -19,6 +19,7 @@ The checked contract is the supplied OpenAPI document (`v1.json`). Scalar is ava
 - `GET /api/v1/projects/{id}`
 - `PUT /api/v1/projects/{id}`
 - `DELETE /api/v1/projects/{id}`
+- `GET /api/v1/projects/{id}/diagnostics`
 - `GET /api/v1/users`
 - `GET /api/v1/users/{id}`
 
@@ -31,6 +32,8 @@ There is no separate backend workspace endpoint. `GET /api/v1/projects/{id}` ret
 Project summary fields are read models: projected end is the latest current task end (or the project target for an empty project), progress is the percentage of equally weighted tasks whose status is `Completed`, and health is derived from current conflicts, delayed tasks, and target overrun.
 
 Project deletion returns an empty success response. After it succeeds, the frontend clears project-scoped session analysis and reloads the project list. The mock adapter also removes all project tasks, employees, dependencies, and project session state.
+
+Project diagnostics are loaded only after the user selects the unobtrusive download action in the project menu. The JSON response is saved unchanged as a local file and is not merged into workspace state. The action is hidden in mock mode because this endpoint represents server-side diagnostic data.
 
 ### Employees
 

@@ -103,6 +103,17 @@ export interface ChangeHistoryDto {
   canUndo: boolean
 }
 
+export interface ProjectDiagnosticsDto {
+  generatedAt: string
+  project: unknown
+  employees: unknown[]
+  tasks: unknown[]
+  dependencies: unknown[]
+  projectAnalysis: AnalysisMessageDto[]
+  taskAnalysis: Record<string, AnalysisMessageDto[]>
+  history: unknown[]
+}
+
 export interface BackendCreateProjectRequest { name: string; startDate: string; endDate: string }
 export interface BackendUpdateProjectRequest extends BackendCreateProjectRequest {}
 export interface BackendCreateTaskRequest { name: string; startDate: string; endDate: string; assigneeId: string; status: string }

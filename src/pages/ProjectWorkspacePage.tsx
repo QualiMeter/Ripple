@@ -31,6 +31,7 @@ import { serverHistorySession } from '../services/history/serverHistorySession'
 import { projectRealtime } from '../realtime/projectRealtime'
 import { undoServerHistoryAndSynchronize } from '../services/history/serverHistoryActions'
 import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfterMutation } from '../services/history/historySyncPolicy'
+import { downloadProjectDiagnostics } from '../services/projectDiagnostics'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -236,6 +237,7 @@ export function ProjectWorkspacePage() {
       navigateHome: () => navigate('/', { replace: true }),
     })
   }
+  const handleProjectDiagnosticsDownload = () => downloadProjectDiagnostics(projectId, workspace.project.name).then(() => undefined)
   const handleHistoryRevert = async (entry: HistoryEntry) => {
     if (isHttpApiMode) {
       if (!isServerHistoryEntry(entry)) throw new Error('Локальная запись не относится к серверной истории.')
@@ -262,7 +264,7 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} />
+      <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
         {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}
