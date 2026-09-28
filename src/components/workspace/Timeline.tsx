@@ -75,8 +75,23 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
               <div key={task.id} className={`grid grid-cols-[210px_1fr] border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`}>
                 <div role="button" tabIndex={0} onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) onTaskSelect(task) }} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onTaskSelect(task) } }} className="flex min-w-0 items-center gap-2.5 border-r border-[#eeecf1] px-5 py-2.5 text-left hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
                   <span data-task-visual-state={visualState} className={`h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} />
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-1.5"><p className={`truncate text-xs text-[#444051] ${critical ? 'font-bold' : 'font-semibold'}`}>{task.title}</p>{critical && <CriticalTaskBadge slackDays={impact.slackDaysByTaskId[task.id] ?? 0} projectedProjectEndDate={impact.projectedProjectEndDate} className="shrink-0" />}</div>
+                  <div className="min-w-0 flex-1  ">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <TruncatedText
+                          text={task.title}
+                          className={`flex-1 text-xs text-[#444051] ${
+                              critical ? 'font-bold' : 'font-semibold'
+                          }`}
+                      />
+
+                      {critical && (
+                          <CriticalTaskBadge
+                              slackDays={impact.slackDaysByTaskId[task.id] ?? 0}
+                              projectedProjectEndDate={impact.projectedProjectEndDate}
+                              className="shrink-0"
+                          />
+                      )}
+                    </div>
                     <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
                       <TruncatedText
                           text={assignee?.name ?? 'Не назначен'}

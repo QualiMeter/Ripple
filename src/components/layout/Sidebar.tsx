@@ -51,7 +51,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, mobile = fa
               <div className="min-w-0">
                 <TruncatedText
                     text={project.name}
-                    className="text-xs font-semibold text-black"
+                    className="text-xs font-semibold text-white"
                 />
                 <p className="mt-0.5 text-[11px] text-[#9691a6]">{formatTaskCount(project.taskCount)} · {formatEmployeeCount(project.employeeCount)}</p>
               </div>
