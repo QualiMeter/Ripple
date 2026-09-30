@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Download, Menu, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, Download, Menu, Pencil, Trash2, Upload } from 'lucide-react'
 import type { ProjectSummary } from '../../types/project'
 
 const healthLabels: Record<ProjectSummary['health'], string> = {
@@ -23,12 +23,15 @@ const projectViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: 'history', label: 'История' },
 ]
 
-export function WorkspaceHeader({ project, activeView, onViewChange, onOpenNavigation, onEditProject, onDeleteProject, onDownloadDiagnostics }: { project: ProjectSummary; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void; onDeleteProject: () => void; onDownloadDiagnostics?: () => Promise<void> }) {
+export function WorkspaceHeader({ project, activeView, onViewChange, onOpenNavigation, onEditProject, onDeleteProject, onDownloadDiagnostics, onExportProject, onImportProject }: { project: ProjectSummary; activeView: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onOpenNavigation: () => void; onEditProject: () => void; onDeleteProject: () => void; onDownloadDiagnostics?: () => Promise<void>; onExportProject?: () => Promise<void>; onImportProject?: (file: File) => Promise<void> }) {
   const healthStyle = healthStyles[project.health]
   const [menuOpen, setMenuOpen] = useState(false)
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false)
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
+  const [transferLoading, setTransferLoading] = useState<'export' | 'import' | null>(null)
+  const [transferError, setTransferError] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   const handleDiagnosticsDownload = async () => {
     if (!onDownloadDiagnostics || diagnosticsLoading) return
@@ -41,6 +44,35 @@ export function WorkspaceHeader({ project, activeView, onViewChange, onOpenNavig
       setDiagnosticsError(error instanceof Error ? error.message : 'Не удалось скачать диагностику проекта.')
     } finally {
       setDiagnosticsLoading(false)
+    }
+  }
+
+  const handleProjectExport = async () => {
+    if (!onExportProject || transferLoading) return
+    setTransferLoading('export')
+    setTransferError(null)
+    try {
+      await onExportProject()
+      setMenuOpen(false)
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Не удалось экспортировать проект.')
+    } finally {
+      setTransferLoading(null)
+    }
+  }
+
+  const handleProjectImport = async (file: File) => {
+    if (!onImportProject || transferLoading) return
+    setTransferLoading('import')
+    setTransferError(null)
+    try {
+      await onImportProject(file)
+      setMenuOpen(false)
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Не удалось импортировать проект.')
+    } finally {
+      setTransferLoading(null)
+      if (importInputRef.current) importInputRef.current.value = ''
     }
   }
 
@@ -67,7 +99,7 @@ export function WorkspaceHeader({ project, activeView, onViewChange, onOpenNavig
         </div>
         <div className="relative ml-auto" ref={menuRef}>
           <button type="button" onClick={() => setMenuOpen((value) => !value)} className="flex items-center gap-2 rounded-xl bg-[#211f37] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#302d4c]" aria-expanded={menuOpen} aria-haspopup="menu">Меню проекта <ChevronDown size={14} /></button>
-          {menuOpen && <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-56 rounded-xl border border-[#e4e1e9] bg-white p-1.5 shadow-[0_14px_36px_rgba(32,29,49,.16)]" role="menu"><button type="button" onClick={() => { setMenuOpen(false); onEditProject() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#4a4557] hover:bg-[#f5f3f8]" role="menuitem"><Pencil size={14} /> Редактировать проект</button>{onDownloadDiagnostics && <button type="button" disabled={diagnosticsLoading} onClick={() => void handleDiagnosticsDownload()} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-[#6f6979] hover:bg-[#f5f3f8] disabled:opacity-60" role="menuitem"><Download size={14} /> {diagnosticsLoading ? 'Подготовка данных…' : 'Скачать диагностику'}</button>}{diagnosticsError && <p className="px-3 py-2 text-[10px] leading-4 text-rose-700" role="alert">{diagnosticsError}</p>}<button type="button" onClick={() => { setMenuOpen(false); onDeleteProject() }} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50" role="menuitem"><Trash2 size={14} /> Удалить проект</button></div>}
+          {menuOpen && <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-56 rounded-xl border border-[#e4e1e9] bg-white p-1.5 shadow-[0_14px_36px_rgba(32,29,49,.16)]" role="menu"><button type="button" onClick={() => { setMenuOpen(false); onEditProject() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[#4a4557] hover:bg-[#f5f3f8]" role="menuitem"><Pencil size={14} /> Редактировать проект</button>{onExportProject && <button type="button" disabled={transferLoading !== null} onClick={() => void handleProjectExport()} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-[#6f6979] hover:bg-[#f5f3f8] disabled:opacity-60" role="menuitem"><Download size={14} /> {transferLoading === 'export' ? 'Экспорт…' : 'Экспортировать проект'}</button>}{onImportProject && <><button type="button" disabled={transferLoading !== null} onClick={() => importInputRef.current?.click()} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-[#6f6979] hover:bg-[#f5f3f8] disabled:opacity-60" role="menuitem"><Upload size={14} /> {transferLoading === 'import' ? 'Импорт…' : 'Импортировать проект'}</button><input ref={importInputRef} type="file" accept=".ripple.json,application/json" className="hidden" aria-label="Файл импорта проекта" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleProjectImport(file) }} /></>}{transferError && <p className="px-3 py-2 text-[10px] leading-4 text-rose-700" role="alert">{transferError}</p>}{onDownloadDiagnostics && <button type="button" disabled={diagnosticsLoading} onClick={() => void handleDiagnosticsDownload()} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-[#6f6979] hover:bg-[#f5f3f8] disabled:opacity-60" role="menuitem"><Download size={14} /> {diagnosticsLoading ? 'Подготовка данных…' : 'Скачать диагностику'}</button>}{diagnosticsError && <p className="px-3 py-2 text-[10px] leading-4 text-rose-700" role="alert">{diagnosticsError}</p>}<button type="button" onClick={() => { setMenuOpen(false); onDeleteProject() }} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50" role="menuitem"><Trash2 size={14} /> Удалить проект</button></div>}
         </div>
       </header>
       <div className="border-b border-[#e8e7ed] bg-white px-4 pb-0 pt-6 sm:px-7">

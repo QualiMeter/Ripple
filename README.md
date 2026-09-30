@@ -67,7 +67,7 @@ REST используется для начальной загрузки и по
 
 **Frontend:** React, TypeScript, Vite, Tailwind CSS, React Router, официальный SignalR client, Vitest.
 
-**Backend:** ASP.NET Core, REST API, SignalR. Публичный API: [mvp-action.up.railway.app](https://mvp-action.up.railway.app), интерактивная документация: [Scalar](https://mvp-action.up.railway.app/scalar).
+**Backend:** ASP.NET Core, REST API, SignalR. Публичный API: `https://92.63.102.15`, интерактивная документация: [Scalar](https://92.63.102.15/scalar).
 
 ## Быстрый старт
 
@@ -85,7 +85,7 @@ HTTP-режим с backend:
 
 ```dotenv
 VITE_API_MODE=http
-VITE_API_URL=https://mvp-action.up.railway.app/api
+VITE_API_URL=https://92.63.102.15/api
 ```
 
 Автономный mock-режим:

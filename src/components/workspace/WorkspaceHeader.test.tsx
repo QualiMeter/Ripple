@@ -49,4 +49,19 @@ describe('WorkspaceHeader', () => {
     fireEvent.click(screen.getByRole('button', { name: /Меню проекта/ }))
     expect(screen.queryByRole('menuitem', { name: 'Скачать диагностику' })).toBeNull()
   })
+
+  it('offers project export and imports the selected ripple file', async () => {
+    const onExportProject = vi.fn().mockResolvedValue(undefined)
+    const onImportProject = vi.fn().mockResolvedValue(undefined)
+    render(<WorkspaceHeader project={project} activeView="overview" onViewChange={() => undefined} onOpenNavigation={() => undefined} onEditProject={() => undefined} onDeleteProject={() => undefined} onExportProject={onExportProject} onImportProject={onImportProject} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Меню проекта/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Экспортировать проект' }))
+    await waitFor(() => expect(onExportProject).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByRole('button', { name: /Меню проекта/ }))
+    const file = new File(['{}'], 'project.ripple.json', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Файл импорта проекта'), { target: { files: [file] } })
+    await waitFor(() => expect(onImportProject).toHaveBeenCalledWith(file))
+  })
 })

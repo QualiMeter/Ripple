@@ -114,6 +114,14 @@ export interface ProjectDiagnosticsDto {
   history: unknown[]
 }
 
+export interface ProjectImportResponse {
+  projectId: string
+  name: string
+  employeeCount: number | string
+  taskCount: number | string
+  dependencyCount: number | string
+}
+
 export interface BackendCreateProjectRequest { name: string; startDate: string; endDate: string }
 export interface BackendUpdateProjectRequest extends BackendCreateProjectRequest {}
 export interface BackendCreateTaskRequest { name: string; startDate: string; endDate: string; assigneeId: string; status: string }

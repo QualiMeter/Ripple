@@ -226,6 +226,7 @@ describe('ImpactPanel current issues', () => {
       ],
       schedulePreview: { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-08', projectEndShiftDays: 4 },
       currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-08', projectEndDeltaDays: 4,
+      existingConflicts: [], draftConflicts: [], resolvedConflicts: [],
       remainingConflicts: [], completedManualTaskIds: [],
     }
     const { container } = render(<ImpactPanel workspace={workspace} timelineDraft={draft} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
@@ -235,12 +236,30 @@ describe('ImpactPanel current issues', () => {
     expect(container.textContent).toContain('+4 дн.')
   })
 
+  it('describes a draft dependency conflict through the successor instead of the completed predecessor', () => {
+    const draft: TimelineDraftPreview = {
+      sourceTaskId: 'b', sourceUpdate: { startDate: '2026-10-02' }, workspace,
+      taskChanges: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-02', proposedEndDate: '2026-10-03' }],
+      schedulePreview: { projectId: 'project', sourceTaskId: 'b', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-03', projectEndShiftDays: -1 },
+      currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-03', projectEndDeltaDays: -1,
+      existingConflicts: [],
+      draftConflicts: [{ key: 'a:b:finish-to-start', predecessorTaskId: 'a', successorTaskId: 'b', predecessorEndDate: '2026-10-02', successorStartDate: '2026-10-02', earliestStartDate: '2026-10-03' }],
+      resolvedConflicts: [], remainingConflicts: [], completedManualTaskIds: [],
+    }
+    const { container } = render(<ImpactPanel workspace={{ ...workspace, tasks: [{ ...workspace.tasks[0], status: 'completed' }, workspace.tasks[1]] }} timelineDraft={draft} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+
+    expect(container.textContent).toContain('B начинается раньше допустимой даты после «A»')
+    expect(container.textContent).toContain('Можно начать не раньше: 03.10.2026')
+    expect(container.textContent).not.toContain('Завершённые задачи требуют ручного решения: A')
+  })
+
   it('cancels without applying and applies only after explicit confirmation', async () => {
     const draft: TimelineDraftPreview = {
       sourceTaskId: 'a', sourceUpdate: { endDate: '2026-10-06' }, workspace,
       taskChanges: [{ taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' }],
       schedulePreview: { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-06', projectEndShiftDays: 2 },
       currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-06', projectEndDeltaDays: 2,
+      existingConflicts: [], draftConflicts: [], resolvedConflicts: [],
       remainingConflicts: [], completedManualTaskIds: [],
     }
     const onCancel = vi.fn()

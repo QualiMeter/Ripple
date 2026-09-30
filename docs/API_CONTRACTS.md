@@ -5,8 +5,8 @@ The UI consumes stable domain models from `src/types`. ASP.NET transport DTOs an
 ## Runtime selection
 
 - `VITE_API_MODE=mock` (default) uses the in-memory MVP implementation.
-- `VITE_API_MODE=http` uses the Railway ASP.NET API.
-- `VITE_API_URL` is the REST API base including `/api`; endpoint adapters add `/v1`. The default is `https://mvp-action.up.railway.app/api`.
+- `VITE_API_MODE=http` uses the ASP.NET API.
+- `VITE_API_URL` is the REST API base including `/api`; endpoint adapters add `/v1`. The default is `https://92.63.102.15/api`.
 
 The checked contract is the current backend OpenAPI document at `/openapi/v1.json`. Scalar is available at `/scalar` on the backend.
 
@@ -19,6 +19,8 @@ The checked contract is the current backend OpenAPI document at `/openapi/v1.jso
 - `GET /api/v1/projects/{id}`
 - `PUT /api/v1/projects/{id}`
 - `DELETE /api/v1/projects/{id}`
+- `GET /api/v1/projects/{id}/export`
+- `POST /api/v1/projects/import` (`multipart/form-data`, field `file`)
 - `GET /api/v1/projects/{id}/diagnostics`
 - `GET /api/v1/users`
 - `GET /api/v1/users/{id}`
@@ -34,6 +36,8 @@ Project summary fields are read models: projected end is the latest current task
 Project deletion returns an empty success response. After it succeeds, the frontend clears project-scoped session analysis and reloads the project list. The mock adapter also removes all project tasks, employees, dependencies, and project session state.
 
 Project diagnostics are loaded only after the user selects the unobtrusive download action in the project menu. The JSON response is saved unchanged as a local file and is not merged into workspace state. The action is hidden in mock mode because this endpoint represents server-side diagnostic data.
+
+Project export downloads the backend-provided `.ripple.json` attachment and preserves its `Content-Disposition` filename. Import sends that file as multipart data; after `ProjectImportResponse` returns, the project list is refreshed and the newly created project is opened. Both actions live behind the typed project-transfer API and are hidden in mock mode.
 
 ### Employees
 
@@ -92,11 +96,11 @@ Selective server History Undo is also synchronized authoritatively because one t
 
 ## Realtime project deltas
 
-HTTP mode maintains one session-wide official SignalR client connected to the backend origin at `https://mvp-action.up.railway.app/hubs/projects`. The realtime URL helper removes the trailing REST `/api` prefix from `VITE_API_URL`; it listens for `projectChanged`, joins an opened project through `JoinProject(projectId)`, and leaves it through `LeaveProject(projectId)`. Mock mode never creates a SignalR connection.
+HTTP mode maintains one session-wide official SignalR client connected to the backend origin at `https://92.63.102.15/hubs/projects`. The realtime URL helper removes the trailing REST `/api` prefix from `VITE_API_URL`; it listens for `projectChanged`, joins an opened project through `JoinProject(projectId)`, and leaves it through `LeaveProject(projectId)`. Mock mode never creates a SignalR connection.
 
 `withAutomaticReconnect` covers an established connection. A failed initial `start()` is handled separately with bounded retry delays (`1s`, `2s`, `5s`, then at most `10s`). Only one start attempt and one retry timer may exist at a time; leaving the current project cancels pending retries. A successful retry rejoins the project and triggers the same one-time resynchronization used after reconnect.
 
-Realtime envelopes keep `entity` and `action` as open strings. Known `project`, `task`, `employee`, and dependency changes are applied idempotently to the current workspace; the live Railway hub currently names dependency events `task_dependency`, so the client accepts both that value and the documented `dependency`. `history`/`change_history` updates the separately loaded history cache, and unknown future values are safely ignored. A bounded cache retains the latest 300 `eventId` values to suppress duplicate delivery. Full entity data is used directly. Incomplete task or employee events use their GET-by-id endpoints, while an incomplete dependency event may refresh only the dependency list.
+Realtime envelopes keep `entity` and `action` as open strings. Known `project`, `task`, `employee`, and dependency changes are applied idempotently to the current workspace; the live hub may name dependency events `task_dependency`, so the client accepts both that value and the documented `dependency`. `history`/`change_history` updates the separately loaded history cache, and unknown future values are safely ignored. A bounded cache retains the latest 300 `eventId` values to suppress duplicate delivery. Full entity data is used directly. Incomplete task or employee events use their GET-by-id endpoints, while an incomplete dependency event may refresh only the dependency list.
 
 REST remains the mutation confirmation and source of truth: successful responses update the originating tab immediately, and SignalR updates other tabs. Realtime events are applied through a serialized, error-isolated queue, so one rejected event cannot block later deltas. If applying an event fails and state may be incomplete, the client attempts one project resynchronization. Normal successful events never refetch the full project.
 
@@ -131,4 +135,4 @@ Mock mode retains the existing frontend-only `ProjectHistoryStorage`, focused be
 
 `apiRequest` normalizes base/path slashes, accepts empty `200` and `204` responses, and extracts messages from ASP.NET ProblemDetails (`detail`, `message`, `title`, or validation `errors`). Pages surface these messages and do not remain in an endless loading state.
 
-The frontend intentionally has no dev proxy. The Railway API must allow the deployed or local frontend origin with CORS, including `OPTIONS` preflight for JSON mutation requests.
+The frontend intentionally has no dev proxy. The API must allow the deployed or local frontend origin with CORS, including `OPTIONS` preflight for JSON mutation requests.

@@ -7,11 +7,12 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const normalizedPath = `/${path.replace(/^\/+/, '')}`
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   const response = await fetch(apiUrl(normalizedPath), {
     ...init,
-    headers: { ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
+    headers: { ...(init?.body && !isFormData ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
   })
   if (!response.ok) {
     let message = `API request failed: ${response.status}`
@@ -30,6 +31,11 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     }
     throw new ApiError(response.status, message)
   }
+  return response
+}
+
+export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await apiFetch(path, init)
   if (response.status === 204) return undefined as T
   const text = await response.text()
   return (text ? JSON.parse(text) : undefined) as T

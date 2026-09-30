@@ -9,7 +9,7 @@ describe('apiRequest', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     await expect(apiRequest<void>('/v1/example')).resolves.toBeUndefined()
-    expect(fetchMock.mock.calls[0][0]).toBe('https://mvp-action.up.railway.app/api/v1/example')
+    expect(fetchMock.mock.calls[0][0]).toBe('https://92.63.102.15/api/v1/example')
     expect(fetchMock.mock.calls[0][0]).not.toContain('/api/api/v1')
   })
 
