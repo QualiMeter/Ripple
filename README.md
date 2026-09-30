@@ -102,6 +102,32 @@ npm run typecheck
 npm run build
 ```
 
+## Автоматический deploy
+
+Workflow `.github/workflows/deploy.yml` запускается после push в `main` или вручную через GitHub Actions. Перед отправкой содержимого `dist/` он выполняет тесты, проверку TypeScript и production build в HTTP-режиме.
+
+Для workflow нужно настроить в GitHub:
+
+**Repository Secrets:**
+
+- `SERVER_SSH_KEY` — приватный SSH-ключ пользователя deploy;
+- `SERVER_HOST` — адрес сервера;
+- `SERVER_USER` — SSH-пользователь.
+
+**Repository Variables:**
+
+- `VITE_API_URL` — REST API base URL, включая `/api`, например `https://backend.example.com/api`.
+
+SignalR использует тот же backend origin: frontend автоматически исключает завершающий `/api` и подключается к `/hubs/projects`, поэтому отдельная realtime-переменная не требуется.
+
+Frontend публикуется непосредственно в `/var/www/site`. Для прямого открытия client-side маршрутов вроде `/projects/<id>` nginx должен возвращать `index.html`:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
 ## Структура
 
 ```text
