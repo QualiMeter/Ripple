@@ -32,6 +32,7 @@ import { projectRealtime } from '../realtime/projectRealtime'
 import { undoServerHistoryAndSynchronize } from '../services/history/serverHistoryActions'
 import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfterMutation } from '../services/history/historySyncPolicy'
 import { downloadProjectDiagnostics } from '../services/projectDiagnostics'
+import { applyTimelineDraftPreview, buildTimelineDraftPreview, type TimelineDraftPreview } from '../services/timelineDraft'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -54,6 +55,7 @@ export function ProjectWorkspacePage() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [requestedShiftSourceId, setRequestedShiftSourceId] = useState<string | null>(null)
+  const [timelineDraft, setTimelineDraft] = useState<TimelineDraftPreview | null>(null)
 
   useEffect(() => {
     let active = true
@@ -64,6 +66,7 @@ export function ProjectWorkspacePage() {
     setIsEditingProject(false)
     setIsDeletingProject(false)
     setRequestedShiftSourceId(null)
+    setTimelineDraft(null)
     setActiveView('overview')
     const cachedServerHistory = isHttpApiMode ? serverHistorySession.get(projectId) : undefined
     const historyVisit = beginHistoryVisit(isHttpApiMode, cachedServerHistory, isHttpApiMode ? [] : projectHistory.list(projectId))
@@ -208,6 +211,25 @@ export function ProjectWorkspacePage() {
     recordHistory(scheduleShiftEvent(projectId, preview))
     setWorkspace(updatedWorkspace)
   }
+  const handleTimelineDraft = (taskId: string, update: TaskUpdateRequest) => {
+    setTimelineDraft(buildTimelineDraftPreview(workspace, taskId, update))
+  }
+  const handleTimelineDraftApply = async () => {
+    if (!timelineDraft) return
+    const beforeTask = workspace.tasks.find((task) => task.id === timelineDraft.sourceTaskId)
+    if (!beforeTask) throw new Error('Задача не найдена.')
+    try {
+      const result = await applyTimelineDraftPreview(workspace, timelineDraft, projectService)
+      const afterTask = result.sourceWorkspace.tasks.find((task) => task.id === timelineDraft.sourceTaskId)!
+      const event = taskUpdatedEvent(projectId, beforeTask, afterTask)
+      if (Object.keys(event.after ?? {}).length > 0) recordHistory(event)
+      if (result.appliedSchedulePreview) recordHistory(scheduleShiftEvent(projectId, result.appliedSchedulePreview))
+      setWorkspace(result.workspace)
+      setTimelineDraft(null)
+    } catch (draftError) {
+      throw draftError
+    }
+  }
   const handleEmployeeCreate = async (name: string): Promise<Employee> => {
     const { entity: employee, workspace: updatedWorkspace } = await projectService.createEmployee(workspace, { name })
     recordHistory({ projectId, kind: 'employee-created', title: 'Добавлен сотрудник', description: employee.name, entityType: 'employee', entityId: employee.id, after: employeeSnapshot(employee) })
@@ -271,7 +293,7 @@ export function ProjectWorkspacePage() {
       <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
-        {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onTaskUpdate={updateTask} onCreateDependency={handleDependencyCreate} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}
+        {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} timelineDraft={timelineDraft} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onTaskDraft={handleTimelineDraft} onApplyTimelineDraft={handleTimelineDraftApply} onCancelTimelineDraft={() => setTimelineDraft(null)} onViewWorkload={() => setActiveView('employees')} onCreateDependency={handleDependencyCreate} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
         {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} historyMode={isHttpApiMode ? 'server' : 'local'} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onDeleteEmployee={handleEmployeeDelete} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
         {activeView === 'history' && <HistoryView entries={historyEntries} workspace={workspace} onRevert={handleHistoryRevert} source={isHttpApiMode ? 'server' : 'local'} loading={historyLoading} loadError={historyError} />}

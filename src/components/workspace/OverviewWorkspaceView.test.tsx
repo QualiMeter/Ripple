@@ -13,12 +13,12 @@ const workspace: ProjectWorkspace = {
 
 describe('Overview workspace', () => {
   it('keeps timeline, task list, impact, current issues and automatic shift together', () => {
-    const markup = renderToStaticMarkup(<OverviewWorkspaceView workspace={workspace} onTaskSelect={() => undefined} onTaskCreate={() => undefined} onTaskUpdate={async () => undefined} onCreateDependency={async () => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} />)
+    const markup = renderToStaticMarkup(<OverviewWorkspaceView workspace={workspace} onTaskSelect={() => undefined} onTaskCreate={() => undefined} onTaskDraft={() => undefined} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onViewWorkload={() => undefined} onCreateDependency={async () => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} />)
     expect(markup).toContain('Общий прогресс')
     expect(markup).toContain('План проекта')
     expect(markup).toContain('Требуют внимания')
     expect(markup).toContain('Последствия изменения')
-    expect(markup).toContain('Текущие проблемы проекта')
+    expect(markup).toContain('Что требует внимания')
     expect(markup).toContain('Автоматический сдвиг')
   })
 })

@@ -6,6 +6,7 @@ import type { ImpactReason } from '../../types/impact'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { ImpactPanel } from './ImpactPanel'
 import { findScheduleConflicts } from '../../services/scheduleEngine'
+import type { TimelineDraftPreview } from '../../services/timelineDraft'
 
 function issue(sourceTaskId: string, reason: string, severity: ImpactReason['severity'], action: ImpactReason['action']): ImpactReason {
   return { sourceTaskId, affectedTaskIds: [sourceTaskId], reason, consequence: 'Требуется решение.', severity, action }
@@ -36,18 +37,23 @@ const workspace: ProjectWorkspace = {
 
 afterEach(cleanup)
 
+function clickAutomaticShift(): void {
+  const buttons = screen.getAllByRole('button', { name: 'Рассчитать автоматический сдвиг' })
+  fireEvent.click(buttons[buttons.length - 1])
+}
+
 describe('ImpactPanel current issues', () => {
   it('shows all issue categories and their total count', () => {
-    const markup = renderToStaticMarkup(<ImpactPanel workspace={workspace} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
-    expect(markup).toContain('aria-label="Всего текущих проблем: 3"')
-    expect(markup).toContain('Конфликты зависимостей и дат')
-    expect(markup).toContain('Логические конфликты статусов')
-    expect(markup).toContain('Просроченные сроки')
-    expect(markup).toContain('Рассчитать сдвиг')
-    expect(markup).toContain('Открыть задачу')
-    expect(markup).toContain('data-recommendation-tone="danger"')
-    expect(markup).toContain('data-recommendation-tone="warning"')
-    expect(markup).toContain('Рекомендация:')
+    const { container } = render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    expect(screen.getByText('Что требует внимания')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Показать все проблемы (3)' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Показать все проблемы (3)' }))
+    expect(container.textContent).toContain('Конфликты зависимостей и дат')
+    expect(container.textContent).toContain('Логические конфликты статусов')
+    expect(container.textContent).toContain('Просроченные сроки')
+    expect(container.querySelector('[data-recommendation-tone="danger"]')).not.toBeNull()
+    expect(container.querySelector('[data-recommendation-tone="warning"]')).not.toBeNull()
+    expect(container.textContent).toContain('Рекомендация:')
   })
 
   it('shows a green recommendation state when intervention is not required', () => {
@@ -64,7 +70,9 @@ describe('ImpactPanel current issues', () => {
     ]
     const dependencies = [{ id: 'a-b', projectId: 'project', predecessorTaskId: 'a', successorTaskId: 'b', type: 'finish-to-start' as const }]
     const scheduleConflicts = findScheduleConflicts(tasks, dependencies, ['b'])
-    const markup = renderToStaticMarkup(<ImpactPanel workspace={{ ...workspace, tasks, dependencies, currentIssues: { scheduleConflicts, statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'] } }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    const { container } = render(<ImpactPanel workspace={{ ...workspace, tasks, dependencies, currentIssues: { scheduleConflicts, statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'] } }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Показать все проблемы (1)' }))
+    const markup = container.innerHTML
 
     expect(markup).toContain('Задача: B')
     expect(markup).not.toContain('Задача: A')
@@ -82,7 +90,9 @@ describe('ImpactPanel current issues', () => {
     ]
     const dependencies = [{ id: 'a-b', projectId: 'project', predecessorTaskId: 'a', successorTaskId: 'b', type: 'finish-to-start' as const }]
     const scheduleConflicts = findScheduleConflicts(tasks, dependencies, ['b'])
-    const markup = renderToStaticMarkup(<ImpactPanel workspace={{ ...workspace, tasks, dependencies, currentIssues: { scheduleConflicts, statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'] } }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    const { container } = render(<ImpactPanel workspace={{ ...workspace, tasks, dependencies, currentIssues: { scheduleConflicts, statusConflicts: [], deadlineIssues: [], affectedTaskIds: ['b'] } }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Показать все проблемы (1)' }))
+    const markup = container.innerHTML
 
     expect(markup).toContain('Фактические даты завершённой задачи конфликтуют с зависимостью.')
     expect(markup).toContain('Задача: B')
@@ -117,7 +127,7 @@ describe('ImpactPanel current issues', () => {
       taskShifts: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-04', proposedEndDate: '2026-10-05', shiftDays: 1 }],
       currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
     })} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    clickAutomaticShift()
     await screen.findByText('Предпросмотр')
     const actions = document.querySelector('[data-shift-actions="standard"]')
     expect(actions?.className).toContain('grid-cols-2')
@@ -131,7 +141,7 @@ describe('ImpactPanel current issues', () => {
       taskShifts: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-11-01', proposedEndDate: '2026-11-02', shiftDays: 29 }],
       currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-11-02', projectEndShiftDays: 2,
     })} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    clickAutomaticShift()
     await screen.findByText('Предпросмотр')
     const actions = document.querySelector('[data-shift-actions="with-deadline-change"]')
     const deadlineAction = document.querySelector('[data-deadline-shift-action="true"]')
@@ -149,7 +159,7 @@ describe('ImpactPanel current issues', () => {
     }
     const withoutDeadlineChange = vi.fn().mockResolvedValue(undefined)
     const first = render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue(shiftPreview)} onApplyScheduleShift={withoutDeadlineChange} onTaskSelect={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    clickAutomaticShift()
     await screen.findByText('Предпросмотр')
     fireEvent.click(screen.getByRole('button', { name: 'Сдвинуть без изменения срока' }))
     await waitFor(() => expect(withoutDeadlineChange).toHaveBeenCalledWith(shiftPreview, false))
@@ -157,7 +167,7 @@ describe('ImpactPanel current issues', () => {
 
     const withDeadlineChange = vi.fn().mockResolvedValue(undefined)
     render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue(shiftPreview)} onApplyScheduleShift={withDeadlineChange} onTaskSelect={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    clickAutomaticShift()
     await screen.findByText('Предпросмотр')
     fireEvent.click(screen.getByRole('button', { name: 'Сдвинуть и изменить срок проекта' }))
     await waitFor(() => expect(withDeadlineChange).toHaveBeenCalledWith(shiftPreview, true))
@@ -173,7 +183,7 @@ describe('ImpactPanel current issues', () => {
       currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
     }
     render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={vi.fn().mockResolvedValue(shiftPreview)} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    clickAutomaticShift()
     await screen.findByText('Предпросмотр')
     const confirm = screen.getByRole('button', { name: 'Подтвердить' })
     confirm.click()
@@ -198,12 +208,48 @@ describe('ImpactPanel current issues', () => {
       currentProjectEndDate: '2026-10-31', proposedProjectEndDate: '2026-10-31', projectEndShiftDays: 0,
     })} onApplyScheduleShift={onApplyScheduleShift} onTaskSelect={() => undefined} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать сдвиг' }))
+    clickAutomaticShift()
     await screen.findByText('Предпросмотр')
 
     expect(screen.getByText('Автоматически сдвинуть задачи нельзя. Завершённые работы требуют ручной проверки фактических дат.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Подтвердить' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Сдвинуть без изменения срока' })).toBeNull()
     expect(onApplyScheduleShift).not.toHaveBeenCalled()
+  })
+
+  it('shows a timeline draft with downstream changes and the project end delta', () => {
+    const draft: TimelineDraftPreview = {
+      sourceTaskId: 'a', sourceUpdate: { endDate: '2026-10-06' }, workspace,
+      taskChanges: [
+        { taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' },
+        { taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-07', proposedEndDate: '2026-10-08' },
+      ],
+      schedulePreview: { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-08', projectEndShiftDays: 4 },
+      currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-08', projectEndDeltaDays: 4,
+      remainingConflicts: [], completedManualTaskIds: [],
+    }
+    const { container } = render(<ImpactPanel workspace={workspace} timelineDraft={draft} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    expect(container.textContent).toContain('Черновик · 2 изменений')
+    expect(container.querySelector('[data-draft-task-id="a"]')).not.toBeNull()
+    expect(container.querySelector('[data-draft-task-id="b"]')).not.toBeNull()
+    expect(container.textContent).toContain('+4 дн.')
+  })
+
+  it('cancels without applying and applies only after explicit confirmation', async () => {
+    const draft: TimelineDraftPreview = {
+      sourceTaskId: 'a', sourceUpdate: { endDate: '2026-10-06' }, workspace,
+      taskChanges: [{ taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' }],
+      schedulePreview: { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-06', projectEndShiftDays: 2 },
+      currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-06', projectEndDeltaDays: 2,
+      remainingConflicts: [], completedManualTaskIds: [],
+    }
+    const onCancel = vi.fn()
+    const onApply = vi.fn().mockResolvedValue(undefined)
+    render(<ImpactPanel workspace={workspace} timelineDraft={draft} onApplyTimelineDraft={onApply} onCancelTimelineDraft={onCancel} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить' }))
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(onApply).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Применить изменения' }))
+    await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1))
   })
 })

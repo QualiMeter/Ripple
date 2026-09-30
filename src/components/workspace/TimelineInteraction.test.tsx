@@ -51,7 +51,7 @@ describe('Timeline task interaction', () => {
       impact={buildImpactAnalysis(project, [task], [], '', [], { kind: 'session-started' })}
       currentIssues={buildCurrentProjectIssues(project, [task], [], '2026-09-11')}
       onTaskSelect={() => undefined}
-      onTaskUpdate={onTaskUpdate}
+      onTaskDraft={onTaskUpdate}
       today="2026-09-11"
     />)
     const bar = screen.getByRole('button', { name: /Редактировать задачу «Интеграция»,/ })
@@ -69,7 +69,7 @@ describe('Timeline task interaction', () => {
       project={project} tasks={[task]} dependencies={[]} assignees={[]}
       impact={buildImpactAnalysis(project, [task], [], '', [], { kind: 'session-started' })}
       currentIssues={buildCurrentProjectIssues(project, [task], [], '2026-09-11')}
-      onTaskSelect={() => undefined} onTaskUpdate={onTaskUpdate} today="2026-09-11"
+      onTaskSelect={() => undefined} onTaskDraft={onTaskUpdate} today="2026-09-11"
     />)
     const bar = screen.getByRole('button', { name: /Редактировать задачу «Интеграция»,/ })
     fireEvent.pointerDown(bar, { pointerId: 2, clientX: 210 })
@@ -79,12 +79,12 @@ describe('Timeline task interaction', () => {
   })
 
   it('rolls the visual preview back when a drag save fails', async () => {
-    const onTaskUpdate = vi.fn().mockRejectedValue(new Error('Сохранение недоступно'))
+    const onTaskUpdate = vi.fn(() => { throw new Error('Сохранение недоступно') })
     render(<Timeline
       project={project} tasks={[task]} dependencies={[]} assignees={[]}
       impact={buildImpactAnalysis(project, [task], [], '', [], { kind: 'session-started' })}
       currentIssues={buildCurrentProjectIssues(project, [task], [], '2026-09-11')}
-      onTaskSelect={() => undefined} onTaskUpdate={onTaskUpdate} today="2026-09-11"
+      onTaskSelect={() => undefined} onTaskDraft={onTaskUpdate} today="2026-09-11"
     />)
     const bar = screen.getByRole('button', { name: /Редактировать задачу «Интеграция»,/ })
     fireEvent.pointerDown(bar, { pointerId: 3, clientX: 210 })
@@ -113,6 +113,40 @@ describe('Timeline task interaction', () => {
     fireEvent.pointerUp(handle, { pointerId: 4, clientX: 500, clientY: 84 })
     await waitFor(() => expect(onCreateDependency).toHaveBeenCalledWith({ predecessorTaskId: 'task', successorTaskId: 'successor', type: 'finish-to-start' }))
     Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: undefined })
+  })
+
+  it('highlights one dependency and both endpoints while other links are dimmed', () => {
+    const second = { ...task, id: 'second', title: 'Frontend', startDate: '2026-09-15', endDate: '2026-09-18' }
+    const third = { ...task, id: 'third', title: 'Testing', startDate: '2026-09-19', endDate: '2026-09-20' }
+    const dependencies: Dependency[] = [
+      { id: 'first-second', projectId: project.id, predecessorTaskId: task.id, successorTaskId: second.id, type: 'finish-to-start' },
+      { id: 'second-third', projectId: project.id, predecessorTaskId: second.id, successorTaskId: third.id, type: 'finish-to-start' },
+    ]
+    const { container } = render(<Timeline project={project} tasks={[task, second, third]} dependencies={dependencies} assignees={[]} impact={buildImpactAnalysis(project, [task, second, third], dependencies, '', [], { kind: 'session-started' })} currentIssues={buildCurrentProjectIssues(project, [task, second, third], dependencies, '2026-09-11')} onTaskSelect={() => undefined} today="2026-09-11" />)
+    const lines = container.querySelectorAll('[data-dependency-connector="true"]')
+    fireEvent.mouseEnter(lines[0])
+    expect(lines[0].getAttribute('data-dependency-highlighted')).toBe('true')
+    expect(lines[1].parentElement?.getAttribute('opacity')).toBe('0.12')
+    expect(container.querySelector('[data-timeline-task-target="task"]')?.getAttribute('data-dependency-highlighted')).toBe('true')
+    expect(container.querySelector('[data-timeline-task-target="second"]')?.getAttribute('data-dependency-highlighted')).toBe('true')
+    expect(lines[0].textContent).toContain('Интеграция → Frontend')
+  })
+
+  it('highlights all incoming and outgoing links when a task bar is hovered', () => {
+    const second = { ...task, id: 'second', title: 'Frontend', startDate: '2026-09-15', endDate: '2026-09-18' }
+    const third = { ...task, id: 'third', title: 'Testing', startDate: '2026-09-19', endDate: '2026-09-20' }
+    const unrelated = { ...task, id: 'unrelated', title: 'Документация', startDate: '2026-09-11', endDate: '2026-09-12' }
+    const dependencies: Dependency[] = [
+      { id: 'first-second', projectId: project.id, predecessorTaskId: task.id, successorTaskId: second.id, type: 'finish-to-start' },
+      { id: 'second-third', projectId: project.id, predecessorTaskId: second.id, successorTaskId: third.id, type: 'finish-to-start' },
+      { id: 'unrelated-third', projectId: project.id, predecessorTaskId: unrelated.id, successorTaskId: third.id, type: 'finish-to-start' },
+    ]
+    const allTasks = [task, second, third, unrelated]
+    const { container } = render(<Timeline project={project} tasks={allTasks} dependencies={dependencies} assignees={[]} impact={buildImpactAnalysis(project, allTasks, dependencies, '', [], { kind: 'session-started' })} currentIssues={buildCurrentProjectIssues(project, allTasks, dependencies, '2026-09-11')} onTaskSelect={() => undefined} today="2026-09-11" />)
+    fireEvent.mouseEnter(container.querySelector('[data-timeline-task-target="second"]')!)
+    expect(container.querySelector('[data-dependency-connector="true"][data-dependency-highlighted="true"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-dependency-connector="true"][data-dependency-highlighted="true"]')).toHaveLength(2)
+    expect(container.querySelector('[data-timeline-task-target="unrelated"]')?.getAttribute('data-dependency-dimmed')).toBe('true')
   })
 
   it('shows real project dates and switches day, week and month display scales without changing task dates', () => {

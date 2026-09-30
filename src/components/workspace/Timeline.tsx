@@ -42,17 +42,18 @@ interface TimelineProps {
   currentIssues: CurrentProjectIssues
   dependencies?: Dependency[]
   onTaskSelect: (task: ProjectTask) => void
-  onTaskUpdate?: (taskId: string, update: TaskUpdateRequest) => Promise<void>
+  onTaskDraft?: (taskId: string, update: TaskUpdateRequest) => void
   onCreateDependency?: (request: CreateDependencyRequest) => Promise<void>
   today?: string
 }
 
-export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, onTaskUpdate, onCreateDependency, today = getTodayIsoDate() }: TimelineProps) {
+export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, onTaskDraft, onCreateDependency, today = getTodayIsoDate() }: TimelineProps) {
   const [scaleMode, setScaleMode] = useState<TimelineScaleMode>('day')
   const [taskPreview, setTaskPreview] = useState<{ taskId: string; value: TimelineTaskPreview } | null>(null)
   const [linkPreview, setLinkPreview] = useState<LinkDragState | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
-  const [savingTaskId, setSavingTaskId] = useState<string | null>(null)
+  const [hoveredDependencyId, setHoveredDependencyId] = useState<string | null>(null)
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null)
   const dragRef = useRef<TaskDragState | null>(null)
   const linkRef = useRef<LinkDragState | null>(null)
   const suppressClickRef = useRef(false)
@@ -72,7 +73,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   const columnLabels = buildTimelineTickDates(scale, viewport.columnCount).map((date) => formatTimelineTick(date, scaleMode))
   const conflictDependencyKeys = new Set(dependencyConflicts.map((conflict) => `${conflict.predecessor.id}->${conflict.successor.id}`))
   const taskIndexById = new Map(visibleTasks.map((task, index) => [task.id, index]))
-  const dependencyConnectors = dependencies.flatMap((dependency) => {
+  const dependencyConnectors = dependencies.flatMap((dependency, dependencyIndex) => {
     const predecessorGeometry = geometryByTaskId.get(dependency.predecessorTaskId)
     const successorGeometry = geometryByTaskId.get(dependency.successorTaskId)
     const predecessorIndex = taskIndexById.get(dependency.predecessorTaskId)
@@ -80,18 +81,28 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
     if (!predecessorGeometry || !successorGeometry || predecessorIndex === undefined || successorIndex === undefined) return []
     const startX = (predecessorGeometry.leftPercent + predecessorGeometry.widthPercent) * 10
     const endX = successorGeometry.leftPercent * 10
-    const bendX = Math.max(startX + 12, (startX + endX) / 2)
-    const startY = predecessorIndex * timelineRowHeight + timelineRowHeight / 2
-    const endY = successorIndex * timelineRowHeight + timelineRowHeight / 2
+    const laneOffset = (dependencyIndex % 5 - 2) * 3
+    const startY = predecessorIndex * timelineRowHeight + timelineRowHeight / 2 + laneOffset
+    const endY = successorIndex * timelineRowHeight + timelineRowHeight / 2 + laneOffset
+    const routedBendX = endX > startX + 28 ? (startX + endX) / 2 : startX + 18 + (dependencyIndex % 4) * 7
     return [{
       ...dependency,
-      path: `M ${startX} ${startY} H ${bendX} V ${endY} H ${endX}`,
+      path: `M ${startX} ${startY} H ${routedBendX} V ${endY} H ${endX}`,
       conflict: conflictDependencyKeys.has(`${dependency.predecessorTaskId}->${dependency.successorTaskId}`),
     }]
   })
+  const activeDependencyIds = new Set(hoveredDependencyId
+    ? [hoveredDependencyId]
+    : hoveredTaskId
+      ? dependencies.filter((dependency) => dependency.predecessorTaskId === hoveredTaskId || dependency.successorTaskId === hoveredTaskId).map((dependency) => dependency.id)
+      : [])
+  const highlightedTaskIds = new Set(activeDependencyIds.size > 0
+    ? dependencies.filter((dependency) => activeDependencyIds.has(dependency.id)).flatMap((dependency) => [dependency.predecessorTaskId, dependency.successorTaskId])
+    : [])
+  const hasDependencyHighlight = activeDependencyIds.size > 0
 
   const startTaskDrag = (event: ReactPointerEvent<HTMLButtonElement>, task: ProjectTask) => {
-    if (!onTaskUpdate || savingTaskId) return
+    if (!onTaskDraft) return
     const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-resize-handle]')?.dataset.resizeHandle
     const mode: TimelineDragMode = handle === 'start' ? 'resize-start' : handle === 'end' ? 'resize-end' : 'move'
     const preview = buildTimelineTaskPreview(task, mode, 0)
@@ -110,27 +121,24 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
     setTaskPreview({ taskId: drag.task.id, value: preview })
   }
 
-  const finishTaskDrag = async (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const finishTaskDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     dragRef.current = null
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     const changed = drag.preview.startDate !== drag.task.startDate || drag.preview.endDate !== drag.task.endDate
-    if (!changed || !onTaskUpdate) {
+    if (!changed || !onTaskDraft) {
       setTaskPreview(null)
       return
     }
     suppressClickRef.current = true
-    setSavingTaskId(drag.task.id)
     try {
-      await onTaskUpdate(drag.task.id, drag.preview.update)
+      onTaskDraft(drag.task.id, drag.preview.update)
       setMutationError(null)
     } catch (error) {
       setMutationError(error instanceof Error ? error.message : 'Не удалось изменить сроки задачи.')
-    } finally {
-      setTaskPreview(null)
-      setSavingTaskId(null)
     }
+    setTaskPreview(null)
   }
 
   const cancelTaskDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -240,7 +248,16 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
                 <marker id="timeline-dependency-arrow" viewBox="0 0 8 6" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 8 3 L 0 6 z" fill="#625b72" /></marker>
                 <marker id="timeline-conflict-arrow" viewBox="0 0 8 6" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 8 3 L 0 6 z" fill="#d97706" /></marker>
               </defs>
-              {dependencyConnectors.map((connector) => <g key={connector.id}><path d={connector.path} fill="none" stroke="white" strokeWidth={connector.conflict ? 6 : 5} vectorEffect="non-scaling-stroke" /><path d={connector.path} fill="none" stroke={connector.conflict ? '#d97706' : '#625b72'} strokeWidth={connector.conflict ? 3 : 2.25} strokeDasharray={connector.conflict ? '7 4' : undefined} vectorEffect="non-scaling-stroke" markerEnd={`url(#${connector.conflict ? 'timeline-conflict-arrow' : 'timeline-dependency-arrow'})`} data-dependency-connector="true" data-dependency-conflict={connector.conflict || undefined} /></g>)}
+              {dependencyConnectors.map((connector) => {
+                const active = activeDependencyIds.has(connector.id)
+                const dimmed = hasDependencyHighlight && !active
+                const predecessor = visibleTasks.find((task) => task.id === connector.predecessorTaskId)
+                const successor = visibleTasks.find((task) => task.id === connector.successorTaskId)
+                return <g key={connector.id} opacity={dimmed ? 0.12 : active ? 1 : connector.conflict ? 0.82 : 0.45} className="transition-opacity">
+                  <path d={connector.path} fill="none" stroke="white" strokeWidth={connector.conflict ? 6 : active ? 6 : 4} vectorEffect="non-scaling-stroke" pointerEvents="none" />
+                  <path d={connector.path} fill="none" stroke={connector.conflict ? '#d97706' : active ? '#4f46b8' : '#625b72'} strokeWidth={connector.conflict ? 3 : active ? 3 : 1.75} strokeDasharray={connector.conflict ? '7 4' : undefined} vectorEffect="non-scaling-stroke" markerEnd={`url(#${connector.conflict ? 'timeline-conflict-arrow' : 'timeline-dependency-arrow'})`} pointerEvents="stroke" onMouseEnter={() => setHoveredDependencyId(connector.id)} onMouseLeave={() => setHoveredDependencyId(null)} data-dependency-connector="true" data-dependency-conflict={connector.conflict || undefined} data-dependency-highlighted={active || undefined}><title>{`${predecessor?.title ?? connector.predecessorTaskId} → ${successor?.title ?? connector.successorTaskId}`}</title></path>
+                </g>
+              })}
               {linkPreview && (() => {
                 const sourceGeometry = geometryByTaskId.get(linkPreview.sourceTaskId)
                 const sourceIndex = taskIndexById.get(linkPreview.sourceTaskId)
@@ -302,20 +319,24 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
                     onClick={() => selectTaskFromBar(tasks.find((candidate) => candidate.id === task.id) ?? task)}
                     onPointerDown={(event) => startTaskDrag(event, tasks.find((candidate) => candidate.id === task.id) ?? task)}
                     onPointerMove={moveTaskDrag}
-                    onPointerUp={(event) => { void finishTaskDrag(event) }}
+                    onPointerUp={finishTaskDrag}
                     onPointerCancel={cancelTaskDrag}
+                    onMouseEnter={() => setHoveredTaskId(task.id)}
+                    onMouseLeave={() => setHoveredTaskId(null)}
                     data-task-visual-state={visualState}
                     data-task-critical={critical || undefined}
                     data-task-schedule-conflict={hasScheduleConflict || undefined}
                     data-timeline-task-target={task.id}
                     data-task-start-date={task.startDate}
                     data-task-end-date={task.endDate}
-                    className={`group absolute top-1/2 z-10 h-6 touch-none -translate-y-1/2 cursor-grab rounded-md text-left transition hover:brightness-95 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-[#29263e] focus-visible:ring-offset-2 ${affected ? 'impact-pulse' : ''} ${overdue ? 'ring-1 ring-inset ring-rose-500' : ''} ${critical ? 'border-[3px] border-[#5548ba]' : 'border border-transparent'} ${savingTaskId === task.id ? 'opacity-60' : ''} ${taskVisualStateClasses[visualState]}`}
+                    data-dependency-highlighted={highlightedTaskIds.has(task.id) || undefined}
+                    data-dependency-dimmed={hasDependencyHighlight && !highlightedTaskIds.has(task.id) || undefined}
+                    className={`group absolute top-1/2 z-10 h-6 touch-none -translate-y-1/2 cursor-grab rounded-md text-left transition hover:brightness-95 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-[#29263e] focus-visible:ring-offset-2 ${affected ? 'impact-pulse' : ''} ${overdue ? 'ring-1 ring-inset ring-rose-500' : ''} ${critical ? 'border-[3px] border-[#5548ba]' : 'border border-transparent'} ${highlightedTaskIds.has(task.id) ? 'drop-shadow-[0_0_5px_rgba(79,70,184,0.75)]' : hasDependencyHighlight ? 'opacity-45' : ''} ${taskVisualStateClasses[visualState]}`}
                     style={position}
                     title={`${formatFullDate(task.startDate)} — ${formatFullDate(task.endDate)}`}
                     aria-label={`Редактировать задачу «${task.title}», ${formatFullDate(task.startDate)} — ${formatFullDate(task.endDate)}`}
                   >
-                    {onTaskUpdate && <><span data-resize-handle="start" className="absolute inset-y-0 left-0 w-2 cursor-ew-resize rounded-l-md bg-white/0 transition group-hover:bg-white/35" aria-hidden="true" /><span data-resize-handle="end" className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r-md bg-white/0 transition group-hover:bg-white/35" aria-hidden="true" /></>}
+                    {onTaskDraft && <><span data-resize-handle="start" className="absolute inset-y-0 left-0 w-2 cursor-ew-resize rounded-l-md bg-white/0 transition group-hover:bg-white/35" aria-hidden="true" /><span data-resize-handle="end" className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r-md bg-white/0 transition group-hover:bg-white/35" aria-hidden="true" /></>}
                     {taskPreview?.taskId === task.id && <span className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#29263e] px-2 py-1 text-[9px] font-bold text-white shadow-lg">{formatFullDate(task.startDate)} — {formatFullDate(task.endDate)}</span>}
                   </button>
                   {onCreateDependency && <button type="button" data-dependency-handle={task.id} onPointerDown={(event) => startLinkDrag(event, task.id)} onPointerMove={moveLinkDrag} onPointerUp={(event) => { void finishLinkDrag(event) }} onPointerCancel={cancelLinkDrag} className="absolute top-1/2 z-20 grid h-4 w-4 -translate-y-1/2 place-items-center rounded-full border-2 border-white bg-[#6d5dfb] text-white shadow-sm transition hover:scale-110" style={{ left: `calc(${position.left} + ${position.width} - 5px)` }} aria-label={`Создать зависимость от задачи «${task.title}»`} title="Протяните к другой задаче"><Link2 size={9} aria-hidden="true" /></button>}

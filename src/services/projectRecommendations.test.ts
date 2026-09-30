@@ -57,4 +57,39 @@ describe('project recommendations', () => {
       expect.objectContaining({ id: 'no-action-required', title: 'Вмешательство не требуется', tone: 'success' }),
     ])
   })
+
+  it('adds a workload recommendation without inventing utilization percentages', () => {
+    const value = workspace([
+      task('A', '2026-09-01', '2026-09-10'),
+      task('B', '2026-09-02', '2026-09-10'),
+      task('C', '2026-09-03', '2026-09-10'),
+    ])
+    value.assignees = [
+      { id: 'employee', projectId: 'project', name: 'Смирнов' },
+      { id: 'idle', projectId: 'project', name: 'Петров' },
+    ]
+    const recommendations = buildProjectRecommendations(value)
+    expect(recommendations).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'team-workload', action: { type: 'view-workload', label: 'Посмотреть загрузку' } })]))
+    expect(recommendations).toHaveLength(1)
+  })
+
+  it('returns no more than three attention cards', () => {
+    const value = workspace([
+      task('A', '2026-09-01', '2026-10-04'),
+      task('B', '2026-09-01', '2026-10-04'),
+      task('C', '2026-09-01', '2026-10-04'),
+    ])
+    value.assignees = [
+      { id: 'employee', projectId: 'project', name: 'Смирнов' },
+      { id: 'idle', projectId: 'project', name: 'Петров' },
+    ]
+    value.impact.projectedProjectEndDate = '2026-10-04'
+    value.currentIssues = {
+      scheduleConflicts: [],
+      statusConflicts: [{ sourceTaskId: 'A', affectedTaskIds: ['B'], reason: 'Статус', consequence: 'Проверить', severity: 'warning' }],
+      deadlineIssues: [{ sourceTaskId: 'A', affectedTaskIds: ['A'], reason: 'Срок', consequence: 'Проверить', severity: 'warning' }],
+      affectedTaskIds: ['A', 'B'],
+    }
+    expect(buildProjectRecommendations(value)).toHaveLength(3)
+  })
 })

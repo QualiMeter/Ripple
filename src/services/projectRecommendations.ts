@@ -2,10 +2,13 @@ import type { ProjectWorkspace } from '../types/workspace'
 import { pluralizeRu } from '../utils/plural'
 import { differenceInDays } from './scheduleEngine'
 import { describeScheduleConflict } from './scheduleConflictPresentation'
+import { findWorkloadImbalance } from './teamWorkload'
+import { formatFullDate } from '../utils/date'
 
 export type ProjectRecommendationAction =
   | { type: 'preview-shift'; sourceTaskId: string; label: string }
   | { type: 'open-task'; taskId: string; label: string }
+  | { type: 'view-workload'; label: string }
 
 export interface ProjectRecommendation {
   id: string
@@ -91,6 +94,23 @@ export function buildProjectRecommendations(workspace: ProjectWorkspace): Projec
     })
   }
 
+  const imbalance = findWorkloadImbalance(workspace.assignees, tasks)
+  if (imbalance && recommendations.length < 4) {
+    const { overloaded, idleEmployeeNames } = imbalance
+    const period = overloaded.peakStartDate === overloaded.peakEndDate
+      ? formatFullDate(overloaded.peakStartDate!)
+      : `${formatFullDate(overloaded.peakStartDate!)}–${formatFullDate(overloaded.peakEndDate!)}`
+    recommendations.push({
+      id: 'team-workload',
+      title: 'Неравномерная загрузка команды',
+      description: `${overloaded.employeeName} ведёт ${overloaded.maxConcurrentTasks} ${pluralizeRu(overloaded.maxConcurrentTasks, ['задачу', 'задачи', 'задач'])} одновременно (${period}), а ${idleEmployeeNames.join(', ')} в этот период не имеет активных задач.`,
+      affectedTaskIds: overloaded.peakTaskIds,
+      recommendation: 'Проверить возможность перераспределения одной из задач',
+      tone: 'warning',
+      action: { type: 'view-workload', label: 'Посмотреть загрузку' },
+    })
+  }
+
   if (recommendations.length === 0) {
     return [{
       id: 'no-action-required',
@@ -102,5 +122,5 @@ export function buildProjectRecommendations(workspace: ProjectWorkspace): Projec
     }]
   }
 
-  return recommendations.slice(0, 4)
+  return recommendations.slice(0, 3)
 }
