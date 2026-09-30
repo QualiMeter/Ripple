@@ -85,7 +85,7 @@ HTTP-режим с backend:
 
 ```dotenv
 VITE_API_MODE=http
-VITE_API_URL=https://mvp-action.up.railway.app
+VITE_API_URL=https://mvp-action.up.railway.app/api
 ```
 
 Автономный mock-режим:

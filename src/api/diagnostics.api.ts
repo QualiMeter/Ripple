@@ -7,7 +7,7 @@ export interface DiagnosticsApi {
 
 export const httpDiagnosticsApi: DiagnosticsApi = {
   getProjectDiagnostics(projectId) {
-    return apiRequest<ProjectDiagnosticsDto>(`/api/v1/projects/${projectId}/diagnostics`)
+    return apiRequest<ProjectDiagnosticsDto>(`/v1/projects/${projectId}/diagnostics`)
   },
 }
 

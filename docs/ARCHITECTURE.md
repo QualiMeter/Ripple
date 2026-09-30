@@ -23,7 +23,7 @@ The persistence technology of the backend is outside this repository and is not 
 - `VITE_API_MODE=http` — REST confirms mutations and supplies authoritative project/history data; SignalR synchronizes other clients.
 - `VITE_API_MODE=mock` — typed API interfaces use the local project store and pure frontend engines. SignalR is not started.
 
-`VITE_API_URL` contains the backend origin. Backend routes and mapping details are documented in [API_CONTRACTS.md](API_CONTRACTS.md).
+`VITE_API_URL` contains the REST API base including `/api`. The realtime helper derives the backend origin from that base so SignalR remains connected to `/hubs/projects`, outside the REST prefix. Backend routes and mapping details are documented in [API_CONTRACTS.md](API_CONTRACTS.md).
 
 ## Frontend layers
 

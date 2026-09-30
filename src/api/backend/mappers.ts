@@ -79,7 +79,7 @@ export function dependencyId(predecessorTaskId: string, successorTaskId: string)
 }
 
 export function dependencyDeletePath(projectId: string, dependency: Pick<Dependency, 'predecessorTaskId' | 'successorTaskId'>): string {
-  return `/api/v1/projects/${projectId}/dependencies/${dependency.predecessorTaskId}/${dependency.successorTaskId}`
+  return `/v1/projects/${projectId}/dependencies/${dependency.predecessorTaskId}/${dependency.successorTaskId}`
 }
 
 export function mapDependency(dto: DependencyDto): Dependency {

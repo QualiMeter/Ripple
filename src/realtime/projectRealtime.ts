@@ -1,5 +1,5 @@
 import { HubConnectionBuilder, HubConnectionState, type HubConnection } from '@microsoft/signalr'
-import { apiUrl, isHttpApiMode } from '../config/api'
+import { isHttpApiMode, realtimeUrl } from '../config/api'
 import type { RealtimeEvent, RealtimeEventHandler } from './realtimeTypes'
 
 export interface RealtimeConnection {
@@ -41,7 +41,7 @@ export class ProjectRealtime {
     this.eventCacheSize = options.eventCacheSize ?? 300
     this.retryDelaysMs = options.retryDelaysMs ?? [1_000, 2_000, 5_000, 10_000]
     this.connectionFactory = options.connectionFactory ?? (() => new HubConnectionBuilder()
-      .withUrl(apiUrl('/hubs/projects'))
+      .withUrl(realtimeUrl('/hubs/projects'))
       .withAutomaticReconnect()
       .build() as HubConnection)
   }

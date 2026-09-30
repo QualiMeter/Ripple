@@ -12,22 +12,22 @@ export interface EmployeesApi {
 }
 
 export const httpEmployeesApi: EmployeesApi = {
-  async listEmployees(projectId) { return (await apiRequest<EmployeeDto[]>(`/api/v1/projects/${projectId}/employees`)).map(mapEmployee) },
+  async listEmployees(projectId) { return (await apiRequest<EmployeeDto[]>(`/v1/projects/${projectId}/employees`)).map(mapEmployee) },
   async getEmployee(projectId, employeeId) {
-    return mapEmployee(await apiRequest<import('./backend/types').EmployeeDetailsDto>(`/api/v1/projects/${projectId}/employees/${employeeId}`))
+    return mapEmployee(await apiRequest<import('./backend/types').EmployeeDetailsDto>(`/v1/projects/${projectId}/employees/${employeeId}`))
   },
   async createEmployee(projectId, request) {
-    return mapEmployee(await apiRequest<EmployeeDto>(`/api/v1/projects/${projectId}/employees`, {
+    return mapEmployee(await apiRequest<EmployeeDto>(`/v1/projects/${projectId}/employees`, {
       method: 'POST', body: JSON.stringify({ name: request.name, phone: request.phone ?? null, email: request.email ?? null }),
     }))
   },
   async updateEmployee(projectId, employeeId, current, request) {
-    return mapEmployee(await apiRequest<EmployeeDto>(`/api/v1/projects/${projectId}/employees/${employeeId}`, {
+    return mapEmployee(await apiRequest<EmployeeDto>(`/v1/projects/${projectId}/employees/${employeeId}`, {
       method: 'PUT', body: JSON.stringify({ name: request.name ?? current.name, phone: request.phone ?? current.phone ?? null, email: request.email ?? current.email ?? null }),
     }))
   },
   async deleteEmployee(projectId, employeeId) {
-    await apiRequest<void>(`/api/v1/projects/${projectId}/employees/${employeeId}`, { method: 'DELETE' })
+    await apiRequest<void>(`/v1/projects/${projectId}/employees/${employeeId}`, { method: 'DELETE' })
   },
 }
 

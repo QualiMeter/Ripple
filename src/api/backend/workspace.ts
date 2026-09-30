@@ -12,7 +12,7 @@ import { deriveProjectHealth, includeCurrentIssuesInImpact } from '../../service
 let usersCache: Promise<Map<string, string>> | null = null
 
 async function getUsers(): Promise<Map<string, string>> {
-  usersCache ??= apiRequest<UserDto[]>('/api/v1/users')
+  usersCache ??= apiRequest<UserDto[]>('/v1/users')
     .then((users) => new Map(users.map((user) => [user.id, user.name])))
     .catch((error) => {
       usersCache = null
@@ -27,7 +27,7 @@ function latestEnd(tasks: ProjectWorkspace['tasks'], fallback: string): string {
 }
 
 export async function fetchProjectDetails(projectId: string): Promise<ProjectDetailsDto> {
-  return apiRequest<ProjectDetailsDto>(`/api/v1/projects/${projectId}`)
+  return apiRequest<ProjectDetailsDto>(`/v1/projects/${projectId}`)
 }
 
 export async function composeHttpWorkspace(projectId: string): Promise<ProjectWorkspace> {
@@ -80,6 +80,6 @@ export async function composeHttpWorkspace(projectId: string): Promise<ProjectWo
 }
 
 export async function listHttpProjectNavigationItems(): Promise<ProjectNavigationItem[]> {
-  const projects = await apiRequest<ProjectListItemDto[]>('/api/v1/projects')
+  const projects = await apiRequest<ProjectListItemDto[]>('/v1/projects')
   return projects.map(mapProjectNavigationItem)
 }

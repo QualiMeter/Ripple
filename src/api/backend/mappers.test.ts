@@ -37,7 +37,7 @@ describe('backend mappers', () => {
   it('creates deterministic dependency ids and maps shift manual-resolution flags', () => {
     const dependency = mapDependency({ projectId: 'project', predecessorTaskId: 'a', successorTaskId: 'b', predecessorTaskName: 'A', successorTaskName: 'B' })
     expect(dependency.id).toBe(dependencyId('a', 'b'))
-    expect(dependencyDeletePath('project', dependency)).toBe('/api/v1/projects/project/dependencies/a/b')
+    expect(dependencyDeletePath('project', dependency)).toBe('/v1/projects/project/dependencies/a/b')
     const preview = mapShiftPreview('project', { rootTaskId: 'a', currentProjectEndDate: '2026-10-03', proposedProjectEndDate: '2026-10-05', projectEndIncreaseCalendarDays: '2', analysis: [], items: [{ taskId: 'b', taskName: 'B', originalStartDate: '2026-10-02', originalEndDate: '2026-10-03', proposedStartDate: '2026-10-04', proposedEndDate: '2026-10-05', shiftCalendarDays: '2', completedRequiresManualResolution: true, reason: 'Факт' }] })
     expect(preview.taskShifts[0]).toMatchObject({ shiftDays: 2, completedRequiresManualResolution: true })
   })

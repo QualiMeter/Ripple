@@ -30,11 +30,11 @@ export function serverHistoryEntryFromRealtimeData(projectId: string, data: unkn
 
 export const historyApi: HistoryApi = {
   async listHistory(projectId) {
-    const entries = await apiRequest<ChangeHistoryDto[]>(`/api/v1/projects/${projectId}/history`)
+    const entries = await apiRequest<ChangeHistoryDto[]>(`/v1/projects/${projectId}/history`)
     return entries.map((entry) => mapServerHistoryEntry(projectId, entry))
   },
   async undoHistoryEntry(projectId, historyId) {
-    const entry = await apiRequest<ChangeHistoryDto>(`/api/v1/projects/${projectId}/history/${historyId}/undo`, { method: 'POST' })
+    const entry = await apiRequest<ChangeHistoryDto>(`/v1/projects/${projectId}/history/${historyId}/undo`, { method: 'POST' })
     return mapServerHistoryEntry(projectId, entry)
   },
 }

@@ -17,15 +17,15 @@ export interface ProjectsApi {
 export const httpProjectsApi: ProjectsApi = {
   listProjects: listHttpProjectNavigationItems,
   async createProject(request) {
-    const dto = await apiRequest<ProjectDetailsDto>('/api/v1/projects', { method: 'POST', body: JSON.stringify(toCreateProjectDto(request)) })
+    const dto = await apiRequest<ProjectDetailsDto>('/v1/projects', { method: 'POST', body: JSON.stringify(toCreateProjectDto(request)) })
     return mapProject(dto)
   },
   async updateProject(projectId, current, request) {
-    const dto = await apiRequest<ProjectDetailsDto>(`/api/v1/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(toUpdateProjectDto(current, request)) })
+    const dto = await apiRequest<ProjectDetailsDto>(`/v1/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(toUpdateProjectDto(current, request)) })
     return mapProject(dto)
   },
   async deleteProject(projectId) {
-    await apiRequest<void>(`/api/v1/projects/${projectId}`, { method: 'DELETE' })
+    await apiRequest<void>(`/v1/projects/${projectId}`, { method: 'DELETE' })
     clearHttpProjectSession(projectId)
   },
   getWorkspace: composeHttpWorkspace,

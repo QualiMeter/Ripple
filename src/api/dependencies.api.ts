@@ -13,10 +13,10 @@ export interface DependenciesApi {
 
 export const httpDependenciesApi: DependenciesApi = {
   async listDependencies(projectId) {
-    return (await apiRequest<import('./backend/types').DependencyDto[]>(`/api/v1/projects/${projectId}/dependencies`)).map(mapDependency)
+    return (await apiRequest<import('./backend/types').DependencyDto[]>(`/v1/projects/${projectId}/dependencies`)).map(mapDependency)
   },
   async createDependency(projectId, request) {
-    const response = await apiRequest<DependencyMutationResponse>(`/api/v1/projects/${projectId}/dependencies`, {
+    const response = await apiRequest<DependencyMutationResponse>(`/v1/projects/${projectId}/dependencies`, {
       method: 'POST', body: JSON.stringify({ predecessorTaskId: request.predecessorTaskId, successorTaskId: request.successorTaskId }),
     })
     const dependency = mapDependency(response.dependency)

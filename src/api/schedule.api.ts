@@ -14,11 +14,11 @@ export function resolveConfirmedShiftPreview(requested: ScheduleShiftPreview, re
 
 export const httpScheduleApi: ScheduleApi = {
   async previewShift(projectId, request) {
-    const dto = await apiRequest<ShiftPreviewDto>(`/api/v1/projects/${projectId}/tasks/${request.sourceTaskId}/shift-preview`, { method: 'POST' })
+    const dto = await apiRequest<ShiftPreviewDto>(`/v1/projects/${projectId}/tasks/${request.sourceTaskId}/shift-preview`, { method: 'POST' })
     return mapShiftPreview(projectId, dto)
   },
   async applyShift(projectId, preview, options) {
-    const response = await apiRequest<ShiftConfirmationResponse>(`/api/v1/projects/${projectId}/tasks/${preview.sourceTaskId}/shift-confirm`, {
+    const response = await apiRequest<ShiftConfirmationResponse>(`/v1/projects/${projectId}/tasks/${preview.sourceTaskId}/shift-confirm`, {
       method: 'POST', body: JSON.stringify(options),
     })
     const confirmed = resolveConfirmedShiftPreview(preview, mapShiftPreview(projectId, response.preview))

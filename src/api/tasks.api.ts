@@ -16,25 +16,25 @@ export interface TasksApi {
 
 export const httpTasksApi: TasksApi = {
   async getTask(projectId, taskId) {
-    return mapTask(await apiRequest<import('./backend/types').TaskDetailsDto>(`/api/v1/projects/${projectId}/tasks/${taskId}`))
+    return mapTask(await apiRequest<import('./backend/types').TaskDetailsDto>(`/v1/projects/${projectId}/tasks/${taskId}`))
   },
   async getAnalysis(projectId, taskId) {
-    const response = await apiRequest<AnalysisMessageDto[]>(`/api/v1/projects/${projectId}/tasks/${taskId}/analysis`)
+    const response = await apiRequest<AnalysisMessageDto[]>(`/v1/projects/${projectId}/tasks/${taskId}/analysis`)
     return (response ?? []).map(mapTaskAnalysisMessage)
   },
   async createTask(projectId, request) {
-    const response = await apiRequest<TaskMutationResponse>(`/api/v1/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(toCreateTaskDto(request)) })
+    const response = await apiRequest<TaskMutationResponse>(`/v1/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(toCreateTaskDto(request)) })
     rememberPlannedDates(projectId, response.task.id, response.task.startDate, response.task.endDate)
     const task = mapTask(response.task)
     return { task, analysis: response.analysis.map(mapAnalysisMessage) }
   },
   async updateTask(projectId, taskId, currentTask, update) {
-    const response = await apiRequest<TaskMutationResponse>(`/api/v1/projects/${projectId}/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(toUpdateTaskDto(currentTask, update)) })
+    const response = await apiRequest<TaskMutationResponse>(`/v1/projects/${projectId}/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(toUpdateTaskDto(currentTask, update)) })
     const task = mapTask(response.task)
     return { task, analysis: response.analysis.map(mapAnalysisMessage) }
   },
   async deleteTask(projectId, taskId) {
-    const analysis = await apiRequest<AnalysisMessageDto[] | undefined>(`/api/v1/projects/${projectId}/tasks/${taskId}?confirm=true`, { method: 'DELETE' })
+    const analysis = await apiRequest<AnalysisMessageDto[] | undefined>(`/v1/projects/${projectId}/tasks/${taskId}?confirm=true`, { method: 'DELETE' })
     return (analysis ?? []).map(mapAnalysisMessage)
   },
 }

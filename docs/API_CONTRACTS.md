@@ -6,7 +6,7 @@ The UI consumes stable domain models from `src/types`. ASP.NET transport DTOs an
 
 - `VITE_API_MODE=mock` (default) uses the in-memory MVP implementation.
 - `VITE_API_MODE=http` uses the Railway ASP.NET API.
-- `VITE_API_URL` is the origin only; the client adds `/api/v1`. The default is `https://mvp-action.up.railway.app`.
+- `VITE_API_URL` is the REST API base including `/api`; endpoint adapters add `/v1`. The default is `https://mvp-action.up.railway.app/api`.
 
 The checked contract is the current backend OpenAPI document at `/openapi/v1.json`. Scalar is available at `/scalar` on the backend.
 
@@ -92,7 +92,7 @@ Selective server History Undo is also synchronized authoritatively because one t
 
 ## Realtime project deltas
 
-HTTP mode maintains one session-wide official SignalR client connected to `${VITE_API_URL}/hubs/projects`. It listens for `projectChanged`, joins an opened project through `JoinProject(projectId)`, and leaves it through `LeaveProject(projectId)`. Mock mode never creates a SignalR connection.
+HTTP mode maintains one session-wide official SignalR client connected to the backend origin at `https://mvp-action.up.railway.app/hubs/projects`. The realtime URL helper removes the trailing REST `/api` prefix from `VITE_API_URL`; it listens for `projectChanged`, joins an opened project through `JoinProject(projectId)`, and leaves it through `LeaveProject(projectId)`. Mock mode never creates a SignalR connection.
 
 `withAutomaticReconnect` covers an established connection. A failed initial `start()` is handled separately with bounded retry delays (`1s`, `2s`, `5s`, then at most `10s`). Only one start attempt and one retry timer may exist at a time; leaving the current project cancels pending retries. A successful retry rejoins the project and triggers the same one-time resynchronization used after reconnect.
 
