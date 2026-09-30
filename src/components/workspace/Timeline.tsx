@@ -12,7 +12,7 @@ import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 import { OverdueTaskBadge } from '../common/OverdueTaskBadge'
 import { TooltipTrigger } from '../common/TooltipTrigger'
 import { TruncatedText } from '../common/TruncatedText'
-import { buildTimelineScale, buildTimelineTickDates, formatTimelineTick, getTimelineBarGeometry, getTimelineDatePosition, getTimelineViewportMetrics, type TimelineScaleMode } from '../../services/timelineLayout'
+import { buildTimelineColumns, buildTimelineScale, getTimelineBarGeometry, getTimelineDatePosition, getTimelineViewportMetrics, type TimelineScaleMode } from '../../services/timelineLayout'
 import { buildTimelineTaskPreview, timelineDragDeltaDays, type TimelineDragMode, type TimelineTaskPreview } from '../../services/timelineInteraction'
 import { validateDependency, validateDependencyTasks } from '../../services/dependencyGraph'
 
@@ -68,9 +68,9 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   })
   const scale = buildTimelineScale(project, tasks)
   const viewport = getTimelineViewportMetrics(scale, scaleMode)
+  const timelineColumns = buildTimelineColumns(scale, scaleMode)
   const geometryByTaskId = new Map(visibleTasks.map((task) => [task.id, getTimelineBarGeometry(task, scale)]))
   const todayPosition = getTimelineDatePosition(today, scale)
-  const columnLabels = buildTimelineTickDates(scale, viewport.columnCount).map((date) => formatTimelineTick(date, scaleMode))
   const conflictDependencyKeys = new Set(dependencyConflicts.map((conflict) => `${conflict.predecessor.id}->${conflict.successor.id}`))
   const taskIndexById = new Map(visibleTasks.map((task, index) => [task.id, index]))
   const dependencyConnectors = dependencies.flatMap((dependency, dependencyIndex) => {
@@ -101,6 +101,11 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
     : [])
   const hasDependencyHighlight = activeDependencyIds.size > 0
 
+  const getRenderedPlotWidth = () => {
+    const measuredWidth = (rowsRef.current?.getBoundingClientRect().width ?? 0) - taskColumnWidth
+    return measuredWidth > 0 ? measuredWidth : viewport.canvasWidthPx
+  }
+
   const startTaskDrag = (event: ReactPointerEvent<HTMLButtonElement>, task: ProjectTask) => {
     if (!onTaskDraft) return
     const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-resize-handle]')?.dataset.resizeHandle
@@ -115,7 +120,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   const moveTaskDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
-    const deltaDays = timelineDragDeltaDays(event.clientX - drag.startX, viewport.canvasWidthPx, scale.totalDays)
+    const deltaDays = timelineDragDeltaDays(event.clientX - drag.startX, getRenderedPlotWidth(), scale.totalDays)
     const preview = buildTimelineTaskPreview(drag.task, drag.mode, deltaDays)
     dragRef.current = { ...drag, preview }
     setTaskPreview({ taskId: drag.task.id, value: preview })
@@ -176,7 +181,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
     const bounds = rows.getBoundingClientRect()
     const next = {
       ...link,
-      endX: Math.max(0, Math.min(1000, ((event.clientX - bounds.left - taskColumnWidth) / viewport.canvasWidthPx) * 1000)),
+      endX: Math.max(0, Math.min(1000, ((event.clientX - bounds.left - taskColumnWidth) / getRenderedPlotWidth()) * 1000)),
       endY: Math.max(0, Math.min(visibleTasks.length * timelineRowHeight, event.clientY - bounds.top)),
     }
     linkRef.current = next
@@ -234,16 +239,19 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
       {mutationError && <p className="mx-4 mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700" role="alert">{mutationError}</p>}
       {tasks.length === 0 ? <div className="grid min-h-48 place-items-center px-6 py-12 text-center"><div><p className="text-sm font-semibold text-[#4b4658]">В проекте пока нет задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Добавьте задачу, чтобы сформировать план проекта.</p></div></div> : <>
       <div data-timeline-scroll-container="true" className="overflow-x-auto overscroll-x-contain outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7768ed]" role="region" aria-label="Горизонтальная шкала плана проекта" tabIndex={0}>
-        <div className="relative" data-timeline-canvas-width={viewport.canvasWidthPx} style={{ width: `${viewport.totalWidthPx}px` }}>
-          {todayPosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `${taskColumnWidth}px ${viewport.canvasWidthPx}px` }} aria-label={`Сегодня: ${formatFullDate(today)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l border-[#e46f42]" style={{ left: `${todayPosition}%` }}><b className="absolute left-0 top-1 -translate-x-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold not-italic text-[#b9542f]">Сегодня</b></i></span></div>}
-          <div className="grid border-b border-[#eeecf1] bg-[#faf9fb]" style={{ gridTemplateColumns: `${taskColumnWidth}px ${viewport.canvasWidthPx}px` }}>
+        <div className="relative w-full" data-timeline-canvas-width={viewport.canvasWidthPx} data-timeline-content-width={viewport.totalWidthPx} style={{ minWidth: `${viewport.totalWidthPx}px` }}>
+          {todayPosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }} aria-label={`Сегодня: ${formatFullDate(today)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l border-[#e46f42]" style={{ left: `${todayPosition}%` }}><b className="absolute left-0 top-1 -translate-x-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold not-italic text-[#b9542f]">Сегодня</b></i></span></div>}
+          <div className="grid border-b border-[#eeecf1] bg-[#faf9fb]" style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }}>
             <div className="sticky left-0 z-30 border-r border-[#eeecf1] bg-[#faf9fb] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Задача</div>
-            <div className="grid" style={{ gridTemplateColumns: `repeat(${viewport.columnCount}, minmax(0, 1fr))` }}>
-              {columnLabels.map((label, index) => <div key={`${label}-${index}`} className="border-r border-[#eeecf1] px-2 py-2.5 text-center text-[10px] font-semibold text-[#8f8b99] last:border-r-0">{label}</div>)}
+            <div className="relative min-h-9" data-timeline-column-count={timelineColumns.length}>
+              {timelineColumns.map((column) => <div key={column.key} className="absolute inset-y-0 flex items-center justify-center overflow-hidden border-r border-[#eeecf1] px-1 text-center text-[10px] font-semibold text-[#8f8b99] last:border-r-0" style={{ left: `${column.leftPercent}%`, width: `${column.widthPercent}%` }} data-timeline-column-start={column.startDate}>{column.label}</div>)}
             </div>
           </div>
           <div ref={rowsRef} className="relative">
-            <svg className="pointer-events-none absolute inset-y-0 z-[1] h-full overflow-visible" style={{ left: `${taskColumnWidth}px`, width: `${viewport.canvasWidthPx}px` }} viewBox={`0 0 1000 ${visibleTasks.length * timelineRowHeight}`} preserveAspectRatio="none" aria-label="Зависимости задач">
+            <div className="pointer-events-none absolute inset-y-0 z-0" style={{ left: `${taskColumnWidth}px`, width: `calc(100% - ${taskColumnWidth}px)` }} aria-hidden="true">
+              {timelineColumns.map((column) => <i key={column.key} className="absolute inset-y-0 border-r border-[#eeecf1]" style={{ left: `${column.leftPercent}%`, width: `${column.widthPercent}%` }} />)}
+            </div>
+            <svg className="pointer-events-none absolute inset-y-0 z-[1] h-full overflow-visible" style={{ left: `${taskColumnWidth}px`, width: `calc(100% - ${taskColumnWidth}px)` }} viewBox={`0 0 1000 ${visibleTasks.length * timelineRowHeight}`} preserveAspectRatio="none" aria-label="Зависимости задач">
               <defs>
                 <marker id="timeline-dependency-arrow" viewBox="0 0 8 6" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 8 3 L 0 6 z" fill="#625b72" /></marker>
                 <marker id="timeline-conflict-arrow" viewBox="0 0 8 6" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 8 3 L 0 6 z" fill="#d97706" /></marker>
@@ -278,7 +286,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
             const geometry = geometryByTaskId.get(task.id)!
             const position = { left: `${geometry.leftPercent}%`, width: `${geometry.widthPercent}%` }
             return (
-              <div key={task.id} className={`grid h-14 border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`} style={{ gridTemplateColumns: `${taskColumnWidth}px ${viewport.canvasWidthPx}px` }}>
+              <div key={task.id} className={`grid h-14 border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`} style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }}>
                 <div role="button" tabIndex={0} onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) onTaskSelect(task) }} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onTaskSelect(task) } }} className="sticky left-0 z-30 flex min-w-0 cursor-pointer items-center gap-2.5 border-r border-[#eeecf1] bg-white px-5 py-2.5 text-left transition hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
                   <span data-task-visual-state={visualState} className={`h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} />
                   <div className="min-w-0 flex-1  ">
@@ -313,7 +321,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
                     </div>
                   </div>
                 </div>
-                <div className="relative h-14 bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)]" style={{ backgroundSize: `${100 / viewport.columnCount}% 100%` }}>
+                <div className="relative h-14">
                   <button
                     type="button"
                     onClick={() => selectTaskFromBar(tasks.find((candidate) => candidate.id === task.id) ?? task)}

@@ -1,5 +1,6 @@
 import type { ProjectTask, TaskUpdateRequest } from '../types/task'
 import { addCalendarDays } from '../utils/date'
+import { getTimelineDayDeltaFromPixels } from './timelineLayout'
 
 export type TimelineDragMode = 'move' | 'resize-start' | 'resize-end'
 
@@ -10,8 +11,7 @@ export interface TimelineTaskPreview {
 }
 
 export function timelineDragDeltaDays(deltaPixels: number, canvasWidthPixels: number, totalDays: number): number {
-  if (canvasWidthPixels <= 0 || totalDays <= 0) return 0
-  return Math.round(deltaPixels / (canvasWidthPixels / totalDays))
+  return getTimelineDayDeltaFromPixels(deltaPixels, canvasWidthPixels, totalDays)
 }
 
 export function buildTimelineTaskPreview(task: ProjectTask, mode: TimelineDragMode, requestedDeltaDays: number): TimelineTaskPreview {

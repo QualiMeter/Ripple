@@ -39,8 +39,8 @@ describe('Timeline task interaction', () => {
   })
 
   it.each([
-    ['resize-start', 210, 280, { startDate: '2026-09-12' }],
-    ['resize-end', 420, 560, { endDate: '2026-09-16' }],
+    ['resize-start', 210, 242, { startDate: '2026-09-12' }],
+    ['resize-end', 420, 484, { endDate: '2026-09-16' }],
   ] as const)('saves a %s drag only after pointer release', async (handle, startX, endX, expected) => {
     const onTaskUpdate = vi.fn().mockResolvedValue(undefined)
     const { container } = render(<Timeline
@@ -73,8 +73,8 @@ describe('Timeline task interaction', () => {
     />)
     const bar = screen.getByRole('button', { name: /Редактировать задачу «Интеграция»,/ })
     fireEvent.pointerDown(bar, { pointerId: 2, clientX: 210 })
-    fireEvent.pointerMove(bar, { pointerId: 2, clientX: 350 })
-    fireEvent.pointerUp(bar, { pointerId: 2, clientX: 350 })
+    fireEvent.pointerMove(bar, { pointerId: 2, clientX: 274 })
+    fireEvent.pointerUp(bar, { pointerId: 2, clientX: 274 })
     await waitFor(() => expect(onTaskUpdate).toHaveBeenCalledWith('task', { startDate: '2026-09-13', endDate: '2026-09-16' }))
   })
 
@@ -172,5 +172,22 @@ describe('Timeline task interaction', () => {
     expect(weekWidth).toBeGreaterThan(monthWidth)
     expect([bar.getAttribute('data-task-start-date'), bar.getAttribute('data-task-end-date')]).toEqual(initialDates)
     expect(container.querySelectorAll('[data-dependency-connector="true"]')).toHaveLength(1)
+  })
+
+  it('renders real day columns and stretches short plotting content to the container edge', () => {
+    const { container } = render(<Timeline
+      project={project} tasks={[task]} dependencies={[]} assignees={[]}
+      impact={buildImpactAnalysis(project, [task], [], '', [], { kind: 'session-started' })}
+      currentIssues={buildCurrentProjectIssues(project, [task], [], '2026-09-11')}
+      onTaskSelect={() => undefined} today="2026-09-11"
+    />)
+
+    expect(container.querySelectorAll('[data-timeline-column-start]')).toHaveLength(10)
+    expect(Array.from(container.querySelectorAll('[data-timeline-column-start]')).slice(0, 4).map((column) => column.getAttribute('data-timeline-column-start'))).toEqual([
+      '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14',
+    ])
+    const content = container.querySelector('[data-timeline-content-width]') as HTMLElement
+    expect(content.className).toContain('w-full')
+    expect(content.style.minWidth).toBe('530px')
   })
 })
