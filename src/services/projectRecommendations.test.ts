@@ -69,8 +69,29 @@ describe('project recommendations', () => {
       { id: 'idle', projectId: 'project', name: 'Петров' },
     ]
     const recommendations = buildProjectRecommendations(value)
-    expect(recommendations).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'team-workload', action: { type: 'view-workload', label: 'Посмотреть загрузку' } })]))
+    expect(recommendations).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'team-workload', title: 'Неравномерная загрузка команды', action: { type: 'view-workload', label: 'Посмотреть загрузку' } })]))
     expect(recommendations).toHaveLength(1)
+  })
+
+  it('recommends reviewing high parallel workload when the colleague has one active task', () => {
+    const value = workspace([
+      task('A', '2026-09-01', '2026-09-10'),
+      task('B', '2026-09-02', '2026-09-10'),
+      task('C', '2026-09-03', '2026-09-10'),
+      { ...task('D', '2026-09-03', '2026-09-05'), assigneeId: 'second' },
+    ])
+    value.assignees = [
+      { id: 'employee', projectId: 'project', name: 'Сергей' },
+      { id: 'second', projectId: 'project', name: 'Антон' },
+    ]
+
+    const recommendations = buildProjectRecommendations(value)
+
+    expect(recommendations).toEqual([expect.objectContaining({
+      id: 'team-high-workload',
+      title: 'Высокая параллельная загрузка',
+      description: expect.stringContaining('Сергей ведёт 3 задачи одновременно'),
+    })])
   })
 
   it('returns no more than three attention cards', () => {

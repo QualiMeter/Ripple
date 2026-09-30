@@ -63,6 +63,28 @@ describe('ImpactPanel current issues', () => {
     expect(markup).toContain('Вмешательство не требуется')
   })
 
+  it('shows a compact workload summary for every project employee', () => {
+    const tasks = [
+      { ...workspace.tasks[0], id: 'a-1', assigneeId: 'sergey' },
+      { ...workspace.tasks[0], id: 'a-2', assigneeId: 'sergey' },
+      { ...workspace.tasks[0], id: 'a-3', assigneeId: 'sergey' },
+      { ...workspace.tasks[1], id: 'b-1', assigneeId: 'anton' },
+    ]
+    const assignees = [
+      { id: 'sergey', projectId: 'project', name: 'Сергей' },
+      { id: 'anton', projectId: 'project', name: 'Антон' },
+    ]
+    const onViewWorkload = vi.fn()
+    const { container } = render(<ImpactPanel workspace={{ ...workspace, tasks, assignees }} onViewWorkload={onViewWorkload} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+
+    const summary = container.querySelector('[data-team-workload-summary="true"]')!
+    expect(summary.textContent).toContain('Сергей3 одновременно')
+    expect(summary.textContent).toContain('Антон1 одновременно')
+    expect(summary.querySelector('[aria-label="Высокая параллельная загрузка"]')).not.toBeNull()
+    fireEvent.click(summary.querySelector('button')!)
+    expect(onViewWorkload).toHaveBeenCalledTimes(1)
+  })
+
   it('shows the successor and human-readable dates for a dependency conflict', () => {
     const tasks = [
       { ...workspace.tasks[0], title: 'A', endDate: '2026-10-23' },

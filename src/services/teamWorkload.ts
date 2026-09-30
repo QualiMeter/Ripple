@@ -12,6 +12,17 @@ export interface EmployeeWorkload {
   peakTaskIds: string[]
 }
 
+export interface WorkloadImbalance {
+  overloaded: EmployeeWorkload
+  idleEmployeeNames: string[]
+}
+
+export interface TeamWorkloadAttention {
+  workload: EmployeeWorkload[]
+  highWorkloads: EmployeeWorkload[]
+  imbalance: WorkloadImbalance | null
+}
+
 function addDays(value: string, days: number): string {
   return new Date(Date.parse(`${value}T00:00:00Z`) + days * dayMs).toISOString().slice(0, 10)
 }
@@ -49,16 +60,22 @@ export function analyzeTeamWorkload(employees: Employee[], tasks: ProjectTask[])
   })
 }
 
-export function findWorkloadImbalance(employees: Employee[], tasks: ProjectTask[]): {
-  overloaded: EmployeeWorkload
-  idleEmployeeNames: string[]
-} | null {
+export function analyzeTeamWorkloadAttention(employees: Employee[], tasks: ProjectTask[]): TeamWorkloadAttention {
   const workload = analyzeTeamWorkload(employees, tasks)
-  const overloaded = workload.reduce<EmployeeWorkload | null>((best, item) => !best || item.maxConcurrentTasks > best.maxConcurrentTasks ? item : best, null)
-  if (!overloaded || overloaded.maxConcurrentTasks < 3 || !overloaded.peakStartDate || !overloaded.peakEndDate) return null
-  const idleEmployeeNames = employees
-    .filter((employee) => employee.id !== overloaded.employeeId)
-    .filter((employee) => !tasks.some((task) => task.status !== 'completed' && task.assigneeId === employee.id && task.startDate <= overloaded.peakEndDate! && task.endDate >= overloaded.peakStartDate!))
-    .map((employee) => employee.name)
-  return idleEmployeeNames.length > 0 ? { overloaded, idleEmployeeNames } : null
+  const highWorkloads = workload
+    .filter((item) => item.maxConcurrentTasks >= 3 && item.peakStartDate && item.peakEndDate)
+    .sort((left, right) => right.maxConcurrentTasks - left.maxConcurrentTasks || left.employeeName.localeCompare(right.employeeName, 'ru'))
+  const imbalance = highWorkloads.reduce<WorkloadImbalance | null>((result, overloaded) => {
+    if (result) return result
+    const idleEmployeeNames = employees
+      .filter((employee) => employee.id !== overloaded.employeeId)
+      .filter((employee) => !tasks.some((task) => task.status !== 'completed' && task.assigneeId === employee.id && task.startDate <= overloaded.peakEndDate! && task.endDate >= overloaded.peakStartDate!))
+      .map((employee) => employee.name)
+    return idleEmployeeNames.length > 0 ? { overloaded, idleEmployeeNames } : null
+  }, null)
+  return { workload, highWorkloads, imbalance }
+}
+
+export function findWorkloadImbalance(employees: Employee[], tasks: ProjectTask[]): WorkloadImbalance | null {
+  return analyzeTeamWorkloadAttention(employees, tasks).imbalance
 }

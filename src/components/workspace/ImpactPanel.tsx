@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, TriangleAlert, Users } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
 import type { ProjectTask } from '../../types/task'
@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../utils/error'
 import { describeScheduleConflict } from '../../services/scheduleConflictPresentation'
 import { buildProjectRecommendations } from '../../services/projectRecommendations'
 import type { TimelineDraftPreview } from '../../services/timelineDraft'
+import { analyzeTeamWorkload } from '../../services/teamWorkload'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
@@ -34,6 +35,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   const [showAllIssues, setShowAllIssues] = useState(false)
   const [isApplyingDraft, setIsApplyingDraft] = useState(false)
   const [draftMessage, setDraftMessage] = useState<string | null>(null)
+  const [showAllWorkload, setShowAllWorkload] = useState(false)
   const { impact, currentIssues, tasks } = workspace
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
@@ -53,6 +55,8 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   ]
   const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
   const recommendations = buildProjectRecommendations(workspace)
+  const teamWorkload = analyzeTeamWorkload(workspace.assignees, tasks)
+  const visibleTeamWorkload = showAllWorkload ? teamWorkload : teamWorkload.slice(0, 4)
   const attentionCount = recommendations[0]?.tone === 'success' ? 0 : recommendations.length
   const hasApplicablePreviewShifts = preview?.taskShifts.some((shift) => (
     !shift.completedRequiresManualResolution
@@ -156,6 +160,12 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
             <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.projectEndChangeDays > 0 ? `+${impact.projectEndChangeDays} дн.` : impact.projectEndChangeDays < 0 ? `${impact.projectEndChangeDays} дн.` : 'Без изменений'}</div>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#e1ddec] bg-white p-4 shadow-panel" data-team-workload-summary="true">
+        <div className="flex items-start justify-between gap-3"><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Users size={18} /></span><div><h2 className="text-sm font-bold text-[#363247]">Загрузка команды</h2><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">Максимум незавершённых задач, идущих одновременно.</p></div></div>{onViewWorkload && <button type="button" onClick={onViewWorkload} className="shrink-0 rounded-lg border border-[#e2deeb] px-2.5 py-1.5 text-[9px] font-bold text-[#6556d9]">Посмотреть загрузку</button>}</div>
+        {visibleTeamWorkload.length > 0 ? <div className="mt-3 divide-y divide-[#efedf2]">{visibleTeamWorkload.map((workload) => <div key={workload.employeeId} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0" data-team-workload-employee={workload.employeeId}><span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#514c5e]">{workload.employeeName}</span><span className={`shrink-0 text-[10px] ${workload.maxConcurrentTasks >= 3 ? 'font-bold text-amber-700' : 'text-[#8c8798]'}`}>{workload.maxConcurrentTasks > 0 ? `${workload.maxConcurrentTasks} одновременно` : 'Нет активных задач'}</span>{workload.maxConcurrentTasks >= 3 && <TriangleAlert size={13} className="shrink-0 text-amber-600" aria-label="Высокая параллельная загрузка" />}</div>)}</div> : <p className="mt-3 rounded-xl bg-[#f7f6f9] px-3 py-2.5 text-[10px] text-[#8c8798]">В проекте пока нет сотрудников.</p>}
+        {teamWorkload.length > 4 && <button type="button" onClick={() => setShowAllWorkload((current) => !current)} className="mt-3 w-full rounded-lg bg-[#f7f6fb] px-3 py-2 text-[10px] font-bold text-[#655f70]">{showAllWorkload ? 'Скрыть' : `Показать всех (${teamWorkload.length})`}</button>}
       </section>
 
       <section className="rounded-2xl border border-[#e1ddec] bg-white p-4 shadow-panel">
