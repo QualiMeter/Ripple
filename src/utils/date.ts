@@ -24,6 +24,14 @@ export function formatFullDate(value: string): string {
   }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`))
 }
 
+export function formatMonthDay(value: string): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`))
+}
+
 export function addCalendarDays(value: string, days: number): string {
   const date = new Date(`${value.slice(0, 10)}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() + days)

@@ -56,7 +56,9 @@ describe('Timeline schedule visual states', () => {
     const markup = renderTimeline(tasks, dependencies)
     expect(markup).toContain('data-task-schedule-conflict="true"')
     expect(markup).toContain('Конфликт зависимости')
-    expect(markup).toContain('Задача начинается 14.09.2026. После «A» она может начаться не раньше 15.09.2026.')
+    expect(markup).toContain('Зависимая задача: B')
+    expect(markup).toContain('Предшественник: A')
+    expect(markup).toContain('Можно начать не раньше: 15.09.2026')
   })
 
   it('does not mark a successor that starts on the next calendar day', () => {
@@ -92,6 +94,14 @@ describe('Timeline schedule visual states', () => {
     expect(markup).toContain('data-task-critical="true"')
     expect(markup).toContain('data-task-schedule-conflict="true"')
     expect(markup).toContain('border-[3px] border-[#5548ba]')
-    expect(markup).toContain('outline-amber-500')
+    expect(markup).not.toContain('outline-amber-500')
+    expect(markup).toContain('Конфликт зависимости')
+  })
+
+  it('does not render a permanent black outline around the plotting area', () => {
+    const markup = renderTimeline([task('A', '2026-09-11', '2026-09-14')])
+    expect(markup).toContain('outline-none')
+    expect(markup).not.toContain('outline-black')
+    expect(markup).not.toContain('<rect')
   })
 })

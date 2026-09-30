@@ -54,7 +54,7 @@ describe('project recommendations', () => {
 
   it('states that intervention is not required when the plan has no issues', () => {
     expect(buildProjectRecommendations(workspace())).toEqual([
-      expect.objectContaining({ id: 'no-action-required', title: 'Вмешательство не требуется', tone: 'info' }),
+      expect.objectContaining({ id: 'no-action-required', title: 'Вмешательство не требуется', tone: 'success' }),
     ])
   })
 })

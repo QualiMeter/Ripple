@@ -146,7 +146,25 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
         <div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Lightbulb size={18} /></span><div><h2 className="text-sm font-bold text-[#363247]">Рекомендации</h2><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">Следующие шаги на основе текущего плана.</p></div></div>
         <div className="mt-3 space-y-2">{recommendations.map((recommendation) => {
           const action = recommendation.action
-          return <div key={recommendation.id} className={`rounded-xl border p-3 ${recommendation.tone === 'warning' ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}><p className={`text-[11px] font-bold ${recommendation.tone === 'warning' ? 'text-amber-900' : 'text-emerald-800'}`}>{recommendation.title}</p><p className={`mt-1 text-[10px] leading-4 ${recommendation.tone === 'warning' ? 'text-amber-800' : 'text-emerald-700'}`}>{recommendation.description}</p>{action && <button type="button" onClick={() => action.type === 'preview-shift' ? calculatePreview(action.sourceTaskId) : onTaskSelect(action.taskId)} className="mt-2 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#5f51c8] shadow-sm">{action.label}</button>}</div>
+          const affectedTitles = recommendation.affectedTaskIds
+            .map((taskId) => tasks.find((task) => task.id === taskId)?.title)
+            .filter((title): title is string => Boolean(title))
+          const toneClasses = recommendation.tone === 'danger'
+            ? 'border-rose-200 bg-rose-50 text-rose-900'
+            : recommendation.tone === 'warning'
+              ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+          const markerClasses = recommendation.tone === 'danger'
+            ? 'bg-rose-500'
+            : recommendation.tone === 'warning'
+              ? 'bg-amber-400'
+              : 'bg-emerald-500'
+          return <div key={recommendation.id} data-recommendation-tone={recommendation.tone} className={`rounded-xl border p-3 ${toneClasses}`}>
+            <div className="flex items-start gap-2"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${markerClasses}`} /><div className="min-w-0"><p className="text-[11px] font-bold">{recommendation.title}</p><p className="mt-1 text-[10px] leading-4 opacity-85">{recommendation.description}</p></div></div>
+            {affectedTitles.length > 0 && <p className="mt-2 text-[9px] leading-4 opacity-75">Затронутые задачи: {affectedTitles.join(', ')}</p>}
+            <p className="mt-2 text-[10px] font-semibold">Рекомендация: {recommendation.recommendation}</p>
+            {action && <button type="button" onClick={() => action.type === 'preview-shift' ? calculatePreview(action.sourceTaskId) : onTaskSelect(action.taskId)} className="mt-2 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#5f51c8] shadow-sm">{action.label}</button>}
+          </div>
         })}</div>
       </section>
 

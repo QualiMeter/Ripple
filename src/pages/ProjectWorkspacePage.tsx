@@ -154,13 +154,17 @@ export function ProjectWorkspacePage() {
     setHistoryEntries(projectHistory.list(projectId))
   }
   const taskTitle = (taskId: string) => workspace.tasks.find((task) => task.id === taskId)?.title ?? taskId
-  const handleTaskSave = async (update: TaskUpdateRequest) => {
-    const beforeTask = selectedTask!
-    const updatedWorkspace = await projectService.updateTask(workspace, selectedTaskId!, update)
-    const afterTask = updatedWorkspace.tasks.find((task) => task.id === selectedTaskId!)!
+  const updateTask = async (taskId: string, update: TaskUpdateRequest) => {
+    const beforeTask = workspace.tasks.find((task) => task.id === taskId)
+    if (!beforeTask) throw new Error('Задача не найдена.')
+    const updatedWorkspace = await projectService.updateTask(workspace, taskId, update)
+    const afterTask = updatedWorkspace.tasks.find((task) => task.id === taskId)!
     const event = taskUpdatedEvent(projectId, beforeTask, afterTask)
     if (Object.keys(event.after ?? {}).length > 0) recordHistory(event)
     setWorkspace(updatedWorkspace)
+  }
+  const handleTaskSave = async (update: TaskUpdateRequest) => {
+    await updateTask(selectedTaskId!, update)
     setSelectedTaskId(null)
   }
   const handleDependencyCreate = async (request: CreateDependencyRequest) => {
@@ -267,7 +271,7 @@ export function ProjectWorkspacePage() {
       <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
-        {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}
+        {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onTaskUpdate={updateTask} onCreateDependency={handleDependencyCreate} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}
         {activeView === 'dependencies' && <DependenciesView tasks={workspace.tasks} dependencies={workspace.dependencies} assignees={workspace.assignees} impact={workspace.impact} currentIssues={workspace.currentIssues} onTaskSelect={(task) => setSelectedTaskId(task.id)} onCreateDependency={handleDependencyCreate} onDeleteDependency={handleDependencyDelete} onTaskCreate={() => setIsCreatingTask(true)} />}
         {activeView === 'employees' && <EmployeesView employees={workspace.assignees} tasks={workspace.tasks} historyMode={isHttpApiMode ? 'server' : 'local'} onCreateEmployee={handleEmployeeCreate} onUpdateEmployee={handleEmployeeUpdate} onDeleteEmployee={handleEmployeeDelete} onTaskSelect={(task) => setSelectedTaskId(task.id)} />}
         {activeView === 'history' && <HistoryView entries={historyEntries} workspace={workspace} onRevert={handleHistoryRevert} source={isHttpApiMode ? 'server' : 'local'} loading={historyLoading} loadError={historyError} />}

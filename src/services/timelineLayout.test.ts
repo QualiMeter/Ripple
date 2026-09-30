@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProjectSummary } from '../types/project'
 import type { ProjectTask } from '../types/task'
-import { buildTimelineScale, getTimelineBarGeometry, getTimelineViewportMetrics } from './timelineLayout'
+import { buildTimelineScale, formatTimelineTick, getTimelineBarGeometry, getTimelineViewportMetrics } from './timelineLayout'
 
 const project: ProjectSummary = {
   id: 'project', creatorId: 'manager', name: 'Проект', description: '', startDate: '2026-09-11', targetEndDate: '2026-09-20',
@@ -23,11 +23,24 @@ describe('timeline calendar geometry', () => {
 
   it('expands long projects into a horizontally scrollable calendar canvas', () => {
     const scale = buildTimelineScale({ ...project, targetEndDate: '2027-09-10', projectedEndDate: '2027-09-10' }, [])
-    const viewport = getTimelineViewportMetrics(scale)
+    const viewport = getTimelineViewportMetrics(scale, 'week')
 
     expect(scale.totalDays).toBe(365)
-    expect(viewport.canvasWidthPx).toBe(4380)
-    expect(viewport.totalWidthPx).toBe(4590)
+    expect(viewport.canvasWidthPx).toBe(3650)
+    expect(viewport.totalWidthPx).toBe(3860)
     expect(viewport.columnCount).toBeGreaterThan(7)
+  })
+
+  it('uses distinct day, week and month display scales without changing dates', () => {
+    const scale = buildTimelineScale({ ...project, targetEndDate: '2027-09-10', projectedEndDate: '2027-09-10' }, [task])
+    const day = getTimelineViewportMetrics(scale, 'day')
+    const week = getTimelineViewportMetrics(scale, 'week')
+    const month = getTimelineViewportMetrics(scale, 'month')
+
+    expect(day.canvasWidthPx).toBeGreaterThan(week.canvasWidthPx)
+    expect(week.canvasWidthPx).toBeGreaterThan(month.canvasWidthPx)
+    expect(formatTimelineTick('2026-09-11', 'day')).toContain('11')
+    expect(formatTimelineTick('2026-09-11', 'week')).toContain('Нед.')
+    expect(formatTimelineTick('2026-09-11', 'month')).toContain('2026')
   })
 })

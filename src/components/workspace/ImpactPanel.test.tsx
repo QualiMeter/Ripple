@@ -45,6 +45,16 @@ describe('ImpactPanel current issues', () => {
     expect(markup).toContain('Просроченные сроки')
     expect(markup).toContain('Рассчитать сдвиг')
     expect(markup).toContain('Открыть задачу')
+    expect(markup).toContain('data-recommendation-tone="danger"')
+    expect(markup).toContain('data-recommendation-tone="warning"')
+    expect(markup).toContain('Рекомендация:')
+  })
+
+  it('shows a green recommendation state when intervention is not required', () => {
+    const currentIssues = { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] }
+    const markup = renderToStaticMarkup(<ImpactPanel workspace={{ ...workspace, currentIssues }} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    expect(markup).toContain('data-recommendation-tone="success"')
+    expect(markup).toContain('Вмешательство не требуется')
   })
 
   it('shows the successor and human-readable dates for a dependency conflict', () => {

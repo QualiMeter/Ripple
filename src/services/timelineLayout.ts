@@ -22,18 +22,38 @@ export interface TimelineViewportMetrics {
   columnCount: number
 }
 
+export type TimelineScaleMode = 'day' | 'week' | 'month'
+
 const taskColumnWidthPx = 210
 const minimumCanvasWidthPx = 700
-const minimumDayWidthPx = 12
-const targetTickWidthPx = 130
+const pixelsPerDay: Record<TimelineScaleMode, number> = {
+  day: 24,
+  week: 10,
+  month: 4,
+}
 
-export function getTimelineViewportMetrics(scale: TimelineScale): TimelineViewportMetrics {
-  const canvasWidthPx = Math.max(minimumCanvasWidthPx, scale.totalDays * minimumDayWidthPx)
+const targetTickWidth: Record<TimelineScaleMode, number> = {
+  day: 96,
+  week: 140,
+  month: 180,
+}
+
+export function getTimelineViewportMetrics(scale: TimelineScale, mode: TimelineScaleMode = 'day'): TimelineViewportMetrics {
+  const canvasWidthPx = Math.max(minimumCanvasWidthPx, scale.totalDays * pixelsPerDay[mode])
   return {
     canvasWidthPx,
     totalWidthPx: taskColumnWidthPx + canvasWidthPx,
-    columnCount: Math.max(7, Math.ceil(canvasWidthPx / targetTickWidthPx)),
+    columnCount: Math.max(4, Math.ceil(canvasWidthPx / targetTickWidth[mode])),
   }
+}
+
+export function formatTimelineTick(value: string, mode: TimelineScaleMode): string {
+  const date = new Date(`${value}T00:00:00Z`)
+  if (mode === 'month') {
+    return new Intl.DateTimeFormat('ru-RU', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date)
+  }
+  if (mode === 'week') return `Нед. ${new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date)}`
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date)
 }
 
 export function buildTimelineScale(project: ProjectSummary, tasks: ProjectTask[]): TimelineScale {

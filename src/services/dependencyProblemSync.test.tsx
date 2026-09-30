@@ -56,7 +56,7 @@ describe('dependency problem synchronization', () => {
     expect(surfaces.impact).toContain('Можно начать не раньше: 09.10.2026')
     expect(surfaces.rows.find((row) => row.task.id === 'B')?.hasScheduleConflict).toBe(true)
     expect(surfaces.timeline).toContain('data-task-schedule-conflict="true"')
-    expect(surfaces.timeline).toContain('не раньше 09.10.2026')
+    expect(surfaces.timeline).toContain('Можно начать не раньше: 09.10.2026')
   })
 
   it('removes every conflict presentation after shift reload and restores it after Undo reload', () => {
