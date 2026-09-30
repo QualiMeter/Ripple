@@ -32,4 +32,26 @@ describe('HistoryView', () => {
     expect(markup).toContain('disabled=""')
     expect(markup).not.toContain('Для точного восстановления этого изменения потребуется серверная история')
   })
+
+  it('allows sequential undo only for the latest available entry', () => {
+    const entries = [
+      { source: 'server' as const, id: 'A', projectId: 'project', operationType: 'task.update', description: 'A', createdAt: '2026-10-01T10:00:00Z', canUndo: true },
+      { source: 'server' as const, id: 'B', projectId: 'project', operationType: 'task.update', description: 'B', createdAt: '2026-10-01T11:00:00Z', canUndo: true },
+      { source: 'server' as const, id: 'C', projectId: 'project', operationType: 'task.update', description: 'C', createdAt: '2026-10-01T12:00:00Z', canUndo: true },
+    ]
+    const markup = renderToStaticMarkup(<HistoryView entries={entries} workspace={workspace} source="server" onRevert={async () => undefined} />)
+    expect(markup.match(/Отменить последнее изменение/g)).toHaveLength(1)
+    expect(markup.match(/Сначала отмените более позднее изменение/g)).toHaveLength(2)
+  })
+
+  it('makes the previous entry available after the latest one is undone', () => {
+    const entries = [
+      { source: 'server' as const, id: 'A', projectId: 'project', operationType: 'task.update', description: 'A', createdAt: '2026-10-01T10:00:00Z', canUndo: true },
+      { source: 'server' as const, id: 'B', projectId: 'project', operationType: 'task.update', description: 'B', createdAt: '2026-10-01T11:00:00Z', canUndo: true },
+      { source: 'server' as const, id: 'C', projectId: 'project', operationType: 'task.update', description: 'C', createdAt: '2026-10-01T12:00:00Z', canUndo: false, undone: true },
+    ]
+    const markup = renderToStaticMarkup(<HistoryView entries={entries} workspace={workspace} source="server" onRevert={async () => undefined} />)
+    expect(markup.match(/Отменить последнее изменение/g)).toHaveLength(1)
+    expect(markup).toContain('Отменено')
+  })
 })

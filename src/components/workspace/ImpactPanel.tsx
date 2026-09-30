@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Calculator, GitBranch, MoveRight, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, TriangleAlert } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
 import type { ProjectTask } from '../../types/task'
@@ -8,6 +8,7 @@ import type { ScheduleShiftPreview } from '../../types/schedule'
 import { formatAnalysisTime, formatFullDate, formatShortDate } from '../../utils/date'
 import { getErrorMessage } from '../../utils/error'
 import { describeScheduleConflict } from '../../services/scheduleConflictPresentation'
+import { buildProjectRecommendations } from '../../services/projectRecommendations'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
@@ -43,6 +44,7 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
     { id: 'deadline', title: 'Просроченные сроки', items: currentIssues.deadlineIssues },
   ]
   const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
+  const recommendations = buildProjectRecommendations(workspace)
   const hasApplicablePreviewShifts = preview?.taskShifts.some((shift) => (
     !shift.completedRequiresManualResolution
     && (shift.currentStartDate !== shift.proposedStartDate || shift.currentEndDate !== shift.proposedEndDate)
@@ -138,6 +140,14 @@ export function ImpactPanel({ workspace, onPreviewScheduleShift, onApplySchedule
             <div className="rounded-lg bg-[#e36f49] px-2 py-1.5 text-xs font-bold">{impact.projectEndChangeDays > 0 ? `+${impact.projectEndChangeDays} дн.` : impact.projectEndChangeDays < 0 ? `${impact.projectEndChangeDays} дн.` : 'Без изменений'}</div>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#e1ddec] bg-white p-4 shadow-panel">
+        <div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Lightbulb size={18} /></span><div><h2 className="text-sm font-bold text-[#363247]">Рекомендации</h2><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">Следующие шаги на основе текущего плана.</p></div></div>
+        <div className="mt-3 space-y-2">{recommendations.map((recommendation) => {
+          const action = recommendation.action
+          return <div key={recommendation.id} className={`rounded-xl border p-3 ${recommendation.tone === 'warning' ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}><p className={`text-[11px] font-bold ${recommendation.tone === 'warning' ? 'text-amber-900' : 'text-emerald-800'}`}>{recommendation.title}</p><p className={`mt-1 text-[10px] leading-4 ${recommendation.tone === 'warning' ? 'text-amber-800' : 'text-emerald-700'}`}>{recommendation.description}</p>{action && <button type="button" onClick={() => action.type === 'preview-shift' ? calculatePreview(action.sourceTaskId) : onTaskSelect(action.taskId)} className="mt-2 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#5f51c8] shadow-sm">{action.label}</button>}</div>
+        })}</div>
       </section>
 
       <section className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">

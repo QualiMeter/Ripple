@@ -23,8 +23,8 @@ function deferred<T>() {
 }
 
 function openConfirmation() {
-  fireEvent.click(screen.getByRole('button', { name: 'Откатить' }))
-  return screen.getAllByRole('button', { name: 'Откатить' }).at(-1)!
+  fireEvent.click(screen.getByRole('button', { name: 'Отменить последнее изменение' }))
+  return screen.getByRole('button', { name: 'Отменить изменение' })
 }
 
 afterEach(cleanup)
@@ -60,9 +60,9 @@ describe('HistoryView undo flow', () => {
     const view = render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={onRevert} />)
     openConfirmation()
     view.rerender(<HistoryView entries={[{ ...entry, canUndo: false, undone: true }]} workspace={workspace} source="server" onRevert={onRevert} />)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Откатить' }).at(-1)!)
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменение' }))
     expect(onRevert).not.toHaveBeenCalled()
-    expect(screen.queryByText('Backend транзакционно отменит именно выбранное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
+    expect(screen.queryByText('Backend транзакционно отменит последнее доступное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
     expect(screen.getByText('Изменение уже отменено.')).toBeTruthy()
   })
 
@@ -70,14 +70,14 @@ describe('HistoryView undo flow', () => {
     render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={vi.fn().mockResolvedValue(undefined)} />)
     fireEvent.click(openConfirmation())
     await waitFor(() => expect(screen.getByText('Изменение успешно отменено.')).toBeTruthy())
-    expect(screen.queryByText('Backend транзакционно отменит именно выбранное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
+    expect(screen.queryByText('Backend транзакционно отменит последнее доступное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
   })
 
   it('closes the modal and shows neutral information after synchronized 409', async () => {
     render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={vi.fn().mockRejectedValue(new HistoryUndoAlreadyAppliedError())} />)
     fireEvent.click(openConfirmation())
     await waitFor(() => expect(screen.getByText('Изменение уже отменено.')).toBeTruthy())
-    expect(screen.queryByText('Backend транзакционно отменит именно выбранное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
+    expect(screen.queryByText('Backend транзакционно отменит последнее доступное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
     expect(screen.queryByText('Это изменение уже было отменено.')).toBeNull()
   })
 
@@ -88,7 +88,7 @@ describe('HistoryView undo flow', () => {
     render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={onRevert} />)
     fireEvent.click(openConfirmation())
     await waitFor(() => expect(screen.getByText('Временная ошибка')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Откатить' }).at(-1)!)
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменение' }))
     await waitFor(() => expect(screen.getByText('Изменение успешно отменено.')).toBeTruthy())
     expect(onRevert).toHaveBeenCalledTimes(2)
   })

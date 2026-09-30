@@ -36,6 +36,14 @@ describe('Timeline schedule visual states', () => {
     expect(markup).toContain('border-[3px] border-[#5548ba]')
   })
 
+  it('places a four-day bar on the inclusive project calendar scale', () => {
+    const markup = renderTimeline([task('A', '2026-09-11', '2026-09-14')])
+    expect(markup).toContain('data-task-start-date="2026-09-11"')
+    expect(markup).toContain('data-task-end-date="2026-09-14"')
+    expect(markup).toContain('left:0%;width:20%')
+    expect(markup).toContain('title="11.09.2026 — 14.09.2026"')
+  })
+
   it('does not mark overlapping independent tasks as a dependency conflict', () => {
     const markup = renderTimeline([task('A', '2026-09-11', '2026-09-14'), task('B', '2026-09-14', '2026-09-17')])
     expect(markup).not.toContain('data-task-schedule-conflict="true"')
@@ -54,7 +62,27 @@ describe('Timeline schedule visual states', () => {
   it('does not mark a successor that starts on the next calendar day', () => {
     const tasks = [task('A', '2026-09-11', '2026-09-14'), task('B', '2026-09-15', '2026-09-17')]
     const dependencies = [{ id: 'a-b', projectId: project.id, predecessorTaskId: 'A', successorTaskId: 'B', type: 'finish-to-start' as const }]
-    expect(renderTimeline(tasks, dependencies)).not.toContain('data-task-schedule-conflict="true"')
+    const markup = renderTimeline(tasks, dependencies)
+    expect(markup).not.toContain('data-task-schedule-conflict="true"')
+    expect(markup).toContain('data-dependency-connector="true"')
+    expect(markup).not.toContain('data-dependency-conflict="true"')
+  })
+
+  it('highlights the dependency connector when its dates conflict', () => {
+    const tasks = [task('A', '2026-09-11', '2026-09-14'), task('B', '2026-09-14', '2026-09-17')]
+    const dependencies = [{ id: 'a-b', projectId: project.id, predecessorTaskId: 'A', successorTaskId: 'B', type: 'finish-to-start' as const }]
+    const markup = renderTimeline(tasks, dependencies)
+    expect(markup).toContain('data-dependency-connector="true"')
+    expect(markup).toContain('data-dependency-conflict="true"')
+  })
+
+  it('renders every dependency connector for branched schedules', () => {
+    const tasks = [task('A', '2026-09-11', '2026-09-12'), task('B', '2026-09-13', '2026-09-14'), task('C', '2026-09-13', '2026-09-15')]
+    const dependencies = [
+      { id: 'a-b', projectId: project.id, predecessorTaskId: 'A', successorTaskId: 'B', type: 'finish-to-start' as const },
+      { id: 'a-c', projectId: project.id, predecessorTaskId: 'A', successorTaskId: 'C', type: 'finish-to-start' as const },
+    ]
+    expect(renderTimeline(tasks, dependencies).match(/data-dependency-connector="true"/g)).toHaveLength(2)
   })
 
   it('preserves both critical and conflict visual states on the same task', () => {

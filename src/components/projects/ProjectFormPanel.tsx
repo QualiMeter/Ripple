@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CalendarDays, X } from 'lucide-react'
 import type { CreateProjectRequest } from '../../types/project'
 import { validateProjectInput } from '../../services/projectValidation'
@@ -15,6 +15,7 @@ export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, o
   const [values, setValues] = useState(initialValues)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const submitInFlightRef = useRef(false)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -26,14 +27,17 @@ export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, o
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
+    if (submitInFlightRef.current) return
     setError(null)
     try {
       validateProjectInput(values)
+      submitInFlightRef.current = true
       setIsSaving(true)
       await onSubmit({ ...values, name: values.name.trim() })
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Не удалось сохранить проект.')
     } finally {
+      submitInFlightRef.current = false
       setIsSaving(false)
     }
   }
