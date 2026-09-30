@@ -11,10 +11,10 @@ import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 import { OverdueTaskBadge } from '../common/OverdueTaskBadge'
 import { TooltipTrigger } from '../common/TooltipTrigger'
 import { TruncatedText } from '../common/TruncatedText'
-import { buildTimelineScale, buildTimelineTickDates, getTimelineBarGeometry, getTimelineDatePosition } from '../../services/timelineLayout'
+import { buildTimelineScale, buildTimelineTickDates, getTimelineBarGeometry, getTimelineDatePosition, getTimelineViewportMetrics } from '../../services/timelineLayout'
 
-const columnCount = 7
 const timelineRowHeight = 56
+const taskColumnWidth = 210
 
 export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, today = getTodayIsoDate() }: { project: ProjectSummary; tasks: ProjectTask[]; assignees: Assignee[]; impact: ImpactAnalysis; currentIssues: CurrentProjectIssues; dependencies?: Dependency[]; onTaskSelect: (task: ProjectTask) => void; today?: string }) {
   const visibleTasks = tasks
@@ -26,9 +26,10 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
       .sort((left, right) => right.earliestStartDate.localeCompare(left.earliestStartDate)))
   })
   const scale = buildTimelineScale(project, tasks)
+  const viewport = getTimelineViewportMetrics(scale)
   const geometryByTaskId = new Map(tasks.map((task) => [task.id, getTimelineBarGeometry(task, scale)]))
   const todayPosition = getTimelineDatePosition(today, scale)
-  const columnLabels = buildTimelineTickDates(scale, columnCount).map(formatShortDate)
+  const columnLabels = buildTimelineTickDates(scale, viewport.columnCount).map(formatShortDate)
   const conflictDependencyKeys = new Set(dependencyConflicts.map((conflict) => `${conflict.predecessor.id}->${conflict.successor.id}`))
   const taskIndexById = new Map(visibleTasks.map((task, index) => [task.id, index]))
   const dependencyConnectors = dependencies.flatMap((dependency) => {
@@ -58,17 +59,17 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
         <p className="rounded-lg bg-[#f5f3fa] px-2.5 py-1.5 text-[10px] font-semibold text-[#777181]">Сегодня: {formatFullDate(today)}</p>
       </div>
       {tasks.length === 0 ? <div className="grid min-h-48 place-items-center px-6 py-12 text-center"><div><p className="text-sm font-semibold text-[#4b4658]">В проекте пока нет задач</p><p className="mt-1 text-[11px] text-[#918d9b]">Добавьте задачу, чтобы сформировать план проекта.</p></div></div> : <>
-      <div className="overflow-x-auto">
-        <div className="relative min-w-[760px]">
-          {todayPosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-[210px_1fr]" aria-label={`Сегодня: ${formatFullDate(today)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l border-[#e46f42]" style={{ left: `${todayPosition}%` }}><b className="absolute left-0 top-1 -translate-x-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold not-italic text-[#b9542f]">Сегодня</b></i></span></div>}
-          <div className="grid grid-cols-[210px_1fr] border-b border-[#eeecf1] bg-[#faf9fb]">
-            <div className="border-r border-[#eeecf1] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Задача</div>
-            <div className="grid grid-cols-7">
+      <div data-timeline-scroll-container="true" className="overflow-x-auto overscroll-x-contain" role="region" aria-label="Горизонтальная шкала плана проекта" tabIndex={0}>
+        <div className="relative" data-timeline-canvas-width={viewport.canvasWidthPx} style={{ width: `${viewport.totalWidthPx}px` }}>
+          {todayPosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `${taskColumnWidth}px ${viewport.canvasWidthPx}px` }} aria-label={`Сегодня: ${formatFullDate(today)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l border-[#e46f42]" style={{ left: `${todayPosition}%` }}><b className="absolute left-0 top-1 -translate-x-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold not-italic text-[#b9542f]">Сегодня</b></i></span></div>}
+          <div className="grid border-b border-[#eeecf1] bg-[#faf9fb]" style={{ gridTemplateColumns: `${taskColumnWidth}px ${viewport.canvasWidthPx}px` }}>
+            <div className="sticky left-0 z-30 border-r border-[#eeecf1] bg-[#faf9fb] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Задача</div>
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${viewport.columnCount}, minmax(0, 1fr))` }}>
               {columnLabels.map((label, index) => <div key={`${label}-${index}`} className="border-r border-[#eeecf1] px-2 py-2.5 text-center text-[10px] font-semibold text-[#8f8b99] last:border-r-0">{label}</div>)}
             </div>
           </div>
           <div className="relative">
-            <svg className="pointer-events-none absolute inset-y-0 left-[210px] right-0 z-[1] h-full w-[calc(100%_-_210px)] overflow-visible" viewBox={`0 0 1000 ${visibleTasks.length * timelineRowHeight}`} preserveAspectRatio="none" aria-label="Зависимости задач">
+            <svg className="pointer-events-none absolute inset-y-0 z-[1] h-full overflow-visible" style={{ left: `${taskColumnWidth}px`, width: `${viewport.canvasWidthPx}px` }} viewBox={`0 0 1000 ${visibleTasks.length * timelineRowHeight}`} preserveAspectRatio="none" aria-label="Зависимости задач">
               <defs>
                 <marker id="timeline-dependency-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="#928c9f" /></marker>
                 <marker id="timeline-conflict-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="#d97706" /></marker>
@@ -86,8 +87,8 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
             const geometry = geometryByTaskId.get(task.id)!
             const position = { left: `${geometry.leftPercent}%`, width: `${geometry.widthPercent}%` }
             return (
-              <div key={task.id} className={`grid h-14 grid-cols-[210px_1fr] border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`}>
-                <div role="button" tabIndex={0} onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) onTaskSelect(task) }} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onTaskSelect(task) } }} className="relative z-10 flex min-w-0 cursor-pointer items-center gap-2.5 border-r border-[#eeecf1] bg-white px-5 py-2.5 text-left transition hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
+              <div key={task.id} className={`grid h-14 border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`} style={{ gridTemplateColumns: `${taskColumnWidth}px ${viewport.canvasWidthPx}px` }}>
+                <div role="button" tabIndex={0} onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) onTaskSelect(task) }} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onTaskSelect(task) } }} className="sticky left-0 z-30 flex min-w-0 cursor-pointer items-center gap-2.5 border-r border-[#eeecf1] bg-white px-5 py-2.5 text-left transition hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
                   <span data-task-visual-state={visualState} className={`h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} />
                   <div className="min-w-0 flex-1  ">
                     <div className="flex min-w-0 items-center gap-1.5">
@@ -121,7 +122,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
                     </div>
                   </div>
                 </div>
-                <div className="relative h-14 bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)] bg-[size:14.285%_100%]">
+                <div className="relative h-14 bg-[linear-gradient(to_right,#eeecf1_1px,transparent_1px)]" style={{ backgroundSize: `${100 / viewport.columnCount}% 100%` }}>
                   <button
                     type="button"
                     onClick={() => onTaskSelect(task)}

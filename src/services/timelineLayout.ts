@@ -16,6 +16,26 @@ export interface TimelineBarGeometry {
   durationDays: number
 }
 
+export interface TimelineViewportMetrics {
+  canvasWidthPx: number
+  totalWidthPx: number
+  columnCount: number
+}
+
+const taskColumnWidthPx = 210
+const minimumCanvasWidthPx = 700
+const minimumDayWidthPx = 12
+const targetTickWidthPx = 130
+
+export function getTimelineViewportMetrics(scale: TimelineScale): TimelineViewportMetrics {
+  const canvasWidthPx = Math.max(minimumCanvasWidthPx, scale.totalDays * minimumDayWidthPx)
+  return {
+    canvasWidthPx,
+    totalWidthPx: taskColumnWidthPx + canvasWidthPx,
+    columnCount: Math.max(7, Math.ceil(canvasWidthPx / targetTickWidthPx)),
+  }
+}
+
 export function buildTimelineScale(project: ProjectSummary, tasks: ProjectTask[]): TimelineScale {
   const startDate = [project.startDate, ...tasks.map((task) => task.startDate)].reduce((earliest, date) => date < earliest ? date : earliest)
   const endDate = [project.targetEndDate, project.projectedEndDate, ...tasks.map((task) => task.endDate)].reduce((latest, date) => date > latest ? date : latest)
