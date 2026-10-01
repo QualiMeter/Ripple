@@ -168,32 +168,32 @@ function buildOverdueRecommendation(workspace: ProjectWorkspace): ProjectRecomme
   }
 }
 
-function buildWorkloadRecommendation(workspace: ProjectWorkspace): ProjectRecommendation | null {
+function buildWorkloadRecommendations(workspace: ProjectWorkspace): ProjectRecommendation[] {
   const attention = analyzeTeamWorkloadAttention(workspace.assignees, workspace.tasks)
-  const workload = attention.primary
-  if (!workload) return null
-  const suggestion = attention.reassignment
-  const targetTask = suggestion ? workspace.tasks.find((task) => task.id === suggestion.taskId) : undefined
-  const candidate = suggestion?.candidate
-  const reassignmentPreview = suggestion ? buildTaskReassignmentPreview(workspace, suggestion) : null
-  const proposedAction = targetTask && candidate
-    ? `Передать задачу «${targetTask.title}» сотруднику ${candidate.employeeName}. По текущему расписанию это наиболее подходящий кандидат; компетенции необходимо подтвердить руководителю.`
-    : 'Сравнить расписание команды и выбрать одну из пересекающихся задач для возможного перераспределения. Компетенции должен подтвердить руководитель.'
-  const expectedEffect = suggestion && candidate
-    ? `После моделируемого переноса пик ${workload.employeeName} снизится с ${suggestion.sourceBefore.peakConcurrency} до ${suggestion.sourceAfter.peakConcurrency}, а пик ${candidate.employeeName} изменится с ${candidate.before.peakConcurrency} до ${candidate.after.peakConcurrency}. Параллельная работа кандидата изменится на ${candidate.delta.parallelDays >= 0 ? '+' : ''}${candidate.delta.parallelDays} ${pluralizeRu(Math.abs(candidate.delta.parallelDays), ['день', 'дня', 'дней'])}.`
-    : 'После выбора задачи Ripple сможет сравнить изменение пиков и параллельных дней до фактического переназначения.'
-  return {
-    id: workload.primaryFactor === 'fragmented' ? 'team-fragmented-workload' : 'team-schedule-load',
-    problem: workload.primaryFactor === 'fragmented' ? 'Фрагментированная загрузка' : workload.level === 'high' ? 'Высокая плановая нагрузка' : 'Повышенная плановая нагрузка',
-    evidence: `${workload.employeeName}: ${workload.reasons.join('; ').replace(/^./, (value) => value.toLowerCase())}.`,
-    proposedAction,
-    expectedEffect,
-    affectedTaskIds: workload.peakTaskIds,
-    tone: 'warning',
-    action: reassignmentPreview
-      ? { type: 'preview-reassignment', preview: reassignmentPreview, label: 'Посмотреть перераспределение' }
-      : { type: 'view-workload', label: 'Сравнить нагрузку' },
-  }
+  return attention.highWorkloads.map((workload) => {
+    const suggestion = attention.reassignments.find((item) => item.sourceEmployeeId === workload.employeeId)
+    const targetTask = suggestion ? workspace.tasks.find((task) => task.id === suggestion.taskId) : undefined
+    const candidate = suggestion?.candidate
+    const reassignmentPreview = suggestion ? buildTaskReassignmentPreview(workspace, suggestion) : null
+    const proposedAction = targetTask && candidate
+      ? `Передать задачу «${targetTask.title}» сотруднику ${candidate.employeeName}. По текущему расписанию это наиболее подходящий кандидат; компетенции необходимо подтвердить руководителю.`
+      : 'Для этого сотрудника не найдено безопасного автоматического перераспределения. Сравните пересекающиеся задачи вручную.'
+    const expectedEffect = suggestion && candidate
+      ? `После моделируемого переноса пик ${workload.employeeName} снизится с ${suggestion.sourceBefore.peakConcurrency} до ${suggestion.sourceAfter.peakConcurrency}, а пик ${candidate.employeeName} изменится с ${candidate.before.peakConcurrency} до ${candidate.after.peakConcurrency}. Параллельная работа кандидата изменится на ${candidate.delta.parallelDays >= 0 ? '+' : ''}${candidate.delta.parallelDays} ${pluralizeRu(Math.abs(candidate.delta.parallelDays), ['день', 'дня', 'дней'])}.`
+      : 'Ripple продолжит показывать нагрузку этого сотрудника отдельно; решение не будет подменено рекомендацией для другого сотрудника.'
+    return {
+      id: `${workload.primaryFactor === 'fragmented' ? 'team-fragmented-workload' : 'team-schedule-load'}-${workload.employeeId}`,
+      problem: workload.primaryFactor === 'fragmented' ? 'Фрагментированная загрузка' : workload.level === 'high' ? 'Высокая плановая нагрузка' : 'Повышенная плановая нагрузка',
+      evidence: `${workload.employeeName}: ${workload.reasons.join('; ').replace(/^./, (value) => value.toLowerCase())}.`,
+      proposedAction,
+      expectedEffect,
+      affectedTaskIds: workload.peakTaskIds,
+      tone: 'warning' as const,
+      action: reassignmentPreview
+        ? { type: 'preview-reassignment' as const, preview: reassignmentPreview, label: 'Посмотреть перераспределение' }
+        : { type: 'view-workload' as const, label: 'Сравнить нагрузку' },
+    }
+  })
 }
 
 export function buildProjectRecommendations(workspace: ProjectWorkspace, backendPreview?: ScheduleShiftPreview | null): ProjectRecommendation[] {
@@ -201,13 +201,14 @@ export function buildProjectRecommendations(workspace: ProjectWorkspace, backend
   const effectivePreview = schedule
     ? previewForSource(workspace, schedule.action?.type === 'preview-shift' ? schedule.action.sourceTaskId : '', backendPreview)
     : backendPreview
+  const workloadRecommendations = buildWorkloadRecommendations(workspace)
   const recommendations = [
     schedule,
     buildDeadlineRecommendation(workspace, effectivePreview),
     buildCompletedConflictRecommendation(workspace),
     buildStatusRecommendation(workspace),
     buildOverdueRecommendation(workspace),
-    buildWorkloadRecommendation(workspace),
+    ...workloadRecommendations,
   ].filter((item): item is ProjectRecommendation => Boolean(item))
 
   if (recommendations.length === 0) {

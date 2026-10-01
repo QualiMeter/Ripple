@@ -126,7 +126,7 @@ function buildCause(workspace: ProjectWorkspace, workloadTaskIds: string[]): Rec
   if (workloadTaskIds.length > 0) {
     return {
       title: 'Расписание команды создаёт высокую параллельную нагрузку.',
-      detail: 'Ripple нашёл вариант перераспределения, рассчитанный только по датам задач.',
+      detail: 'Ripple нашёл варианты перераспределения, рассчитанные только по датам задач.',
       affectedTaskIds: workloadTaskIds,
     }
   }
@@ -203,16 +203,19 @@ export function buildRecoveryPlan(workspace: ProjectWorkspace, backendPreview?: 
     }
   }
   const workloadAttention = analyzeTeamWorkloadAttention(workspace.assignees, workspace.tasks)
-  const reassignmentPreview = workloadAttention.primary?.level === 'high' && workloadAttention.reassignment
-    ? buildTaskReassignmentPreview(workspace, workloadAttention.reassignment)
-    : null
-  if (reassignmentPreview) {
+  const reassignmentPreviews = workloadAttention.reassignments
+    .filter((suggestion) => {
+      const source = workloadAttention.highWorkloads.find((item) => item.employeeId === suggestion.sourceEmployeeId)
+      return source?.level === 'high' || source?.level === 'elevated'
+    })
+    .map((suggestion) => buildTaskReassignmentPreview(workspace, suggestion))
+  reassignmentPreviews.forEach((reassignmentPreview) => {
     options.push({
       type: 'workload-reassignment',
       preview: reassignmentPreview,
       remainingProblem: 'Кандидат выбран только по расписанию; компетенции и фактическую трудоёмкость должен подтвердить руководитель.',
     })
-  }
+  })
   if (workspace.currentIssues.scheduleConflicts.length > 0 && !options.some((option) => option.type === 'schedule-shift')) {
     const completedConflict = workspace.currentIssues.scheduleConflicts
       .map((reason) => describeScheduleConflict(reason, workspace.tasks, workspace.dependencies))
@@ -225,7 +228,7 @@ export function buildRecoveryPlan(workspace: ProjectWorkspace, backendPreview?: 
       remainingProblem: 'До ручного уточнения дат конфликт зависимости останется в плане.',
     })
   }
-  const workloadTaskIds = reassignmentPreview ? [reassignmentPreview.taskId] : []
+  const workloadTaskIds = reassignmentPreviews.map((preview) => preview.taskId)
   const cause = buildCause(workspace, workloadTaskIds)
   const affectedTaskIds = [...new Set([
     ...workspace.impact.affectedTaskIds,

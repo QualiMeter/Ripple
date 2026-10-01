@@ -99,7 +99,10 @@ export interface TeamWorkloadAttention {
   highWorkloads: EmployeeWorkload[]
   imbalance: WorkloadImbalance | null
   primary: EmployeeWorkload | null
+  /** Compatibility: первое решение для самого проблемного сотрудника. */
   reassignment: ReassignmentSuggestion | null
+  /** Отдельное решение для каждого сотрудника с high/elevated нагрузкой. */
+  reassignments: ReassignmentSuggestion[]
 }
 
 function inclusiveDuration(task: Pick<ProjectTask, 'startDate' | 'endDate'>): number {
@@ -350,12 +353,16 @@ export function analyzeTeamWorkloadAttention(employees: Employee[], tasks: Proje
         && task.startDate <= primary.peakEndDate! && task.endDate >= primary.peakStartDate!))
       .map((employee) => employee.name)
     : []
+  const reassignments = highWorkloads
+    .map((item) => findBestReassignment(employees, tasks, item))
+    .filter((item): item is ReassignmentSuggestion => item !== null)
   return {
     workload,
     highWorkloads,
     primary,
     imbalance: primary && idleEmployeeNames.length > 0 ? { overloaded: primary, idleEmployeeNames } : null,
-    reassignment: primary ? findBestReassignment(employees, tasks, primary) : null,
+    reassignment: reassignments[0] ?? null,
+    reassignments,
   }
 }
 
