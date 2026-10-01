@@ -29,6 +29,7 @@ import { StatusBadge } from '../common/StatusBadge'
 import { getCurrentIssueLabel, getTaskCurrentIssues } from '../../services/currentProjectAnalysis'
 import { CriticalTaskBadge } from '../common/CriticalTaskBadge'
 import { listScheduleConflictPresentations } from '../../services/scheduleConflictPresentation'
+import { validateDependency, validateDependencyTasks } from '../../services/dependencyGraph'
 
 interface DependenciesViewProps {
   tasks: ProjectTask[]
@@ -49,6 +50,14 @@ interface Point {
 
 interface Camera extends Point {
   scale: number
+}
+
+interface LinkDragState {
+  pointerId: number
+  sourceTaskId: string
+  start: Point
+  end: Point
+  targetTaskId: string | null
 }
 
 const nodeWidth = 224
@@ -190,6 +199,7 @@ export function DependenciesView({
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [deletingDependencyId, setDeletingDependencyId] = useState<string | null>(null)
+  const [linkPreview, setLinkPreview] = useState<LinkDragState | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const positionsRef = useRef(positions)
   const dragRef = useRef<{
@@ -200,6 +210,7 @@ export function DependenciesView({
     moved: boolean
   } | null>(null)
   const panRef = useRef<{ pointerId: number; start: Point; origin: Point } | null>(null)
+  const linkRef = useRef<LinkDragState | null>(null)
   const suppressClickRef = useRef(false)
   const taskById = new Map(tasks.map((task) => [task.id, task]))
   const affectedTaskIdSet = new Set(impact.affectedTaskIds)
@@ -358,6 +369,83 @@ export function DependenciesView({
     onTaskSelect(task)
   }
 
+  const graphPointFromClient = (clientX: number, clientY: number): Point | null => {
+    const viewport = viewportRef.current
+    if (!viewport) return null
+    const bounds = viewport.getBoundingClientRect()
+    return {
+      x: (clientX - bounds.left - camera.x) / camera.scale,
+      y: (clientY - bounds.top - camera.y) / camera.scale,
+    }
+  }
+
+  const startLinkDrag = (event: ReactPointerEvent<HTMLButtonElement>, sourceTaskId: string) => {
+    if (event.button !== 0 || isSaving) return
+    event.preventDefault()
+    event.stopPropagation()
+    const position = positionsRef.current.get(sourceTaskId)
+    if (!position) return
+    const start = { x: position.x + nodeWidth, y: position.y + nodeHeight / 2 }
+    const next: LinkDragState = {
+      pointerId: event.pointerId,
+      sourceTaskId,
+      start,
+      end: start,
+      targetTaskId: null,
+    }
+    linkRef.current = next
+    setLinkPreview(next)
+    setError(null)
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const moveLinkDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const link = linkRef.current
+    if (!link || link.pointerId !== event.pointerId) return
+    const end = graphPointFromClient(event.clientX, event.clientY)
+    if (!end) return
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-dependency-target]')
+    const targetTaskId = target?.dataset.dependencyTarget ?? null
+    const next = { ...link, end, targetTaskId }
+    linkRef.current = next
+    setLinkPreview(next)
+  }
+
+  const finishLinkDrag = async (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const link = linkRef.current
+    if (!link || link.pointerId !== event.pointerId) return
+    linkRef.current = null
+    setLinkPreview(null)
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-dependency-target]')
+    const successorTaskId = target?.dataset.dependencyTarget
+    if (!successorTaskId) return
+    const request: CreateDependencyRequest = {
+      predecessorTaskId: link.sourceTaskId,
+      successorTaskId,
+      type: 'finish-to-start',
+    }
+    setIsSaving(true)
+    try {
+      validateDependencyTasks(projectId, tasks, request)
+      validateDependency(dependencies, request)
+      await onCreateDependency(request)
+      setError(null)
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Не удалось создать зависимость.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const cancelLinkDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const link = linkRef.current
+    if (!link || link.pointerId !== event.pointerId) return
+    linkRef.current = null
+    setLinkPreview(null)
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
   const resetLayout = () => {
     try {
       sessionStorage.removeItem(storageKey)
@@ -404,7 +492,7 @@ export function DependenciesView({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ebe9ef] px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-[#302d40]">Граф зависимостей</h2>
-            <p className="mt-0.5 text-[11px] text-[#817c8c]">Перетаскивайте задачи · колесо изменяет масштаб · фон перемещает граф</p>
+            <p className="mt-0.5 text-[11px] text-[#817c8c]">Перетаскивайте задачи · тяните маркер связи к другой задаче · колесо изменяет масштаб</p>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-[11px] text-[#716c7a]">
             <span className="flex items-center gap-1.5"><i className="h-0.5 w-5 rounded-full bg-[#777282]" /> Зависимость</span>
@@ -438,6 +526,7 @@ export function DependenciesView({
                   <marker id="dependency-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#777282" /></marker>
                   <marker id="dependency-arrow-affected" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#e46f42" /></marker>
                   <marker id="dependency-arrow-conflict" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#d69025" /></marker>
+                  <marker id="dependency-arrow-preview" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#6d5dfb" /></marker>
                 </defs>
                 {dependencies.map((dependency) => {
                   const from = positions.get(dependency.predecessorTaskId)
@@ -463,6 +552,17 @@ export function DependenciesView({
                     />
                   )
                 })}
+                {linkPreview && (
+                  <path
+                    d={`M ${linkPreview.start.x} ${linkPreview.start.y} L ${linkPreview.end.x} ${linkPreview.end.y}`}
+                    fill="none"
+                    stroke="#6d5dfb"
+                    strokeWidth="3"
+                    strokeDasharray="7 5"
+                    markerEnd="url(#dependency-arrow-preview)"
+                    data-dependency-preview="true"
+                  />
+                )}
               </svg>
 
               {tasks.map((task) => {
@@ -496,9 +596,12 @@ export function DependenciesView({
                     className={`absolute cursor-grab select-none rounded-2xl border bg-white p-3 text-left shadow-panel transition-[border-color,box-shadow,transform] hover:z-10 hover:-translate-y-0.5 hover:border-[#7568de] hover:shadow-lg active:cursor-grabbing ${affected ? 'border-[#e7774d]' : atRisk ? 'border-[#e7a9ac]' : 'border-[#d6d3dd]'} ${selected ? 'z-10 outline outline-2 outline-offset-2 outline-[#6d5dfb]' : ''}`}
                     style={{ left: position.x, top: position.y, width: nodeWidth, height: nodeHeight }}
                     aria-label={`Открыть задачу «${task.title}»`}
+                    data-dependency-target={task.id}
+                    data-dependency-target-active={linkPreview?.targetTaskId === task.id || undefined}
                     data-task-critical={critical || undefined}
                     data-task-schedule-conflict={hasScheduleConflict || undefined}
                   >
+                    {linkPreview?.targetTaskId === task.id && <span className="pointer-events-none absolute -inset-1 rounded-[18px] border-2 border-[#6d5dfb]" aria-hidden="true" />}
                     {critical && <span className="pointer-events-none absolute inset-0 rounded-2xl border-[3px] border-[#7667ed]/45" aria-hidden="true" />}
                     {hasScheduleConflict && <span className="pointer-events-none absolute -inset-1 rounded-[18px] border-2 border-dashed border-amber-500" aria-hidden="true" />}
                     {affected && <span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[#e7774d]" aria-hidden="true" />}
@@ -520,6 +623,20 @@ export function DependenciesView({
                         ? <>{issueLabel}{taskIssues.length > 1 && <span className="font-medium"> · {taskIssues.length} проблемы</span>}</>
                         : atRisk ? 'Под риском' : task.riskState === 'watch' ? 'Требует наблюдения' : 'Рисков нет'}
                     </p>
+                    <button
+                      type="button"
+                      data-dependency-handle={task.id}
+                      onPointerDown={(event) => startLinkDrag(event, task.id)}
+                      onPointerMove={moveLinkDrag}
+                      onPointerUp={(event) => { void finishLinkDrag(event) }}
+                      onPointerCancel={cancelLinkDrag}
+                      onClick={(event) => event.stopPropagation()}
+                      className="absolute right-0 top-1/2 z-20 grid h-5 w-5 translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 border-white bg-[#6d5dfb] text-white shadow-md transition hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#29263e]"
+                      aria-label={`Создать зависимость от задачи «${task.title}»`}
+                      title="Протяните к другой задаче"
+                    >
+                      <Link2 size={10} aria-hidden="true" />
+                    </button>
                   </div>
                 )
               })}
