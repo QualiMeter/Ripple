@@ -44,10 +44,11 @@ interface TimelineProps {
   onTaskSelect: (task: ProjectTask) => void
   onTaskDraft?: (taskId: string, update: TaskUpdateRequest) => void
   onCreateDependency?: (request: CreateDependencyRequest) => Promise<void>
+  recoveryHighlightedTaskIds?: string[]
   today?: string
 }
 
-export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, onTaskDraft, onCreateDependency, today = getTodayIsoDate() }: TimelineProps) {
+export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, onTaskDraft, onCreateDependency, recoveryHighlightedTaskIds = [], today = getTodayIsoDate() }: TimelineProps) {
   const [scaleMode, setScaleMode] = useState<TimelineScaleMode>('day')
   const [taskPreview, setTaskPreview] = useState<{ taskId: string; value: TimelineTaskPreview } | null>(null)
   const [linkPreview, setLinkPreview] = useState<LinkDragState | null>(null)
@@ -60,6 +61,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   const rowsRef = useRef<HTMLDivElement | null>(null)
   const visibleTasks = tasks.map((task) => taskPreview?.taskId === task.id ? { ...task, startDate: taskPreview.value.startDate, endDate: taskPreview.value.endDate } : task)
   const criticalTaskIds = new Set(impact.criticalTaskIds)
+  const recoveryHighlightedIds = new Set(recoveryHighlightedTaskIds)
   const dependencyConflicts = listScheduleConflictPresentations(currentIssues, tasks, dependencies)
   const conflictsBySuccessorId = new Map<string, typeof dependencyConflicts>()
   dependencyConflicts.forEach((conflict) => {
@@ -339,7 +341,8 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
                     data-task-end-date={task.endDate}
                     data-dependency-highlighted={highlightedTaskIds.has(task.id) || undefined}
                     data-dependency-dimmed={hasDependencyHighlight && !highlightedTaskIds.has(task.id) || undefined}
-                    className={`group absolute top-1/2 z-10 h-6 touch-none -translate-y-1/2 cursor-grab rounded-md text-left transition hover:brightness-95 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-[#29263e] focus-visible:ring-offset-2 ${affected ? 'impact-pulse' : ''} ${overdue ? 'ring-1 ring-inset ring-rose-500' : ''} ${critical ? 'border-[3px] border-[#5548ba]' : 'border border-transparent'} ${highlightedTaskIds.has(task.id) ? 'drop-shadow-[0_0_5px_rgba(79,70,184,0.75)]' : hasDependencyHighlight ? 'opacity-45' : ''} ${taskVisualStateClasses[visualState]}`}
+                    data-recovery-highlighted={recoveryHighlightedIds.has(task.id) || undefined}
+                    className={`group absolute top-1/2 z-10 h-6 touch-none -translate-y-1/2 cursor-grab rounded-md text-left transition hover:brightness-95 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-[#29263e] focus-visible:ring-offset-2 ${affected ? 'impact-pulse' : ''} ${overdue ? 'ring-1 ring-inset ring-rose-500' : ''} ${critical ? 'border-[3px] border-[#5548ba]' : 'border border-transparent'} ${recoveryHighlightedIds.has(task.id) ? 'ring-2 ring-[#ff9b73] ring-offset-2 drop-shadow-[0_0_7px_rgba(227,111,73,0.75)]' : ''} ${highlightedTaskIds.has(task.id) ? 'drop-shadow-[0_0_5px_rgba(79,70,184,0.75)]' : hasDependencyHighlight ? 'opacity-45' : ''} ${taskVisualStateClasses[visualState]}`}
                     style={position}
                     title={`${formatFullDate(task.startDate)} — ${formatFullDate(task.endDate)}`}
                     aria-label={`Редактировать задачу «${task.title}», ${formatFullDate(task.startDate)} — ${formatFullDate(task.endDate)}`}

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, TriangleAlert, Users } from 'lucide-react'
+import { ArrowRight, Calculator, GitBranch, Lightbulb, MoveRight, ShieldAlert, TriangleAlert, Users } from 'lucide-react'
 import { describeImpactOutcome, describeLastChange } from '../../services/changeContext'
 import { getSchedulePreviewSourceIds } from '../../services/schedulePreviewSource'
 import type { ProjectTask } from '../../types/task'
 import type { ProjectWorkspace } from '../../types/workspace'
 import type { ScheduleShiftPreview } from '../../types/schedule'
-import { formatAnalysisTime, formatFullDate, formatShortDate } from '../../utils/date'
+import { formatAnalysisTime, formatFullDate, formatMonthDay, formatShortDate } from '../../utils/date'
 import { getErrorMessage } from '../../utils/error'
 import { describeScheduleConflict } from '../../services/scheduleConflictPresentation'
 import { buildProjectRecommendations, type ProjectRecommendationAction } from '../../services/projectRecommendations'
@@ -13,6 +13,8 @@ import type { TimelineDraftApplyMode, TimelineDraftPreview } from '../../service
 import { analyzeTeamWorkload, WORKLOAD_LEVEL_LABELS } from '../../services/teamWorkload'
 import type { TaskReassignmentPreview } from '../../services/taskReassignment'
 import { pluralizeRu } from '../../utils/plural'
+import { buildRecoveryPlan } from '../../services/recoveryPlan'
+import { RecoveryPlan } from './RecoveryPlan'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
@@ -21,6 +23,7 @@ interface ImpactPanelProps {
   onCancelTimelineDraft?: () => void
   onViewWorkload?: () => void
   onApplyTaskReassignment?: (preview: TaskReassignmentPreview) => Promise<void>
+  onShowCriticalChain?: (taskIds: string[]) => void
   onPreviewScheduleShift: (sourceTaskId: string) => Promise<ScheduleShiftPreview>
   onApplyScheduleShift: (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => Promise<void>
   onTaskSelect: (taskId: string) => void
@@ -28,7 +31,7 @@ interface ImpactPanelProps {
   onRequestedPreviewHandled?: () => void
 }
 
-export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onApplyTaskReassignment, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled }: ImpactPanelProps) {
+export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onApplyTaskReassignment, onShowCriticalChain, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled }: ImpactPanelProps) {
   const [preview, setPreview] = useState<ScheduleShiftPreview | null>(null)
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -43,6 +46,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   const [reassignmentPreview, setReassignmentPreview] = useState<TaskReassignmentPreview | null>(null)
   const [reassignmentError, setReassignmentError] = useState<string | null>(null)
   const [isApplyingReassignment, setIsApplyingReassignment] = useState(false)
+  const [recoveryPlanOpen, setRecoveryPlanOpen] = useState(false)
   const reassignmentInFlightRef = useRef(false)
   const { impact, currentIssues, tasks } = workspace
   const affected = impact.affectedTaskIds
@@ -63,6 +67,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   ]
   const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
   const recommendations = buildProjectRecommendations(workspace, preview)
+  const recoveryPlan = buildRecoveryPlan(workspace)
   const teamWorkload = analyzeTeamWorkload(workspace.assignees, tasks)
   const visibleTeamWorkload = showAllWorkload ? teamWorkload : teamWorkload.slice(0, 4)
   const attentionCount = recommendations[0]?.tone === 'success' ? 0 : recommendations.length
@@ -163,6 +168,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   }
   return (
     <aside className="space-y-3">
+      {recoveryPlanOpen && <RecoveryPlan workspace={workspace} onClose={() => setRecoveryPlanOpen(false)} onPreviewScheduleShift={onPreviewScheduleShift} onApplyScheduleShift={onApplyScheduleShift} onApplyTaskReassignment={onApplyTaskReassignment} onShowCriticalChain={onShowCriticalChain ?? (() => undefined)} onTaskSelect={onTaskSelect} />}
       {reassignmentPreview && <section className="rounded-2xl border border-[#cfc8f7] bg-[#faf9ff] p-4 shadow-panel" data-reassignment-preview="true">
         <div><p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7768ed]">Предпросмотр</p><h2 className="mt-0.5 text-sm font-bold text-[#363247]">Перераспределение задачи</h2></div>
         <div className="mt-3 rounded-xl border border-[#e6e1fa] bg-white p-3"><p className="text-xs font-bold text-[#474252]">{reassignmentPreview.taskTitle}</p><p className="mt-1 text-[10px] font-semibold text-[#6f6879]" aria-label={`${reassignmentPreview.sourceEmployeeName} → ${reassignmentPreview.candidateEmployeeName}`}>{reassignmentPreview.sourceEmployeeName} <ArrowRight size={11} className="mx-1 inline" /> {reassignmentPreview.candidateEmployeeName}</p></div>
@@ -231,7 +237,13 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
 
       <section className="rounded-2xl border border-[#e1ddec] bg-white p-4 shadow-panel">
         <div className="flex items-start justify-between gap-3"><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f0edff] text-[#6556d9]"><Lightbulb size={18} /></span><div><div className="flex items-center gap-2"><h2 className="text-sm font-bold text-[#363247]">Что требует внимания</h2>{timelineDraft && <span className="rounded-full bg-[#eeeaff] px-1.5 py-0.5 text-[8px] font-bold uppercase text-[#6556d9]">Предпросмотр</span>}</div><p className="mt-0.5 text-[10px] leading-4 text-[#8c8798]">До трёх наиболее значимых действий по текущему плану.</p></div></div><span className="rounded-full bg-[#f0edff] px-2 py-1 text-[10px] font-bold text-[#6556d9]" aria-label={`Требует внимания: ${attentionCount}`}>{attentionCount}</span></div>
-        <div className="mt-3 space-y-2">{recommendations.map((recommendation) => {
+        <div className="mt-3 space-y-2">
+          {recoveryPlan.interventionRequired && <div data-recovery-entry="true" className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-3.5 text-rose-950">
+            <div className="flex items-start gap-2.5"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-100 text-rose-600"><ShieldAlert size={16} /></span><div><p className="text-xs font-bold">Проект требует вмешательства</p><p className="mt-1 text-[10px] leading-4 text-rose-800">План: {formatMonthDay(recoveryPlan.plannedEndDate)}<br />Текущий прогноз: {formatMonthDay(recoveryPlan.projectedEndDate)}<br />Отклонение: {recoveryPlan.delayDays > 0 ? `+${recoveryPlan.delayDays} дн.` : 'срок не изменился'}</p></div></div>
+            <p className="mt-2 text-[10px] leading-4 text-rose-800">Затронуто задач: {recoveryPlan.affectedTaskIds.length}. Ripple подготовил {recoveryPlan.options.length} {pluralizeRu(recoveryPlan.options.length, ['вариант', 'варианта', 'вариантов'])} восстановления плана.</p>
+            <button type="button" onClick={() => setRecoveryPlanOpen(true)} className="mt-3 w-full rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-bold text-white transition hover:bg-rose-700">Открыть план восстановления</button>
+          </div>}
+          {recommendations.map((recommendation) => {
           const action = recommendation.action
           const affectedTitles = recommendation.affectedTaskIds
             .map((taskId) => tasks.find((task) => task.id === taskId)?.title)
