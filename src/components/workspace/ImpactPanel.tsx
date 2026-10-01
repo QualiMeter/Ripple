@@ -54,7 +54,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
     { id: 'deadline', title: 'Просроченные сроки', items: currentIssues.deadlineIssues },
   ]
   const currentIssueCount = currentIssueGroups.reduce((count, group) => count + group.items.length, 0)
-  const recommendations = buildProjectRecommendations(workspace)
+  const recommendations = buildProjectRecommendations(workspace, preview)
   const teamWorkload = analyzeTeamWorkload(workspace.assignees, tasks)
   const visibleTeamWorkload = showAllWorkload ? teamWorkload : teamWorkload.slice(0, 4)
   const attentionCount = recommendations[0]?.tone === 'success' ? 0 : recommendations.length
@@ -187,9 +187,11 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
               ? 'bg-amber-400'
               : 'bg-emerald-500'
           return <div key={recommendation.id} data-recommendation-tone={recommendation.tone} className={`rounded-xl border p-3 ${toneClasses}`}>
-            <div className="flex items-start gap-2"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${markerClasses}`} /><div className="min-w-0"><p className="text-[11px] font-bold">{recommendation.title}</p><p className="mt-1 text-[10px] leading-4 opacity-85">{recommendation.description}</p></div></div>
+            <div className="flex items-start gap-2"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${markerClasses}`} /><div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Проблема</p><p className="mt-0.5 text-[11px] font-bold">{recommendation.problem}</p><p className="mt-1 text-[10px] leading-4 opacity-85">{recommendation.evidence}</p></div></div>
             {affectedTitles.length > 0 && <p className="mt-2 text-[9px] leading-4 opacity-75">Затронутые задачи: {affectedTitles.join(', ')}</p>}
-            <p className="mt-2 text-[10px] font-semibold">Рекомендация: {recommendation.recommendation}</p>
+            <div className="mt-2 rounded-lg bg-white/55 px-2.5 py-2"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Рекомендуемое решение</p><p className="mt-1 text-[10px] font-semibold leading-4">{recommendation.proposedAction}</p></div>
+            <div className="mt-2"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Ожидаемый результат</p><p className="mt-1 text-[10px] leading-4 opacity-85">{recommendation.expectedEffect}</p></div>
+            {recommendation.alternatives && recommendation.alternatives.length > 0 && <div className="mt-2"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Варианты</p><ol className="mt-1 space-y-1 text-[10px] leading-4 opacity-85">{recommendation.alternatives.map((alternative, index) => <li key={alternative}>{index + 1}. {alternative}</li>)}</ol></div>}
             {action && <button type="button" onClick={() => action.type === 'preview-shift' ? calculatePreview(action.sourceTaskId) : action.type === 'open-task' ? onTaskSelect(action.taskId) : onViewWorkload?.()} className="mt-2 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#5f51c8] shadow-sm">{action.label}</button>}
           </div>
         })}</div>

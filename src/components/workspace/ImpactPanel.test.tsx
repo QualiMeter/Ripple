@@ -53,7 +53,8 @@ describe('ImpactPanel current issues', () => {
     expect(container.textContent).toContain('Просроченные сроки')
     expect(container.querySelector('[data-recommendation-tone="danger"]')).not.toBeNull()
     expect(container.querySelector('[data-recommendation-tone="warning"]')).not.toBeNull()
-    expect(container.textContent).toContain('Рекомендация:')
+    expect(container.textContent).toContain('Рекомендуемое решение')
+    expect(container.textContent).toContain('Ожидаемый результат')
   })
 
   it('shows a green recommendation state when intervention is not required', () => {

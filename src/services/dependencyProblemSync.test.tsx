@@ -52,7 +52,7 @@ describe('dependency problem synchronization', () => {
     expect(conflict[0].requiredStartDate).toBe('2026-10-09')
     expect(value.currentIssues.scheduleConflicts).toHaveLength(1)
     expect(value.impact.reasons).toHaveLength(1)
-    expect(surfaces.impact.match(/Устранить конфликт расписания/g)).toHaveLength(1)
+    expect(surfaces.impact.match(/Конфликт зависимости/g)).toHaveLength(1)
     expect(surfaces.rows.find((row) => row.task.id === 'B')?.hasScheduleConflict).toBe(true)
     expect(surfaces.timeline).toContain('data-task-schedule-conflict="true"')
     expect(surfaces.timeline).toContain('Можно начать не раньше: 09.10.2026')
@@ -65,7 +65,7 @@ describe('dependency problem synchronization', () => {
     expect(shifted.timeline).not.toContain('data-task-schedule-conflict="true"')
 
     const restored = renderConflictSurfaces(workspace([task('A', '2026-10-01', '2026-10-08'), task('B', '2026-10-01', '2026-10-05')]))
-    expect(restored.impact).toContain('Устранить конфликт расписания')
+    expect(restored.impact).toContain('Конфликт зависимости')
     expect(restored.rows.find((row) => row.task.id === 'B')?.hasScheduleConflict).toBe(true)
     expect(restored.timeline).toContain('data-task-schedule-conflict="true"')
   })
