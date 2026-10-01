@@ -170,7 +170,7 @@ function buildOverdueRecommendation(workspace: ProjectWorkspace): ProjectRecomme
 
 function buildWorkloadRecommendations(workspace: ProjectWorkspace): ProjectRecommendation[] {
   const attention = analyzeTeamWorkloadAttention(workspace.assignees, workspace.tasks)
-  return attention.highWorkloads.map((workload) => {
+  return attention.highWorkloads.map((workload, index) => {
     const suggestion = attention.reassignments.find((item) => item.sourceEmployeeId === workload.employeeId)
     const targetTask = suggestion ? workspace.tasks.find((task) => task.id === suggestion.taskId) : undefined
     const candidate = suggestion?.candidate
@@ -182,7 +182,9 @@ function buildWorkloadRecommendations(workspace: ProjectWorkspace): ProjectRecom
       ? `После моделируемого переноса пик ${workload.employeeName} снизится с ${suggestion.sourceBefore.peakConcurrency} до ${suggestion.sourceAfter.peakConcurrency}, а пик ${candidate.employeeName} изменится с ${candidate.before.peakConcurrency} до ${candidate.after.peakConcurrency}. Параллельная работа кандидата изменится на ${candidate.delta.parallelDays >= 0 ? '+' : ''}${candidate.delta.parallelDays} ${pluralizeRu(Math.abs(candidate.delta.parallelDays), ['день', 'дня', 'дней'])}.`
       : 'Ripple продолжит показывать нагрузку этого сотрудника отдельно; решение не будет подменено рекомендацией для другого сотрудника.'
     return {
-      id: `${workload.primaryFactor === 'fragmented' ? 'team-fragmented-workload' : 'team-schedule-load'}-${workload.employeeId}`,
+      id: index === 0
+        ? (workload.primaryFactor === 'fragmented' ? 'team-fragmented-workload' : 'team-schedule-load')
+        : `${workload.primaryFactor === 'fragmented' ? 'team-fragmented-workload' : 'team-schedule-load'}-${workload.employeeId}`,
       problem: workload.primaryFactor === 'fragmented' ? 'Фрагментированная загрузка' : workload.level === 'high' ? 'Высокая плановая нагрузка' : 'Повышенная плановая нагрузка',
       evidence: `${workload.employeeName}: ${workload.reasons.join('; ').replace(/^./, (value) => value.toLowerCase())}.`,
       proposedAction,
