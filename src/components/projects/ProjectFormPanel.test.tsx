@@ -35,4 +35,26 @@ describe('ProjectFormPanel submission', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2))
   })
+
+  it('imports a project from the create panel without submitting the manual form', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    const onImport = vi.fn().mockResolvedValue(undefined)
+    render(<ProjectFormPanel title="Новый проект" submitLabel="Создать" initialValues={initialValues} onClose={() => undefined} onSubmit={onSubmit} onImport={onImport} />)
+
+    const file = new File(['{}'], 'project.ripple.json', { type: 'application/json' })
+    fireEvent.change(screen.getByLabelText('Файл импорта проекта'), { target: { files: [file] } })
+
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith(file))
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('keeps the create panel open and shows an import error', async () => {
+    const onImport = vi.fn().mockRejectedValue(new Error('Файл проекта повреждён'))
+    render(<ProjectFormPanel title="Новый проект" submitLabel="Создать" initialValues={initialValues} onClose={() => undefined} onSubmit={vi.fn()} onImport={onImport} />)
+
+    fireEvent.change(screen.getByLabelText('Файл импорта проекта'), { target: { files: [new File(['bad'], 'broken.json', { type: 'application/json' })] } })
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Файл проекта повреждён')
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
 })

@@ -33,7 +33,6 @@ import { undoServerHistoryAndSynchronize } from '../services/history/serverHisto
 import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfterMutation } from '../services/history/historySyncPolicy'
 import { downloadProjectDiagnostics } from '../services/projectDiagnostics'
 import { applyTimelineDraftPreview, buildTimelineDraftPreview, type TimelineDraftApplyMode, type TimelineDraftPreview } from '../services/timelineDraft'
-import { projectTransferApi } from '../api/projectTransfer.api'
 import { downloadProjectExport } from '../services/projectTransfer'
 import { applyTaskReassignment, type TaskReassignmentPreview } from '../services/taskReassignment'
 
@@ -277,11 +276,6 @@ export function ProjectWorkspacePage() {
   }
   const handleProjectDiagnosticsDownload = () => downloadProjectDiagnostics(projectId, workspace.project.name).then(() => undefined)
   const handleProjectExport = () => downloadProjectExport(projectId, workspace.project.name)
-  const handleProjectImport = async (file: File) => {
-    const imported = await projectTransferApi.importProject(file)
-    await refreshProjects()
-    navigate(`/projects/${imported.projectId}`)
-  }
   const handleHistoryRevert = async (entry: HistoryEntry) => {
     if (isHttpApiMode) {
       if (!isServerHistoryEntry(entry)) throw new Error('Локальная запись не относится к серверной истории.')
@@ -308,7 +302,7 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} onExportProject={isHttpApiMode ? handleProjectExport : undefined} onImportProject={isHttpApiMode ? handleProjectImport : undefined} />
+      <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} onExportProject={isHttpApiMode ? handleProjectExport : undefined} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
         {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} timelineDraft={timelineDraft} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onTaskDraft={handleTimelineDraft} onApplyTimelineDraft={handleTimelineDraftApply} onCancelTimelineDraft={() => setTimelineDraft(null)} onViewWorkload={() => setActiveView('employees')} onApplyTaskReassignment={handleTaskReassignment} onCreateDependency={handleDependencyCreate} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}

@@ -4,6 +4,8 @@ import { ProjectFormPanel } from '../projects/ProjectFormPanel'
 import { projectService } from '../../services/projectService'
 import type { CreateProjectRequest, ProjectNavigationItem } from '../../types/project'
 import { Sidebar } from './Sidebar'
+import { isHttpApiMode } from '../../config/api'
+import { projectTransferApi } from '../../api/projectTransfer.api'
 
 export interface AppShellContext {
   openMobileSidebar: () => void
@@ -66,6 +68,13 @@ export function AppShell() {
     navigate(`/projects/${project.id}`)
   }
 
+  const handleImportProject = async (file: File) => {
+    const imported = await projectTransferApi.importProject(file)
+    await refreshProjects()
+    setCreateProjectOpen(false)
+    navigate(`/projects/${imported.projectId}`)
+  }
+
   const syncProjectNavigation = useCallback((project: ProjectNavigationItem) => {
     setProjects((current) => {
       const previous = current.find((candidate) => candidate.id === project.id)
@@ -90,7 +99,7 @@ export function AppShell() {
       <main className="min-w-0 flex-1 lg:ml-[244px]">
         <Outlet context={{ openMobileSidebar: () => setMobileSidebarOpen(true), refreshProjects, syncProjectNavigation, removeProjectNavigation, projects, projectsLoading, projectsError } satisfies AppShellContext} />
       </main>
-      {createProjectOpen && <ProjectFormPanel title="Новый проект" submitLabel="Создать проект" initialValues={{ name: '', startDate: '', targetEndDate: '' }} onClose={() => setCreateProjectOpen(false)} onSubmit={handleCreateProject} />}
+      {createProjectOpen && <ProjectFormPanel title="Новый проект" submitLabel="Создать проект" initialValues={{ name: '', startDate: '', targetEndDate: '' }} onClose={() => setCreateProjectOpen(false)} onSubmit={handleCreateProject} onImport={isHttpApiMode ? handleImportProject : undefined} />}
     </div>
   )
 }
