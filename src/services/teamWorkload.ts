@@ -42,6 +42,7 @@ export interface EmployeeWorkload {
   employeeId: string
   employeeName: string
   level: WorkloadLevel
+  pattern: 'normal' | 'sustained' | 'fragmented'
   peakConcurrency: number
   /** Compatibility alias for existing compact consumers. */
   maxConcurrentTasks: number
@@ -225,8 +226,11 @@ export function analyzeEmployeeWorkload(employee: Employee, tasks: ProjectTask[]
   const primaryFactor: EmployeeWorkload['primaryFactor'] = fragmentation === 'high'
     ? 'fragmented'
     : meaningfulParallel ? 'sustained' : peakConcurrency >= WORKLOAD_THRESHOLDS.highPeakConcurrency ? 'peak' : 'none'
+  const pattern: EmployeeWorkload['pattern'] = primaryFactor === 'fragmented'
+    ? 'fragmented'
+    : primaryFactor === 'sustained' || primaryFactor === 'peak' ? 'sustained' : 'normal'
   return {
-    employeeId: employee.id, employeeName: employee.name, level, peakConcurrency, maxConcurrentTasks: peakConcurrency,
+    employeeId: employee.id, employeeName: employee.name, level, pattern, peakConcurrency, maxConcurrentTasks: peakConcurrency,
     averageConcurrency: occupiedDays.length > 0 ? occupiedDays.reduce((sum, day) => sum + day.concurrency, 0) / occupiedDays.length : 0,
     parallelDays, longestParallelStreak, assignedTaskDays, taskStarts, switchEvents, fragmentation, reasons, primaryFactor,
     peakStartDate: peak.start, peakEndDate: peak.end, peakTaskIds: peak.taskIds, peakDays: peak.days,

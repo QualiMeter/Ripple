@@ -108,10 +108,19 @@ describe('project recommendations', () => {
     const recommendation = buildProjectRecommendations(value).find((item) => item.id === 'team-schedule-load')
 
     expect(recommendation?.proposedAction).toContain('сотруднику Петров')
-    expect(recommendation?.proposedAction).toContain('Кандидат выбран только по расписанию')
+    expect(recommendation?.proposedAction).toContain('По текущему расписанию это наиболее подходящий кандидат')
     expect(recommendation?.expectedEffect).toMatch(/пик Смирнов снизится с 3 до 2/)
     expect(recommendation?.expectedEffect).toMatch(/пик Петров изменится с 1 до 2/)
-    expect(recommendation?.action).toEqual({ type: 'view-workload', label: 'Сравнить нагрузку' })
+    expect(recommendation?.action).toMatchObject({
+      type: 'preview-reassignment',
+      label: 'Посмотреть перераспределение',
+      preview: {
+        sourceEmployeeName: 'Смирнов',
+        candidateEmployeeName: 'Петров',
+        sourceBefore: { peakConcurrency: 3 },
+        sourceAfter: { peakConcurrency: 2 },
+      },
+    })
   })
 
   it('describes an overdue task with its actual date and status', () => {

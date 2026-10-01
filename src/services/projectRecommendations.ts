@@ -6,12 +6,14 @@ import { pluralizeRu } from '../utils/plural'
 import { differenceInDays, calculateScheduleShiftPreview } from './scheduleEngine'
 import { describeScheduleConflict } from './scheduleConflictPresentation'
 import { analyzeTeamWorkloadAttention } from './teamWorkload'
+import { buildTaskReassignmentPreview, type TaskReassignmentPreview } from './taskReassignment'
 import { getTaskStatusLabel } from './statusAnalysis'
 
 export type ProjectRecommendationAction =
   | { type: 'preview-shift'; sourceTaskId: string; label: string }
   | { type: 'open-task'; taskId: string; label: string }
   | { type: 'view-workload'; label: string }
+  | { type: 'preview-reassignment'; preview: TaskReassignmentPreview; label: string }
 
 export interface ProjectRecommendation {
   id: string
@@ -173,8 +175,9 @@ function buildWorkloadRecommendation(workspace: ProjectWorkspace): ProjectRecomm
   const suggestion = attention.reassignment
   const targetTask = suggestion ? workspace.tasks.find((task) => task.id === suggestion.taskId) : undefined
   const candidate = suggestion?.candidate
+  const reassignmentPreview = suggestion ? buildTaskReassignmentPreview(workspace, suggestion) : null
   const proposedAction = targetTask && candidate
-    ? `Рассмотреть передачу задачи «${targetTask.title}» сотруднику ${candidate.employeeName}. Кандидат выбран только по расписанию; компетенции необходимо подтвердить руководителю.`
+    ? `Передать задачу «${targetTask.title}» сотруднику ${candidate.employeeName}. По текущему расписанию это наиболее подходящий кандидат; компетенции необходимо подтвердить руководителю.`
     : 'Сравнить расписание команды и выбрать одну из пересекающихся задач для возможного перераспределения. Компетенции должен подтвердить руководитель.'
   const expectedEffect = suggestion && candidate
     ? `После моделируемого переноса пик ${workload.employeeName} снизится с ${suggestion.sourceBefore.peakConcurrency} до ${suggestion.sourceAfter.peakConcurrency}, а пик ${candidate.employeeName} изменится с ${candidate.before.peakConcurrency} до ${candidate.after.peakConcurrency}. Параллельная работа кандидата изменится на ${candidate.delta.parallelDays >= 0 ? '+' : ''}${candidate.delta.parallelDays} ${pluralizeRu(Math.abs(candidate.delta.parallelDays), ['день', 'дня', 'дней'])}.`
@@ -187,7 +190,9 @@ function buildWorkloadRecommendation(workspace: ProjectWorkspace): ProjectRecomm
     expectedEffect,
     affectedTaskIds: workload.peakTaskIds,
     tone: 'warning',
-    action: { type: 'view-workload', label: 'Сравнить нагрузку' },
+    action: reassignmentPreview
+      ? { type: 'preview-reassignment', preview: reassignmentPreview, label: 'Посмотреть перераспределение' }
+      : { type: 'view-workload', label: 'Сравнить нагрузку' },
   }
 }
 

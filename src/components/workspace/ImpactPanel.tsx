@@ -8,9 +8,10 @@ import type { ScheduleShiftPreview } from '../../types/schedule'
 import { formatAnalysisTime, formatFullDate, formatShortDate } from '../../utils/date'
 import { getErrorMessage } from '../../utils/error'
 import { describeScheduleConflict } from '../../services/scheduleConflictPresentation'
-import { buildProjectRecommendations } from '../../services/projectRecommendations'
+import { buildProjectRecommendations, type ProjectRecommendationAction } from '../../services/projectRecommendations'
 import type { TimelineDraftPreview } from '../../services/timelineDraft'
 import { analyzeTeamWorkload, WORKLOAD_LEVEL_LABELS } from '../../services/teamWorkload'
+import type { TaskReassignmentPreview } from '../../services/taskReassignment'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
@@ -18,6 +19,7 @@ interface ImpactPanelProps {
   onApplyTimelineDraft?: () => Promise<void>
   onCancelTimelineDraft?: () => void
   onViewWorkload?: () => void
+  onApplyTaskReassignment?: (preview: TaskReassignmentPreview) => Promise<void>
   onPreviewScheduleShift: (sourceTaskId: string) => Promise<ScheduleShiftPreview>
   onApplyScheduleShift: (preview: ScheduleShiftPreview, confirmProjectEndDate: boolean) => Promise<void>
   onTaskSelect: (taskId: string) => void
@@ -25,7 +27,7 @@ interface ImpactPanelProps {
   onRequestedPreviewHandled?: () => void
 }
 
-export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled }: ImpactPanelProps) {
+export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onApplyTaskReassignment, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled }: ImpactPanelProps) {
   const [preview, setPreview] = useState<ScheduleShiftPreview | null>(null)
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -36,6 +38,10 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   const [isApplyingDraft, setIsApplyingDraft] = useState(false)
   const [draftMessage, setDraftMessage] = useState<string | null>(null)
   const [showAllWorkload, setShowAllWorkload] = useState(false)
+  const [reassignmentPreview, setReassignmentPreview] = useState<TaskReassignmentPreview | null>(null)
+  const [reassignmentError, setReassignmentError] = useState<string | null>(null)
+  const [isApplyingReassignment, setIsApplyingReassignment] = useState(false)
+  const reassignmentInFlightRef = useRef(false)
   const { impact, currentIssues, tasks } = workspace
   const affected = impact.affectedTaskIds
     .map((id) => tasks.find((task) => task.id === id))
@@ -111,11 +117,54 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
       setIsApplyingDraft(false)
     }
   }
+  const applyReassignment = async () => {
+    if (!reassignmentPreview || !onApplyTaskReassignment || reassignmentInFlightRef.current) return
+    reassignmentInFlightRef.current = true
+    setIsApplyingReassignment(true)
+    setReassignmentError(null)
+    try {
+      await onApplyTaskReassignment(reassignmentPreview)
+      setReassignmentPreview(null)
+    } catch (reassignmentFailure) {
+      setReassignmentError(getErrorMessage(reassignmentFailure, 'Не удалось изменить ответственного.'))
+    } finally {
+      reassignmentInFlightRef.current = false
+      setIsApplyingReassignment(false)
+    }
+  }
+  const handleRecommendationAction = (action: ProjectRecommendationAction) => {
+    if (action.type === 'preview-shift') {
+      void calculatePreview(action.sourceTaskId)
+      return
+    }
+    if (action.type === 'open-task') {
+      onTaskSelect(action.taskId)
+      return
+    }
+    if (action.type === 'preview-reassignment') {
+      setReassignmentError(null)
+      setReassignmentPreview(action.preview)
+      return
+    }
+    onViewWorkload?.()
+  }
   if (tasks.length === 0) {
     return <aside><section className="rounded-2xl border border-[#e5e2ea] bg-white px-5 py-12 text-center shadow-panel"><TriangleAlert size={22} className="mx-auto text-[#aaa4b5]" /><p className="mt-3 text-sm font-semibold text-[#4b4658]">Пока нечего анализировать</p><p className="mt-1 text-[11px] leading-4 text-[#918d9b]">Добавьте задачи и зависимости, чтобы Ripple показал риски и последствия изменений.</p></section></aside>
   }
   return (
     <aside className="space-y-3">
+      {reassignmentPreview && <section className="rounded-2xl border border-[#cfc8f7] bg-[#faf9ff] p-4 shadow-panel" data-reassignment-preview="true">
+        <div><p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7768ed]">Предпросмотр</p><h2 className="mt-0.5 text-sm font-bold text-[#363247]">Перераспределение задачи</h2></div>
+        <div className="mt-3 rounded-xl border border-[#e6e1fa] bg-white p-3"><p className="text-xs font-bold text-[#474252]">{reassignmentPreview.taskTitle}</p><p className="mt-1 text-[10px] font-semibold text-[#6f6879]" aria-label={`${reassignmentPreview.sourceEmployeeName} → ${reassignmentPreview.candidateEmployeeName}`}>{reassignmentPreview.sourceEmployeeName} <ArrowRight size={11} className="mx-1 inline" /> {reassignmentPreview.candidateEmployeeName}</p></div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] leading-4">
+          <div className="rounded-xl bg-white p-2.5"><p className="font-bold uppercase tracking-[.08em] text-[#9993a4]">До</p><p className="mt-1 font-semibold text-[#554f60]">{reassignmentPreview.sourceEmployeeName} — {WORKLOAD_LEVEL_LABELS[reassignmentPreview.sourceBefore.level]}, пик {reassignmentPreview.sourceBefore.peakConcurrency}</p><p className="text-[#777181]">{reassignmentPreview.candidateEmployeeName} — {WORKLOAD_LEVEL_LABELS[reassignmentPreview.candidateBefore.level]}, пик {reassignmentPreview.candidateBefore.peakConcurrency}</p></div>
+          <div className="rounded-xl bg-white p-2.5"><p className="font-bold uppercase tracking-[.08em] text-[#9993a4]">После</p><p className="mt-1 font-semibold text-[#554f60]">{reassignmentPreview.sourceEmployeeName} — {WORKLOAD_LEVEL_LABELS[reassignmentPreview.sourceAfter.level]}, пик {reassignmentPreview.sourceAfter.peakConcurrency}</p><p className="text-[#777181]">{reassignmentPreview.candidateEmployeeName} — {WORKLOAD_LEVEL_LABELS[reassignmentPreview.candidateAfter.level]}, пик {reassignmentPreview.candidateAfter.peakConcurrency}</p></div>
+        </div>
+        <div className="mt-3 space-y-0.5 rounded-xl bg-[#f1effa] px-3 py-2.5 text-[10px] text-[#686273]"><p>Даты: без изменений</p><p>Статус: без изменений</p><p>Зависимости: без изменений</p></div>
+        <p className="mt-2 text-[9px] leading-4 text-[#8d8797]">Оценка основана на расписании и не учитывает компетенции и фактическую трудоёмкость.</p>
+        {reassignmentError && <p className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-[10px] text-rose-700" role="alert">{reassignmentError}</p>}
+        <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={isApplyingReassignment} onClick={() => { setReassignmentPreview(null); setReassignmentError(null) }} className="rounded-xl border border-[#dcd7ee] bg-white px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplyingReassignment || !onApplyTaskReassignment} onClick={() => { void applyReassignment() }} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplyingReassignment ? 'Применение…' : 'Подтвердить перераспределение'}</button></div>
+      </section>}
       {timelineDraft && <section className="rounded-2xl border border-[#cfc8f7] bg-[#faf9ff] p-4 shadow-panel" data-timeline-draft-preview="true">
         <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7768ed]">Предпросмотр</p><h2 className="mt-0.5 text-sm font-bold text-[#363247]">Предпросмотр изменений</h2></div><span className="rounded-full bg-[#eeeaff] px-2 py-1 text-[9px] font-bold text-[#6254c8]">Черновик · {timelineDraft.taskChanges.length} изменений</span></div>
         <div className="mt-3 max-h-52 space-y-2 overflow-y-auto">{timelineDraft.taskChanges.map((change) => <div key={change.taskId} data-draft-task-id={change.taskId} className="rounded-xl border border-[#e6e1fa] bg-white p-2.5"><p className="truncate text-[10px] font-bold text-[#474252]">{workspace.tasks.find((task) => task.id === change.taskId)?.title ?? change.taskId}</p><p className="mt-1 text-[10px] text-[#777181]">{formatShortDate(change.currentStartDate)}–{formatShortDate(change.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(change.proposedStartDate)}–{formatShortDate(change.proposedEndDate)}</p></div>)}</div>
@@ -192,7 +241,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
             <div className="mt-2 rounded-lg bg-white/55 px-2.5 py-2"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Рекомендуемое решение</p><p className="mt-1 text-[10px] font-semibold leading-4">{recommendation.proposedAction}</p></div>
             <div className="mt-2"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Ожидаемый результат</p><p className="mt-1 text-[10px] leading-4 opacity-85">{recommendation.expectedEffect}</p></div>
             {recommendation.alternatives && recommendation.alternatives.length > 0 && <div className="mt-2"><p className="text-[9px] font-bold uppercase tracking-[.08em] opacity-65">Варианты</p><ol className="mt-1 space-y-1 text-[10px] leading-4 opacity-85">{recommendation.alternatives.map((alternative, index) => <li key={alternative}>{index + 1}. {alternative}</li>)}</ol></div>}
-            {action && <button type="button" onClick={() => action.type === 'preview-shift' ? calculatePreview(action.sourceTaskId) : action.type === 'open-task' ? onTaskSelect(action.taskId) : onViewWorkload?.()} className="mt-2 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#5f51c8] shadow-sm">{action.label}</button>}
+            {action && <button type="button" onClick={() => handleRecommendationAction(action)} className="mt-2 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#5f51c8] shadow-sm">{action.label}</button>}
           </div>
         })}</div>
         {currentIssueCount > 0 && <button type="button" onClick={() => setShowAllIssues((current) => !current)} className="mt-3 w-full rounded-xl border border-[#e4e0eb] px-3 py-2 text-[10px] font-bold text-[#655f70]">{showAllIssues ? 'Скрыть подробности' : `Показать все проблемы (${currentIssueCount})`}</button>}

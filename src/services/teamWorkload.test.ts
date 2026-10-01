@@ -33,7 +33,7 @@ describe('team workload schedule analysis', () => {
     const workload = analyzeTeamWorkload(employees, tasks)[0]
 
     expect(daily.find((day) => day.date === '2026-10-02')?.taskIds).toEqual(['a', 'b'])
-    expect(workload).toMatchObject({ peakConcurrency: 2, parallelDays: 11, longestParallelStreak: 11, level: 'high', primaryFactor: 'sustained' })
+    expect(workload).toMatchObject({ peakConcurrency: 2, parallelDays: 11, longestParallelStreak: 11, level: 'high', pattern: 'sustained', primaryFactor: 'sustained' })
     expect(workload.reasons.join(' ')).toContain('11 дней подряд')
   })
 
@@ -44,7 +44,7 @@ describe('team workload schedule analysis', () => {
     ]
     const workload = analyzeTeamWorkload(employees, tasks)[0]
 
-    expect(workload).toMatchObject({ fragmentation: 'high', level: 'high', primaryFactor: 'fragmented', shortTaskCount: 6, taskStarts: 6 })
+    expect(workload).toMatchObject({ fragmentation: 'high', level: 'high', pattern: 'fragmented', primaryFactor: 'fragmented', shortTaskCount: 6, taskStarts: 6 })
     expect(workload.reasons.join(' ')).toContain('6 коротких задач')
   })
 
@@ -54,7 +54,7 @@ describe('team workload schedule analysis', () => {
       task('b', '2026-10-05', '2026-10-09'),
     ])[0]
 
-    expect(workload).toMatchObject({ peakConcurrency: 2, parallelDays: 1, longestParallelStreak: 1, level: 'normal' })
+    expect(workload).toMatchObject({ peakConcurrency: 2, parallelDays: 1, longestParallelStreak: 1, level: 'normal', pattern: 'normal' })
     expect(analyzeTeamWorkloadAttention(employees, [task('a', '2026-10-01', '2026-10-05'), task('b', '2026-10-05', '2026-10-09')]).primary).toBeNull()
   })
 

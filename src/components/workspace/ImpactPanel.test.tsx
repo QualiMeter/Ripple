@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImpactReason } from '../../types/impact'
 import type { ProjectWorkspace } from '../../types/workspace'
 import { ImpactPanel } from './ImpactPanel'
 import { findScheduleConflicts } from '../../services/scheduleEngine'
 import type { TimelineDraftPreview } from '../../services/timelineDraft'
+import { rebuildWorkspaceDerivedState } from '../../services/workspaceState'
 
 function issue(sourceTaskId: string, reason: string, severity: ImpactReason['severity'], action: ImpactReason['action']): ImpactReason {
   return { sourceTaskId, affectedTaskIds: [sourceTaskId], reason, consequence: 'Требуется решение.', severity, action }
@@ -40,6 +42,24 @@ afterEach(cleanup)
 function clickAutomaticShift(): void {
   const buttons = screen.getAllByRole('button', { name: 'Рассчитать автоматический сдвиг' })
   fireEvent.click(buttons[buttons.length - 1])
+}
+
+function workloadWorkspace(): ProjectWorkspace {
+  const tasks = [
+    { ...workspace.tasks[0], id: 'frontend', title: 'Frontend', assigneeId: 'sergey', startDate: '2026-10-01', endDate: '2026-10-10' },
+    { ...workspace.tasks[0], id: 'backend', title: 'Backend', assigneeId: 'sergey', startDate: '2026-10-01', endDate: '2026-10-10' },
+    { ...workspace.tasks[0], id: 'integration', title: 'Интеграция', assigneeId: 'sergey', startDate: '2026-10-01', endDate: '2026-10-10' },
+  ]
+  return rebuildWorkspaceDerivedState({
+    ...workspace,
+    tasks,
+    assignees: [
+      { id: 'sergey', projectId: 'project', name: 'Смирнов' },
+      { id: 'petrov', projectId: 'project', name: 'Петров' },
+    ],
+    dependencies: [],
+    currentIssues: { scheduleConflicts: [], statusConflicts: [], deadlineIssues: [], affectedTaskIds: [] },
+  })
 }
 
 describe('ImpactPanel current issues', () => {
@@ -85,6 +105,55 @@ describe('ImpactPanel current issues', () => {
     expect(summary.querySelector('[aria-label="Повышенная плановая нагрузка"]')).not.toBeNull()
     fireEvent.click(summary.querySelector('button')!)
     expect(onViewWorkload).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows concrete task reassignment before/after preview', () => {
+    const { container } = render(<ImpactPanel workspace={workloadWorkspace()} onApplyTaskReassignment={async () => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Посмотреть перераспределение' }))
+
+    const preview = container.querySelector('[data-reassignment-preview="true"]')!
+    expect(preview.textContent).toContain('Перераспределение задачи')
+    expect(screen.getByLabelText('Смирнов → Петров')).toBeTruthy()
+    expect(preview.textContent).toContain('Смирнов — высокая, пик 3')
+    expect(preview.textContent).toContain('Смирнов — высокая, пик 2')
+    expect(preview.textContent).toContain('Даты: без изменений')
+    expect(preview.textContent).toContain('Статус: без изменений')
+    expect(preview.textContent).toContain('Зависимости: без изменений')
+  })
+
+  it('keeps reassignment preview open and reports an update failure', async () => {
+    render(<ImpactPanel workspace={workloadWorkspace()} onApplyTaskReassignment={vi.fn().mockRejectedValue(new Error('Сотрудник недоступен'))} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Посмотреть перераспределение' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить перераспределение' }))
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Сотрудник недоступен')
+    expect(document.querySelector('[data-reassignment-preview="true"]')).not.toBeNull()
+  })
+
+  it('updates workload and recommendations after confirmed reassignment', async () => {
+    function Harness() {
+      const [value, setValue] = useState(workloadWorkspace)
+      return <ImpactPanel
+        workspace={value}
+        onApplyTaskReassignment={async (preview) => setValue((current) => rebuildWorkspaceDerivedState({
+          ...current,
+          tasks: current.tasks.map((task) => task.id === preview.taskId ? { ...task, assigneeId: preview.candidateEmployeeId } : task),
+        }))}
+        onPreviewScheduleShift={async () => { throw new Error('not called') }}
+        onApplyScheduleShift={async () => undefined}
+        onTaskSelect={() => undefined}
+      />
+    }
+    const { container } = render(<Harness />)
+    expect(container.textContent).toContain('пик Смирнов снизится с 3 до 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Посмотреть перераспределение' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить перераспределение' }))
+
+    await waitFor(() => expect(container.querySelector('[data-reassignment-preview="true"]')).toBeNull())
+    expect(container.textContent).not.toContain('пик Смирнов снизится с 3 до 2')
+    expect(container.textContent).toContain('Смирноввысокая · пик 2')
+    expect(container.textContent).toContain('Петровнормальная · пик 1')
   })
 
   it('shows the successor and human-readable dates for a dependency conflict', () => {
