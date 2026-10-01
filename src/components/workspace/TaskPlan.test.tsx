@@ -19,9 +19,10 @@ function renderPlan() {
 }
 
 describe('TaskList schedule insights', () => {
-  it('defaults to the attention filter and shows filter counts', () => {
+  it('defaults to the all filter and shows filter counts', () => {
     const markup = renderPlan()
     expect(markup).toContain('aria-pressed="true"')
+    expect(markup).toContain('>Все <span class="opacity-70">4</span></button>')
     expect(markup).toContain('Требуют внимания')
     expect(markup).toContain('Все <span class="opacity-70">4</span>')
   })

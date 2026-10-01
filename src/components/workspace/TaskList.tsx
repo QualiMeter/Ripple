@@ -79,7 +79,7 @@ export function handleTaskPlanRowClick(event: Pick<MouseEvent<HTMLElement>, 'tar
 }
 
 export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, slackDaysByTaskId, projectedProjectEndDate, currentIssues, dependencies = [], today = getTodayIsoDate(), onTaskSelect, onTaskCreate, selectedFilter, onFilterChange }: TaskListProps) {
-  const [localFilter, setLocalFilter] = useState<TaskPlanFilter>('attention')
+  const [localFilter, setLocalFilter] = useState<TaskPlanFilter>('all')
   const filter = selectedFilter ?? localFilter
   const rows = useMemo(() => buildTaskPlanRows({ tasks, dependencies, criticalTaskIds, slackDaysByTaskId, currentIssues, today }), [tasks, dependencies, criticalTaskIds, slackDaysByTaskId, currentIssues, today])
   const counts = useMemo(() => countTaskPlanFilters(rows, tasks, affectedTaskIds, criticalTaskIds, currentIssues), [rows, tasks, affectedTaskIds, criticalTaskIds, currentIssues])
