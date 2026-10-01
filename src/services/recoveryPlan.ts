@@ -209,6 +209,7 @@ export function buildRecoveryPlan(workspace: ProjectWorkspace, backendPreview?: 
       return source?.level === 'high' || source?.level === 'elevated'
     })
     .map((suggestion) => buildTaskReassignmentPreview(workspace, suggestion))
+    .filter((preview): preview is TaskReassignmentPreview => preview !== null)
   reassignmentPreviews.forEach((reassignmentPreview) => {
     options.push({
       type: 'workload-reassignment',
