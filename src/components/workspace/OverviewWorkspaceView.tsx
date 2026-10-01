@@ -30,7 +30,7 @@ export function OverviewWorkspaceView({ workspace, timelineDraft, onTaskSelect, 
 }) {
   const displayWorkspace = timelineDraft?.userDraftWorkspace ?? workspace
   const [recoveryHighlightedTaskIds, setRecoveryHighlightedTaskIds] = useState<string[]>([])
-  const [taskPlanFilter, setTaskPlanFilter] = useState<TaskPlanFilter>('all')
+  const [taskPlanFilter, setTaskPlanFilter] = useState<TaskPlanFilter>('attention')
   const today = getTodayIsoDate()
   const filteredTaskIds = useMemo(() => {
     const rows = buildTaskPlanRows({ tasks: displayWorkspace.tasks, dependencies: displayWorkspace.dependencies, criticalTaskIds: displayWorkspace.impact.criticalTaskIds, slackDaysByTaskId: displayWorkspace.impact.slackDaysByTaskId, currentIssues: displayWorkspace.currentIssues, today })
