@@ -6,7 +6,7 @@ import { ImpactPanel } from './ImpactPanel'
 import { MetricCards } from './MetricCards'
 import { TaskList } from './TaskList'
 import { Timeline } from './Timeline'
-import type { TimelineDraftPreview } from '../../services/timelineDraft'
+import type { TimelineDraftApplyMode, TimelineDraftPreview } from '../../services/timelineDraft'
 import type { TaskReassignmentPreview } from '../../services/taskReassignment'
 
 export function OverviewWorkspaceView({ workspace, timelineDraft, onTaskSelect, onTaskCreate, onTaskDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onApplyTaskReassignment, onCreateDependency, onPreviewScheduleShift, onApplyScheduleShift, requestedPreviewSourceId, onRequestedPreviewHandled }: {
@@ -15,7 +15,7 @@ export function OverviewWorkspaceView({ workspace, timelineDraft, onTaskSelect, 
   onTaskSelect: (taskId: string) => void
   onTaskCreate: () => void
   onTaskDraft: (taskId: string, update: TaskUpdateRequest) => void
-  onApplyTimelineDraft: () => Promise<void>
+  onApplyTimelineDraft: (mode: TimelineDraftApplyMode) => Promise<void>
   onCancelTimelineDraft: () => void
   onViewWorkload: () => void
   onApplyTaskReassignment?: (preview: TaskReassignmentPreview) => Promise<void>
@@ -25,7 +25,7 @@ export function OverviewWorkspaceView({ workspace, timelineDraft, onTaskSelect, 
   requestedPreviewSourceId?: string | null
   onRequestedPreviewHandled?: () => void
 }) {
-  const displayWorkspace = timelineDraft?.workspace ?? workspace
+  const displayWorkspace = timelineDraft?.userDraftWorkspace ?? workspace
   return <>
     <MetricCards workspace={displayWorkspace} />
     <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_330px]">

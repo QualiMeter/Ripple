@@ -62,6 +62,26 @@ function workloadWorkspace(): ProjectWorkspace {
   })
 }
 
+function timelineDraft(overrides: Partial<TimelineDraftPreview> = {}): TimelineDraftPreview {
+  const recommendedSchedulePreview = { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-04', projectEndShiftDays: 0 }
+  return {
+    sourceTaskId: 'a',
+    sourceUpdate: { endDate: '2026-10-06' },
+    recommendedSourceUpdate: { endDate: '2026-10-06' },
+    userTaskChanges: [{ taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' }],
+    recommendedTaskChanges: [{ taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' }],
+    recommendedSchedulePreview,
+    currentProjectEndDate: '2026-10-04',
+    userDraftProjectEndDate: '2026-10-06',
+    recommendedProjectEndDate: '2026-10-06',
+    recommendedProjectEndDeltaDays: 2,
+    existingConflicts: [], draftConflicts: [], resolvedConflicts: [], remainingConflicts: [], completedManualTaskIds: [],
+    userDraftWorkspace: workspace,
+    recommendedWorkspace: workspace,
+    ...overrides,
+  }
+}
+
 describe('ImpactPanel current issues', () => {
   it('shows all issue categories and their total count', () => {
     const { container } = render(<ImpactPanel workspace={workspace} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
@@ -311,34 +331,40 @@ describe('ImpactPanel current issues', () => {
   })
 
   it('shows a timeline draft with downstream changes and the project end delta', () => {
-    const draft: TimelineDraftPreview = {
-      sourceTaskId: 'a', sourceUpdate: { endDate: '2026-10-06' }, workspace,
-      taskChanges: [
+    const draft = timelineDraft({
+      userTaskChanges: [
+        { taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' },
+      ],
+      recommendedTaskChanges: [
         { taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' },
         { taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-07', proposedEndDate: '2026-10-08' },
       ],
-      schedulePreview: { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-08', projectEndShiftDays: 4 },
-      currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-08', projectEndDeltaDays: 4,
-      existingConflicts: [], draftConflicts: [], resolvedConflicts: [],
-      remainingConflicts: [], completedManualTaskIds: [],
-    }
-    const { container } = render(<ImpactPanel workspace={workspace} timelineDraft={draft} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
-    expect(container.textContent).toContain('Черновик · 2 изменений')
+      recommendedProjectEndDate: '2026-10-08', recommendedProjectEndDeltaDays: 4,
+    })
+    const onApply = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(<ImpactPanel workspace={workspace} timelineDraft={draft} onApplyTimelineDraft={onApply} onCancelTimelineDraft={() => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
+    expect(container.textContent).toContain('Черновик · 1 изменение')
+    expect(container.textContent).toContain('Ваше изменение')
+    expect(container.textContent).toContain('Рекомендуемое исправление')
     expect(container.querySelector('[data-draft-task-id="a"]')).not.toBeNull()
-    expect(container.querySelector('[data-draft-task-id="b"]')).not.toBeNull()
+    expect(container.querySelector('[data-draft-task-id="b"]')).toBeNull()
+    expect(container.querySelector('[data-recommended-task-id="b"]')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Применить как есть' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Применить с исправлением зависимостей' })).toBeTruthy()
     expect(container.textContent).toContain('+4 дн.')
+    fireEvent.click(screen.getByRole('button', { name: 'Применить с исправлением зависимостей' }))
+    expect(onApply).toHaveBeenCalledWith('with-dependency-fix')
   })
 
   it('describes a draft dependency conflict through the successor instead of the completed predecessor', () => {
-    const draft: TimelineDraftPreview = {
-      sourceTaskId: 'b', sourceUpdate: { startDate: '2026-10-02' }, workspace,
-      taskChanges: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-02', proposedEndDate: '2026-10-03' }],
-      schedulePreview: { projectId: 'project', sourceTaskId: 'b', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-03', projectEndShiftDays: -1 },
-      currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-03', projectEndDeltaDays: -1,
+    const draft = timelineDraft({
+      sourceTaskId: 'b', sourceUpdate: { startDate: '2026-10-02' }, recommendedSourceUpdate: { startDate: '2026-10-03', endDate: '2026-10-04' },
+      userTaskChanges: [{ taskId: 'b', currentStartDate: '2026-10-03', currentEndDate: '2026-10-04', proposedStartDate: '2026-10-02', proposedEndDate: '2026-10-03' }],
+      recommendedTaskChanges: [],
       existingConflicts: [],
       draftConflicts: [{ key: 'a:b:finish-to-start', predecessorTaskId: 'a', successorTaskId: 'b', predecessorEndDate: '2026-10-02', successorStartDate: '2026-10-02', earliestStartDate: '2026-10-03' }],
       resolvedConflicts: [], remainingConflicts: [], completedManualTaskIds: [],
-    }
+    })
     const { container } = render(<ImpactPanel workspace={{ ...workspace, tasks: [{ ...workspace.tasks[0], status: 'completed' }, workspace.tasks[1]] }} timelineDraft={draft} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
 
     expect(container.textContent).toContain('B начинается раньше допустимой даты после «A»')
@@ -347,21 +373,14 @@ describe('ImpactPanel current issues', () => {
   })
 
   it('cancels without applying and applies only after explicit confirmation', async () => {
-    const draft: TimelineDraftPreview = {
-      sourceTaskId: 'a', sourceUpdate: { endDate: '2026-10-06' }, workspace,
-      taskChanges: [{ taskId: 'a', currentStartDate: '2026-10-01', currentEndDate: '2026-10-02', proposedStartDate: '2026-10-01', proposedEndDate: '2026-10-06' }],
-      schedulePreview: { projectId: 'project', sourceTaskId: 'a', taskShifts: [], currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-06', projectEndShiftDays: 2 },
-      currentProjectEndDate: '2026-10-04', proposedProjectEndDate: '2026-10-06', projectEndDeltaDays: 2,
-      existingConflicts: [], draftConflicts: [], resolvedConflicts: [],
-      remainingConflicts: [], completedManualTaskIds: [],
-    }
+    const draft = timelineDraft()
     const onCancel = vi.fn()
     const onApply = vi.fn().mockResolvedValue(undefined)
     render(<ImpactPanel workspace={workspace} timelineDraft={draft} onApplyTimelineDraft={onApply} onCancelTimelineDraft={onCancel} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: 'Отменить' }))
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onApply).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Применить изменения' }))
-    await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Применить как есть' }))
+    await waitFor(() => expect(onApply).toHaveBeenCalledWith('as-is'))
   })
 })

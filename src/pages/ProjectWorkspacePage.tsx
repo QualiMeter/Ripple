@@ -32,7 +32,7 @@ import { projectRealtime } from '../realtime/projectRealtime'
 import { undoServerHistoryAndSynchronize } from '../services/history/serverHistoryActions'
 import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfterMutation } from '../services/history/historySyncPolicy'
 import { downloadProjectDiagnostics } from '../services/projectDiagnostics'
-import { applyTimelineDraftPreview, buildTimelineDraftPreview, type TimelineDraftPreview } from '../services/timelineDraft'
+import { applyTimelineDraftPreview, buildTimelineDraftPreview, type TimelineDraftApplyMode, type TimelineDraftPreview } from '../services/timelineDraft'
 import { projectTransferApi } from '../api/projectTransfer.api'
 import { downloadProjectExport } from '../services/projectTransfer'
 import { applyTaskReassignment, type TaskReassignmentPreview } from '../services/taskReassignment'
@@ -217,12 +217,12 @@ export function ProjectWorkspacePage() {
   const handleTimelineDraft = (taskId: string, update: TaskUpdateRequest) => {
     setTimelineDraft(buildTimelineDraftPreview(workspace, taskId, update))
   }
-  const handleTimelineDraftApply = async () => {
+  const handleTimelineDraftApply = async (mode: TimelineDraftApplyMode) => {
     if (!timelineDraft) return
     const beforeTask = workspace.tasks.find((task) => task.id === timelineDraft.sourceTaskId)
     if (!beforeTask) throw new Error('Задача не найдена.')
     try {
-      const result = await applyTimelineDraftPreview(workspace, timelineDraft, projectService)
+      const result = await applyTimelineDraftPreview(workspace, timelineDraft, projectService, mode)
       const afterTask = result.sourceWorkspace.tasks.find((task) => task.id === timelineDraft.sourceTaskId)!
       const event = taskUpdatedEvent(projectId, beforeTask, afterTask)
       if (Object.keys(event.after ?? {}).length > 0) recordHistory(event)

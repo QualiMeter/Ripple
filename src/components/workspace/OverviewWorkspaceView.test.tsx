@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { ProjectWorkspace } from '../../types/workspace'
+import { buildTimelineDraftPreview } from '../../services/timelineDraft'
+import { rebuildWorkspaceDerivedState } from '../../services/workspaceState'
 import { OverviewWorkspaceView } from './OverviewWorkspaceView'
 
 const workspace: ProjectWorkspace = {
@@ -20,5 +22,26 @@ describe('Overview workspace', () => {
     expect(markup).toContain('Последствия изменения')
     expect(markup).toContain('Что требует внимания')
     expect(markup).toContain('Автоматический сдвиг')
+  })
+
+  it('renders exact user draft dates and keeps its dependency conflict visible on Gantt', () => {
+    const value = rebuildWorkspaceDerivedState({
+      ...workspace,
+      tasks: [
+        { ...workspace.tasks[0], id: 'architecture', title: 'Architecture', startDate: '2026-10-01', endDate: '2026-10-05' },
+        { ...workspace.tasks[0], id: 'backend', title: 'Backend', startDate: '2026-10-06', endDate: '2026-10-12' },
+      ],
+      dependencies: [{ id: 'architecture-backend', projectId: 'project', predecessorTaskId: 'architecture', successorTaskId: 'backend', type: 'finish-to-start' }],
+    })
+    const draft = buildTimelineDraftPreview(value, 'backend', { startDate: '2026-10-04', endDate: '2026-10-10' })
+    const markup = renderToStaticMarkup(<OverviewWorkspaceView workspace={value} timelineDraft={draft} onTaskSelect={() => undefined} onTaskCreate={() => undefined} onTaskDraft={() => undefined} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onViewWorkload={() => undefined} onCreateDependency={async () => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} />)
+
+    expect(markup).toContain('data-timeline-task-target="backend"')
+    expect(markup).toContain('data-task-start-date="2026-10-04"')
+    expect(markup).toContain('data-task-end-date="2026-10-10"')
+    expect(markup).toContain('data-task-schedule-conflict="true"')
+    expect(draft.recommendedTaskChanges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ taskId: 'backend', proposedStartDate: '2026-10-06', proposedEndDate: '2026-10-12' }),
+    ]))
   })
 })

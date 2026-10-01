@@ -9,14 +9,15 @@ import { formatAnalysisTime, formatFullDate, formatShortDate } from '../../utils
 import { getErrorMessage } from '../../utils/error'
 import { describeScheduleConflict } from '../../services/scheduleConflictPresentation'
 import { buildProjectRecommendations, type ProjectRecommendationAction } from '../../services/projectRecommendations'
-import type { TimelineDraftPreview } from '../../services/timelineDraft'
+import type { TimelineDraftApplyMode, TimelineDraftPreview } from '../../services/timelineDraft'
 import { analyzeTeamWorkload, WORKLOAD_LEVEL_LABELS } from '../../services/teamWorkload'
 import type { TaskReassignmentPreview } from '../../services/taskReassignment'
+import { pluralizeRu } from '../../utils/plural'
 
 interface ImpactPanelProps {
   workspace: ProjectWorkspace
   timelineDraft?: TimelineDraftPreview | null
-  onApplyTimelineDraft?: () => Promise<void>
+  onApplyTimelineDraft?: (mode: TimelineDraftApplyMode) => Promise<void>
   onCancelTimelineDraft?: () => void
   onViewWorkload?: () => void
   onApplyTaskReassignment?: (preview: TaskReassignmentPreview) => Promise<void>
@@ -36,6 +37,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   const [selectedPreviewSourceId, setSelectedPreviewSourceId] = useState('')
   const [showAllIssues, setShowAllIssues] = useState(false)
   const [isApplyingDraft, setIsApplyingDraft] = useState(false)
+  const [applyingDraftMode, setApplyingDraftMode] = useState<TimelineDraftApplyMode | null>(null)
   const [draftMessage, setDraftMessage] = useState<string | null>(null)
   const [showAllWorkload, setShowAllWorkload] = useState(false)
   const [reassignmentPreview, setReassignmentPreview] = useState<TaskReassignmentPreview | null>(null)
@@ -68,6 +70,12 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
     !shift.completedRequiresManualResolution
     && (shift.currentStartDate !== shift.proposedStartDate || shift.currentEndDate !== shift.proposedEndDate)
   )) ?? false
+  const hasRecommendedDraftCorrection = Boolean(timelineDraft && (
+    timelineDraft.recommendedTaskChanges.some((recommended) => {
+      const userChange = timelineDraft.userTaskChanges.find((change) => change.taskId === recommended.taskId)
+      return !userChange || userChange.proposedStartDate !== recommended.proposedStartDate || userChange.proposedEndDate !== recommended.proposedEndDate
+    })
+  ))
   const calculatePreview = useCallback(async (sourceTaskId: string) => {
     setIsCalculating(true)
     setPreviewMessage(null)
@@ -105,16 +113,18 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   }
   const confirmShiftWithoutDeadlineChange = () => applyPreview(false)
   const confirmShiftWithDeadlineChange = () => applyPreview(true)
-  const applyTimelineDraft = async () => {
+  const applyTimelineDraft = async (mode: TimelineDraftApplyMode) => {
     if (!onApplyTimelineDraft || isApplyingDraft) return
     setIsApplyingDraft(true)
+    setApplyingDraftMode(mode)
     setDraftMessage(null)
     try {
-      await onApplyTimelineDraft()
+      await onApplyTimelineDraft(mode)
     } catch (draftError) {
       setDraftMessage(getErrorMessage(draftError, 'Не удалось применить изменения.'))
     } finally {
       setIsApplyingDraft(false)
+      setApplyingDraftMode(null)
     }
   }
   const applyReassignment = async () => {
@@ -166,17 +176,18 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
         <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={isApplyingReassignment} onClick={() => { setReassignmentPreview(null); setReassignmentError(null) }} className="rounded-xl border border-[#dcd7ee] bg-white px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отмена</button><button type="button" disabled={isApplyingReassignment || !onApplyTaskReassignment} onClick={() => { void applyReassignment() }} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplyingReassignment ? 'Применение…' : 'Подтвердить перераспределение'}</button></div>
       </section>}
       {timelineDraft && <section className="rounded-2xl border border-[#cfc8f7] bg-[#faf9ff] p-4 shadow-panel" data-timeline-draft-preview="true">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7768ed]">Предпросмотр</p><h2 className="mt-0.5 text-sm font-bold text-[#363247]">Предпросмотр изменений</h2></div><span className="rounded-full bg-[#eeeaff] px-2 py-1 text-[9px] font-bold text-[#6254c8]">Черновик · {timelineDraft.taskChanges.length} изменений</span></div>
-        <div className="mt-3 max-h-52 space-y-2 overflow-y-auto">{timelineDraft.taskChanges.map((change) => <div key={change.taskId} data-draft-task-id={change.taskId} className="rounded-xl border border-[#e6e1fa] bg-white p-2.5"><p className="truncate text-[10px] font-bold text-[#474252]">{workspace.tasks.find((task) => task.id === change.taskId)?.title ?? change.taskId}</p><p className="mt-1 text-[10px] text-[#777181]">{formatShortDate(change.currentStartDate)}–{formatShortDate(change.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(change.proposedStartDate)}–{formatShortDate(change.proposedEndDate)}</p></div>)}</div>
-        <div className="mt-3 rounded-xl bg-[#29263e] p-3 text-white"><p className="text-[9px] text-[#bbb6ca]">Новый прогноз завершения проекта</p><p className="mt-1 text-xs font-bold">{formatShortDate(timelineDraft.currentProjectEndDate)} <ArrowRight size={11} className="mx-1 inline" /> {formatShortDate(timelineDraft.proposedProjectEndDate)} <span className="ml-1 text-[#f2a27f]">{timelineDraft.projectEndDeltaDays > 0 ? '+' : ''}{timelineDraft.projectEndDeltaDays} дн.</span></p></div>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7768ed]">Предпросмотр</p><h2 className="mt-0.5 text-sm font-bold text-[#363247]">Предпросмотр изменений</h2></div><span className="rounded-full bg-[#eeeaff] px-2 py-1 text-[9px] font-bold text-[#6254c8]">Черновик · {timelineDraft.userTaskChanges.length} {pluralizeRu(timelineDraft.userTaskChanges.length, ['изменение', 'изменения', 'изменений'])}</span></div>
+        <p className="mt-3 text-[9px] font-bold uppercase tracking-[.08em] text-[#7468bd]">Ваше изменение</p>
+        <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{timelineDraft.userTaskChanges.map((change) => <div key={change.taskId} data-draft-task-id={change.taskId} className="rounded-xl border border-[#e6e1fa] bg-white p-2.5"><p className="truncate text-[10px] font-bold text-[#474252]">{workspace.tasks.find((task) => task.id === change.taskId)?.title ?? change.taskId}</p><p className="mt-1 text-[10px] text-[#777181]">{formatShortDate(change.currentStartDate)}–{formatShortDate(change.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(change.proposedStartDate)}–{formatShortDate(change.proposedEndDate)}</p></div>)}</div>
         {timelineDraft.draftConflicts.filter((conflict) => !timelineDraft.completedManualTaskIds.includes(conflict.successorTaskId)).map((conflict) => {
           const predecessor = workspace.tasks.find((task) => task.id === conflict.predecessorTaskId)
           const successor = workspace.tasks.find((task) => task.id === conflict.successorTaskId)
           return <div key={conflict.key} className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] leading-4 text-amber-800" data-draft-conflict={conflict.key}><p className="font-semibold">{successor?.title ?? conflict.successorTaskId} начинается раньше допустимой даты после «{predecessor?.title ?? conflict.predecessorTaskId}».</p><p>Можно начать не раньше: {formatFullDate(conflict.earliestStartDate)}</p></div>
         })}
         {timelineDraft.completedManualTaskIds.length > 0 && <p className="mt-2 text-[10px] font-semibold text-rose-700">Завершённые задачи требуют ручного решения: {timelineDraft.completedManualTaskIds.map((id) => workspace.tasks.find((task) => task.id === id)?.title ?? id).join(', ')}.</p>}
+        {hasRecommendedDraftCorrection && <div className="mt-3 border-t border-[#ded9f3] pt-3" data-recommended-draft="true"><p className="text-[9px] font-bold uppercase tracking-[.08em] text-[#7468bd]">Рекомендуемое исправление</p><div className="mt-2 max-h-44 space-y-2 overflow-y-auto">{timelineDraft.recommendedTaskChanges.map((change) => <div key={change.taskId} data-recommended-task-id={change.taskId} className="rounded-xl bg-white p-2.5"><p className="truncate text-[10px] font-bold text-[#474252]">{workspace.tasks.find((task) => task.id === change.taskId)?.title ?? change.taskId}</p><p className="mt-1 text-[10px] text-[#777181]">{formatShortDate(change.currentStartDate)}–{formatShortDate(change.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(change.proposedStartDate)}–{formatShortDate(change.proposedEndDate)}</p></div>)}</div><div className="mt-2 rounded-xl bg-[#29263e] p-3 text-white"><p className="text-[9px] text-[#bbb6ca]">Новый прогноз завершения проекта</p><p className="mt-1 text-xs font-bold">{formatShortDate(timelineDraft.currentProjectEndDate)} <ArrowRight size={11} className="mx-1 inline" /> {formatShortDate(timelineDraft.recommendedProjectEndDate)} <span className="ml-1 text-[#f2a27f]">{timelineDraft.recommendedProjectEndDeltaDays > 0 ? '+' : ''}{timelineDraft.recommendedProjectEndDeltaDays} дн.</span></p></div></div>}
         {draftMessage && <p className="mt-2 text-[10px] text-rose-700" role="alert">{draftMessage}</p>}
-        <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={isApplyingDraft} onClick={onCancelTimelineDraft} className="rounded-xl border border-[#dcd7ee] bg-white px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отменить</button><button type="button" disabled={isApplyingDraft} onClick={() => { void applyTimelineDraft() }} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{isApplyingDraft ? 'Применение…' : 'Применить изменения'}</button></div>
+        <div className={`mt-3 grid gap-2 ${hasRecommendedDraftCorrection ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}><button type="button" disabled={isApplyingDraft} onClick={onCancelTimelineDraft} className="rounded-xl border border-[#dcd7ee] bg-white px-3 py-2 text-xs font-semibold text-[#625d6c] disabled:opacity-50">Отменить</button><button type="button" disabled={isApplyingDraft} onClick={() => { void applyTimelineDraft('as-is') }} className="rounded-xl bg-[#29263e] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{applyingDraftMode === 'as-is' ? 'Применение…' : 'Применить как есть'}</button>{hasRecommendedDraftCorrection && <button type="button" disabled={isApplyingDraft} onClick={() => { void applyTimelineDraft('with-dependency-fix') }} className="rounded-xl bg-[#6d5dfb] px-3 py-2 text-xs font-bold text-white disabled:opacity-60 sm:col-span-2">{applyingDraftMode === 'with-dependency-fix' ? 'Применение…' : 'Применить с исправлением зависимостей'}</button>}</div>
       </section>}
       <section className="overflow-hidden rounded-2xl border border-[#efc5b5] bg-white shadow-panel">
         <div className="border-b border-[#f1d8ce] bg-gradient-to-r from-[#fff4ee] to-[#fffaf7] px-4 py-3.5">

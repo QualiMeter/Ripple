@@ -35,27 +35,47 @@ function makeWorkspace(nextTasks: ProjectTask[], nextDependencies: Dependency[])
 }
 
 describe('timeline draft preview', () => {
-  it('includes the edited task, cascading downstream shifts and project end delta without mutating workspace', () => {
+  it('keeps only the explicit user dates in Gantt and calculates cascade separately', () => {
     const draft = buildTimelineDraftPreview(workspace, 'a', { endDate: '2026-10-07' })
-    expect(draft.taskChanges.map((change) => change.taskId)).toEqual(['a', 'b', 'c'])
-    expect(draft.taskChanges.find((change) => change.taskId === 'b')).toMatchObject({ proposedStartDate: '2026-10-08', proposedEndDate: '2026-10-10' })
-    expect(draft.taskChanges.find((change) => change.taskId === 'c')).toMatchObject({ proposedStartDate: '2026-10-11', proposedEndDate: '2026-10-13' })
-    expect(draft.projectEndDeltaDays).toBe(2)
+    expect(draft.userTaskChanges.map((change) => change.taskId)).toEqual(['a'])
+    expect(draft.userDraftWorkspace.tasks.find((task) => task.id === 'a')).toMatchObject({ endDate: '2026-10-07' })
+    expect(draft.userDraftWorkspace.tasks.find((task) => task.id === 'b')).toMatchObject({ startDate: '2026-10-06', endDate: '2026-10-08' })
+    expect(draft.userDraftWorkspace.tasks.find((task) => task.id === 'c')).toMatchObject({ startDate: '2026-10-09', endDate: '2026-10-11' })
+    expect(draft.userDraftWorkspace.currentIssues.scheduleConflicts).toHaveLength(1)
+    expect(draft.recommendedTaskChanges.find((change) => change.taskId === 'b')).toMatchObject({ proposedStartDate: '2026-10-08', proposedEndDate: '2026-10-10' })
+    expect(draft.recommendedTaskChanges.find((change) => change.taskId === 'c')).toMatchObject({ proposedStartDate: '2026-10-11', proposedEndDate: '2026-10-13' })
+    expect(draft.recommendedProjectEndDeltaDays).toBe(2)
     expect(workspace.tasks[0].endDate).toBe('2026-10-05')
   })
 
-  it('updates the workspace only through the existing update and schedule flows after Apply', async () => {
+  it('applies only the source task when user chooses as-is', async () => {
     const draft = buildTimelineDraftPreview(workspace, 'a', { endDate: '2026-10-07' })
     const sourceWorkspace = { ...workspace, tasks: workspace.tasks.map((item) => item.id === 'a' ? { ...item, endDate: '2026-10-07' } : item) }
     const port = {
       updateTask: async () => sourceWorkspace,
-      previewScheduleShift: async () => draft.schedulePreview,
-      applyScheduleShift: async () => draft.workspace,
+      previewScheduleShift: async () => { throw new Error('not called') },
+      applyScheduleShift: async () => { throw new Error('not called') },
     }
-    const result = await applyTimelineDraftPreview(workspace, draft, port)
-    expect(result.workspace.tasks.find((item) => item.id === 'c')?.endDate).toBe('2026-10-13')
+    const result = await applyTimelineDraftPreview(workspace, draft, port, 'as-is')
+    expect(result.workspace.tasks.find((item) => item.id === 'a')?.endDate).toBe('2026-10-07')
+    expect(result.workspace.tasks.find((item) => item.id === 'b')?.startDate).toBe('2026-10-06')
+    expect(result.appliedSchedulePreview).toBeNull()
     expect(workspace.tasks.find((item) => item.id === 'a')?.endDate).toBe('2026-10-05')
-    expect(result.appliedSchedulePreview).toBe(draft.schedulePreview)
+  })
+
+  it('applies the recommended source correction and downstream cascade through existing flows', async () => {
+    const draft = buildTimelineDraftPreview(workspace, 'a', { endDate: '2026-10-07' })
+    const correctedSourceWorkspace = makeWorkspace(workspace.tasks.map((item) => item.id === 'a' ? { ...item, endDate: '2026-10-07' } : item), dependencies)
+    let receivedUpdate = {}
+    const port = {
+      updateTask: async (_workspace: ProjectWorkspace, _taskId: string, update: object) => { receivedUpdate = update; return correctedSourceWorkspace },
+      previewScheduleShift: async () => draft.recommendedSchedulePreview,
+      applyScheduleShift: async () => draft.recommendedWorkspace,
+    }
+    const result = await applyTimelineDraftPreview(workspace, draft, port, 'with-dependency-fix')
+    expect(receivedUpdate).toMatchObject({ endDate: '2026-10-07' })
+    expect(result.workspace.tasks.find((item) => item.id === 'c')).toMatchObject({ startDate: '2026-10-11', endDate: '2026-10-13' })
+    expect(result.appliedSchedulePreview).toBe(draft.recommendedSchedulePreview)
   })
 
   it('does not present an unchanged existing conflict as a draft consequence', () => {
@@ -78,6 +98,8 @@ describe('timeline draft preview', () => {
       predecessorTaskId: 'a', successorTaskId: 'b', successorStartDate: '2026-10-05', earliestStartDate: '2026-10-06',
     })])
     expect(draft.remainingConflicts).toHaveLength(1)
+    expect(draft.userDraftWorkspace.tasks.find((task) => task.id === 'b')).toMatchObject({ startDate: '2026-10-05', endDate: '2026-10-07' })
+    expect(draft.recommendedTaskChanges.find((change) => change.taskId === 'b')).toMatchObject({ proposedStartDate: '2026-10-06', proposedEndDate: '2026-10-08' })
   })
 
   it('tracks a conflict resolved by the draft without showing it as remaining', () => {
@@ -103,6 +125,7 @@ describe('timeline draft preview', () => {
 
     expect(draft.draftConflicts).toEqual([expect.objectContaining({ predecessorTaskId: 'a', successorTaskId: 'b' })])
     expect(draft.completedManualTaskIds).toEqual(['b'])
+    expect(draft.recommendedWorkspace.tasks.find((task) => task.id === 'b')).toMatchObject({ startDate: '2026-10-06', endDate: '2026-10-08', status: 'completed' })
   })
 
   it('does not include an unrelated existing completed conflict in manual resolution', () => {
