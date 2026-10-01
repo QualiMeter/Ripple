@@ -29,11 +29,9 @@ interface ImpactPanelProps {
   onTaskSelect: (taskId: string) => void
   requestedPreviewSourceId?: string | null
   onRequestedPreviewHandled?: () => void
-  recoveryPlanRequestKey?: number
-  recoveryAnalysisOnly?: boolean
 }
 
-export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onApplyTaskReassignment, onShowCriticalChain, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled, recoveryPlanRequestKey = 0, recoveryAnalysisOnly = false }: ImpactPanelProps) {
+export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, onCancelTimelineDraft, onViewWorkload, onApplyTaskReassignment, onShowCriticalChain, onPreviewScheduleShift, onApplyScheduleShift, onTaskSelect, requestedPreviewSourceId, onRequestedPreviewHandled }: ImpactPanelProps) {
   const [preview, setPreview] = useState<ScheduleShiftPreview | null>(null)
   const [previewMessage, setPreviewMessage] = useState<string | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -49,7 +47,6 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   const [reassignmentError, setReassignmentError] = useState<string | null>(null)
   const [isApplyingReassignment, setIsApplyingReassignment] = useState(false)
   const [recoveryPlanOpen, setRecoveryPlanOpen] = useState(false)
-  const lastRecoveryRequestRef = useRef(0)
   const reassignmentInFlightRef = useRef(false)
   const { impact, currentIssues, tasks } = workspace
   const affected = impact.affectedTaskIds
@@ -84,17 +81,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
       return !userChange || userChange.proposedStartDate !== recommended.proposedStartDate || userChange.proposedEndDate !== recommended.proposedEndDate
     })
   ))
-  useEffect(() => {
-    if (recoveryPlanRequestKey > lastRecoveryRequestRef.current) {
-      lastRecoveryRequestRef.current = recoveryPlanRequestKey
-      setRecoveryPlanOpen(true)
-    }
-  }, [recoveryPlanRequestKey])
   const calculatePreview = useCallback(async (sourceTaskId: string) => {
-    if (recoveryAnalysisOnly) {
-      setPreviewMessage('Сначала примените или отмените текущий сценарий.')
-      return
-    }
     setIsCalculating(true)
     setPreviewMessage(null)
     try {
@@ -106,7 +93,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
     } finally {
       setIsCalculating(false)
     }
-  }, [onPreviewScheduleShift, recoveryAnalysisOnly])
+  }, [onPreviewScheduleShift])
 
   useEffect(() => {
     if (!requestedPreviewSourceId) return
@@ -161,10 +148,6 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
     }
   }
   const handleRecommendationAction = (action: ProjectRecommendationAction) => {
-    if (recoveryAnalysisOnly) {
-      setPreviewMessage('Сначала примените или отмените текущий сценарий.')
-      return
-    }
     if (action.type === 'preview-shift') {
       void calculatePreview(action.sourceTaskId)
       return
@@ -185,7 +168,7 @@ export function ImpactPanel({ workspace, timelineDraft, onApplyTimelineDraft, on
   }
   return (
     <aside className="space-y-3">
-      {recoveryPlanOpen && <RecoveryPlan workspace={workspace} onClose={() => setRecoveryPlanOpen(false)} onPreviewScheduleShift={onPreviewScheduleShift} onApplyScheduleShift={onApplyScheduleShift} onApplyTaskReassignment={onApplyTaskReassignment} onShowCriticalChain={onShowCriticalChain ?? (() => undefined)} onTaskSelect={onTaskSelect} analysisOnly={recoveryAnalysisOnly} />}
+      {recoveryPlanOpen && <RecoveryPlan workspace={workspace} onClose={() => setRecoveryPlanOpen(false)} onPreviewScheduleShift={onPreviewScheduleShift} onApplyScheduleShift={onApplyScheduleShift} onApplyTaskReassignment={onApplyTaskReassignment} onShowCriticalChain={onShowCriticalChain ?? (() => undefined)} onTaskSelect={onTaskSelect} />}
       {reassignmentPreview && <section className="rounded-2xl border border-[#cfc8f7] bg-[#faf9ff] p-4 shadow-panel" data-reassignment-preview="true">
         <div><p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#7768ed]">Предпросмотр</p><h2 className="mt-0.5 text-sm font-bold text-[#363247]">Перераспределение задачи</h2></div>
         <div className="mt-3 rounded-xl border border-[#e6e1fa] bg-white p-3"><p className="text-xs font-bold text-[#474252]">{reassignmentPreview.taskTitle}</p><p className="mt-1 text-[10px] font-semibold text-[#6f6879]" aria-label={`${reassignmentPreview.sourceEmployeeName} → ${reassignmentPreview.candidateEmployeeName}`}>{reassignmentPreview.sourceEmployeeName} <ArrowRight size={11} className="mx-1 inline" /> {reassignmentPreview.candidateEmployeeName}</p></div>
