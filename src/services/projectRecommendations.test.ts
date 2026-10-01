@@ -69,7 +69,9 @@ describe('project recommendations', () => {
       { id: 'idle', projectId: 'project', name: 'Петров' },
     ]
     const recommendations = buildProjectRecommendations(value)
-    expect(recommendations).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'team-workload', title: 'Неравномерная загрузка команды', action: { type: 'view-workload', label: 'Посмотреть загрузку' } })]))
+    expect(recommendations).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'team-schedule-load', title: 'Высокая плановая нагрузка', action: { type: 'view-workload', label: 'Посмотреть загрузку' } })]))
+    expect(recommendations[0].recommendation).toContain('По текущему расписанию минимальную дополнительную нагрузку получит Петров')
+    expect(recommendations[0].recommendation).toContain('не учитывает компетенции')
     expect(recommendations).toHaveLength(1)
   })
 
@@ -88,10 +90,28 @@ describe('project recommendations', () => {
     const recommendations = buildProjectRecommendations(value)
 
     expect(recommendations).toEqual([expect.objectContaining({
-      id: 'team-high-workload',
-      title: 'Высокая параллельная загрузка',
-      description: expect.stringContaining('Сергей ведёт 3 задачи одновременно'),
+      id: 'team-schedule-load',
+      title: 'Высокая плановая нагрузка',
+      description: expect.stringContaining('параллельная работа длится'),
     })])
+  })
+
+  it('describes clustered short work as fragmented without inventing competence data', () => {
+    const shortTasks = Array.from({ length: 6 }, (_, index) => task(`short-${index}`, `2026-09-0${index + 1}`, `2026-09-0${index + 1}`))
+    const longTasks = Array.from({ length: 7 }, (_, index) => ({
+      ...task(`long-${index}`, '2026-10-01', '2026-10-14'),
+      assigneeId: `external-${index}`,
+    }))
+    const value = workspace([...shortTasks, ...longTasks])
+    value.assignees = [
+      { id: 'employee', projectId: 'project', name: 'Сергей' },
+      { id: 'second', projectId: 'project', name: 'Антон' },
+      { id: 'third', projectId: 'project', name: 'Петров' },
+    ]
+
+    expect(buildProjectRecommendations(value)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'team-fragmented-workload', title: 'Фрагментированная загрузка' }),
+    ]))
   })
 
   it('returns no more than three attention cards', () => {

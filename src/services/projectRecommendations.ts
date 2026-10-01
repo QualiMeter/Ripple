@@ -2,8 +2,7 @@ import type { ProjectWorkspace } from '../types/workspace'
 import { pluralizeRu } from '../utils/plural'
 import { differenceInDays } from './scheduleEngine'
 import { describeScheduleConflict } from './scheduleConflictPresentation'
-import { analyzeTeamWorkloadAttention, type EmployeeWorkload } from './teamWorkload'
-import { formatFullDate } from '../utils/date'
+import { analyzeTeamWorkloadAttention } from './teamWorkload'
 
 export type ProjectRecommendationAction =
   | { type: 'preview-shift'; sourceTaskId: string; label: string }
@@ -18,13 +17,6 @@ export interface ProjectRecommendation {
   recommendation: string
   tone: 'danger' | 'warning' | 'success'
   action?: ProjectRecommendationAction
-}
-
-function formatWorkloadPeriod(workload: EmployeeWorkload): string {
-  if (!workload.peakStartDate || !workload.peakEndDate) return ''
-  return workload.peakStartDate === workload.peakEndDate
-    ? formatFullDate(workload.peakStartDate)
-    : `${formatFullDate(workload.peakStartDate)}–${formatFullDate(workload.peakEndDate)}`
 }
 
 export function buildProjectRecommendations(workspace: ProjectWorkspace): ProjectRecommendation[] {
@@ -102,27 +94,19 @@ export function buildProjectRecommendations(workspace: ProjectWorkspace): Projec
   }
 
   const workloadAttention = analyzeTeamWorkloadAttention(workspace.assignees, tasks)
-  const imbalance = workloadAttention.imbalance
-  if (imbalance && recommendations.length < 4) {
-    const { overloaded, idleEmployeeNames } = imbalance
-    const period = formatWorkloadPeriod(overloaded)
+  const workload = workloadAttention.primary
+  if (workload && recommendations.length < 4) {
+    const candidate = workloadAttention.reassignment?.candidate
+    const candidateNote = candidate
+      ? ` По текущему расписанию минимальную дополнительную нагрузку получит ${candidate.employeeName}.`
+      : ''
+    const fragmented = workload.primaryFactor === 'fragmented'
     recommendations.push({
-      id: 'team-workload',
-      title: 'Неравномерная загрузка команды',
-      description: `${overloaded.employeeName} ведёт ${overloaded.maxConcurrentTasks} ${pluralizeRu(overloaded.maxConcurrentTasks, ['задачу', 'задачи', 'задач'])} одновременно (${period}). Без активных задач в этот период: ${idleEmployeeNames.join(', ')}.`,
-      affectedTaskIds: overloaded.peakTaskIds,
-      recommendation: 'Проверить возможность перераспределения одной из задач',
-      tone: 'warning',
-      action: { type: 'view-workload', label: 'Посмотреть загрузку' },
-    })
-  } else if (workloadAttention.highWorkloads.length > 0 && recommendations.length < 4) {
-    const highWorkload = workloadAttention.highWorkloads[0]
-    recommendations.push({
-      id: 'team-high-workload',
-      title: 'Высокая параллельная загрузка',
-      description: `${highWorkload.employeeName} ведёт ${highWorkload.maxConcurrentTasks} ${pluralizeRu(highWorkload.maxConcurrentTasks, ['задачу', 'задачи', 'задач'])} одновременно (${formatWorkloadPeriod(highWorkload)}).`,
-      affectedTaskIds: highWorkload.peakTaskIds,
-      recommendation: 'Проверить распределение работ',
+      id: fragmented ? 'team-fragmented-workload' : 'team-schedule-load',
+      title: fragmented ? 'Фрагментированная загрузка' : workload.level === 'high' ? 'Высокая плановая нагрузка' : 'Повышенная плановая нагрузка',
+      description: `${workload.employeeName}: ${workload.reasons.join('; ').replace(/^./, (value) => value.toLowerCase())}.`,
+      affectedTaskIds: workload.peakTaskIds,
+      recommendation: `Проверить возможность перераспределения части работ.${candidateNote} Оценка не учитывает компетенции и фактическую трудоёмкость.`,
       tone: 'warning',
       action: { type: 'view-workload', label: 'Посмотреть загрузку' },
     })

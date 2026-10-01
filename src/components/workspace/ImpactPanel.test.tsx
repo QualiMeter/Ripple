@@ -78,9 +78,10 @@ describe('ImpactPanel current issues', () => {
     const { container } = render(<ImpactPanel workspace={{ ...workspace, tasks, assignees }} onViewWorkload={onViewWorkload} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} onTaskSelect={() => undefined} />)
 
     const summary = container.querySelector('[data-team-workload-summary="true"]')!
-    expect(summary.textContent).toContain('Сергей3 одновременно')
-    expect(summary.textContent).toContain('Антон1 одновременно')
-    expect(summary.querySelector('[aria-label="Высокая параллельная загрузка"]')).not.toBeNull()
+    expect(summary.textContent).toContain('Сергейповышенная · пик 3')
+    expect(summary.textContent).toContain('Антоннормальная · пик 1')
+    expect(summary.textContent).toContain('не учитывает компетенции и фактическую трудоёмкость')
+    expect(summary.querySelector('[aria-label="Повышенная плановая нагрузка"]')).not.toBeNull()
     fireEvent.click(summary.querySelector('button')!)
     expect(onViewWorkload).toHaveBeenCalledTimes(1)
   })
