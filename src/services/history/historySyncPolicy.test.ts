@@ -4,7 +4,7 @@ import { beginHistoryVisit, shouldLoadHistoryForVisit, shouldRefreshHistoryAfter
 
 const cached: ServerHistoryEntry = {
   source: 'server', id: 'entry', projectId: 'project', operationType: 'task-updated',
-  description: 'Изменение', createdAt: '2026-09-28T00:00:00Z', canUndo: true,
+  description: 'Изменение', createdAt: '2026-09-28T00:00:00Z', canUndo: true, isCurrent: true,
 }
 
 describe('history synchronization policy', () => {

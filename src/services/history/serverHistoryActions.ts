@@ -12,7 +12,7 @@ export class HistoryUndoAlreadyAppliedError extends Error {
 }
 
 function isUnavailable(entry: ServerHistoryEntry | undefined): boolean {
-  return Boolean(entry && (!entry.canUndo || entry.undone))
+  return Boolean(entry && (!entry.canUndo || !entry.isCurrent || entry.undone))
 }
 
 export async function undoServerHistoryEntry(
@@ -26,7 +26,7 @@ export async function undoServerHistoryEntry(
   try {
     const response = await api.undoHistoryEntry(projectId, historyId)
     session.markUndone(projectId, historyId)
-    return session.upsert(projectId, { ...response, canUndo: false, undone: true })
+    return session.upsert(projectId, { ...response, canUndo: false, isCurrent: false, undone: true })
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 409)) {
       const refreshed = await session.refresh(projectId, api).catch(() => session.get(projectId) ?? [])

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { ServerHistoryEntry } from './historyTypes'
 import { getLatestUndoableHistoryEntryId } from './sequentialUndo'
 
-function entry(id: string, createdAt: string, canUndo = true, undone = false): ServerHistoryEntry {
-  return { source: 'server', id, projectId: 'project', operationType: 'task.update', description: id, createdAt, canUndo, undone }
+function entry(id: string, createdAt: string, canUndo = true, undone = false, isCurrent = true): ServerHistoryEntry {
+  return { source: 'server', id, projectId: 'project', operationType: 'task.update', description: id, createdAt, canUndo, isCurrent, undone }
 }
 
 describe('sequential History Undo', () => {
@@ -14,6 +14,13 @@ describe('sequential History Undo', () => {
       entry('C', '2026-09-30T12:00:00Z'),
     ]
     expect(getLatestUndoableHistoryEntryId(entries)).toBe('C')
-    expect(getLatestUndoableHistoryEntryId(entries.map((item) => item.id === 'C' ? { ...item, canUndo: false, undone: true } : item))).toBe('B')
+    expect(getLatestUndoableHistoryEntryId(entries.map((item) => item.id === 'C' ? { ...item, canUndo: false, isCurrent: false, undone: true } : item))).toBe('B')
+  })
+
+  it('does not offer a non-current entry after a page reload even if canUndo is true', () => {
+    expect(getLatestUndoableHistoryEntryId([
+      entry('A', '2026-09-30T10:00:00Z'),
+      entry('B', '2026-09-30T11:00:00Z', true, false, false),
+    ])).toBe('A')
   })
 })

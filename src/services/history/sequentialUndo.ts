@@ -2,7 +2,7 @@ import { isServerHistoryEntry, type HistoryEntry } from './historyTypes'
 
 export function isHistoryEntryUndoable(entry: HistoryEntry): boolean {
   return isServerHistoryEntry(entry)
-    ? entry.canUndo && !entry.undone
+    ? entry.canUndo && entry.isCurrent && !entry.undone
     : entry.revertStatus === 'available'
 }
 

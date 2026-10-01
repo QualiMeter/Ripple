@@ -54,7 +54,7 @@ function entryTitle(entry: HistoryEntry): string {
 }
 
 function entryStatus(entry: HistoryEntry): 'available' | 'unavailable' | 'reverted' {
-  if (isServerHistoryEntry(entry)) return entry.undone ? 'reverted' : entry.canUndo ? 'available' : 'unavailable'
+  if (isServerHistoryEntry(entry)) return entry.undone || !entry.isCurrent ? 'reverted' : entry.canUndo ? 'available' : 'unavailable'
   return entry.revertStatus
 }
 
@@ -95,14 +95,20 @@ export function HistoryView({ entries, workspace, onRevert, source = 'local', lo
     return result
   }, []), [entries, visibleCount])
   const revertPlan = reverting ? isServerHistoryEntry(reverting)
-    ? { allowed: reverting.canUndo, reason: reverting.canUndo ? undefined : 'Откат этой записи недоступен.', changes: [] }
+    ? {
+        allowed: reverting.canUndo && reverting.isCurrent && !reverting.undone,
+        reason: reverting.undone || !reverting.isCurrent
+          ? 'Это изменение уже было отменено.'
+          : reverting.canUndo ? undefined : 'Откат этой записи недоступен.',
+        changes: [],
+      }
     : buildHistoryRevertPlan(reverting, workspace) : null
 
   const confirmRevert = async () => {
     if (!reverting || !revertPlan?.allowed) return
     if (undoInFlightRef.current) return
     const currentEntry = entries.find((entry) => entry.id === reverting.id)
-    if (isServerHistoryEntry(reverting) && currentEntry && isServerHistoryEntry(currentEntry) && (!currentEntry.canUndo || currentEntry.undone)) {
+    if (isServerHistoryEntry(reverting) && currentEntry && isServerHistoryEntry(currentEntry) && (!currentEntry.canUndo || !currentEntry.isCurrent || currentEntry.undone)) {
       setReverting(null)
       setError(null)
       setSuccess(null)

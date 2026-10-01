@@ -30,7 +30,7 @@ function workspace(taskStartDate: string, taskEndDate: string, targetEndDate: st
 function historyApi(): HistoryApi {
   const undoneEntry = {
     source: 'server' as const, id: 'shift-history', projectId: 'project', operationType: 'ScheduleShift',
-    description: 'Автоматический сдвиг', createdAt: '2026-09-20T00:00:00.000Z', canUndo: false, undone: true,
+    description: 'Автоматический сдвиг', createdAt: '2026-09-20T00:00:00.000Z', canUndo: false, isCurrent: false, undone: true,
   }
   return {
     listHistory: vi.fn().mockResolvedValue([undoneEntry]),
@@ -42,7 +42,7 @@ function session(): ServerHistorySession {
   const value = new ServerHistorySession()
   value.upsert('project', {
     source: 'server', id: 'shift-history', projectId: 'project', operationType: 'ScheduleShift',
-    description: 'Автоматический сдвиг', createdAt: '2026-09-20T00:00:00.000Z', canUndo: true,
+    description: 'Автоматический сдвиг', createdAt: '2026-09-20T00:00:00.000Z', canUndo: true, isCurrent: true,
   })
   return value
 }

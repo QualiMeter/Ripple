@@ -101,6 +101,7 @@ export interface ChangeHistoryDto {
   description: string
   createdAt: string
   canUndo: boolean
+  isCurrent: boolean
 }
 
 export interface ProjectDiagnosticsDto {

@@ -6,12 +6,12 @@ import { createLocalHistoryStorage } from './historyStorage'
 import { HistoryUndoAlreadyAppliedError, undoServerHistoryEntry } from './serverHistoryActions'
 import { ServerHistorySession } from './serverHistorySession'
 
-const serverEntry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-09-27T10:00:00Z', canUndo: true }
+const serverEntry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-09-27T10:00:00Z', canUndo: true, isCurrent: true }
 
 function api(overrides: Partial<HistoryApi> = {}): HistoryApi {
   return {
     listHistory: vi.fn().mockResolvedValue([serverEntry]),
-    undoHistoryEntry: vi.fn().mockResolvedValue({ ...serverEntry, canUndo: false }),
+    undoHistoryEntry: vi.fn().mockResolvedValue({ ...serverEntry, canUndo: false, isCurrent: false }),
     ...overrides,
   }
 }
@@ -63,7 +63,7 @@ describe('ServerHistorySession', () => {
   it('treats 409 as synchronized only when refreshed history is unavailable', async () => {
     const service = api({
       undoHistoryEntry: vi.fn().mockRejectedValue(new ApiError(409, 'already undone')),
-      listHistory: vi.fn().mockResolvedValue([{ ...serverEntry, canUndo: false }]),
+      listHistory: vi.fn().mockResolvedValue([{ ...serverEntry, canUndo: false, isCurrent: false }]),
     })
     const session = new ServerHistorySession()
     await expect(undoServerHistoryEntry('project', 'abc', service, session)).rejects.toBeInstanceOf(HistoryUndoAlreadyAppliedError)
@@ -90,7 +90,7 @@ describe('ServerHistorySession', () => {
   it('marks a history entry as undone without blocking other updates', async () => {
     const session = new ServerHistorySession()
     await session.load('project', api())
-    expect(session.markUndone('project', 'abc')[0]).toMatchObject({ canUndo: false, undone: true })
+    expect(session.markUndone('project', 'abc')[0]).toMatchObject({ canUndo: false, isCurrent: false, undone: true })
     expect(session.upsert('project', { ...serverEntry, id: 'next' })).toHaveLength(2)
   })
 })

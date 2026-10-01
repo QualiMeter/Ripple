@@ -8,7 +8,7 @@ export class ServerHistorySession {
 
   private normalize(entries: ServerHistoryEntry[]): ServerHistoryEntry[] {
     return [...entries]
-      .map((entry) => this.undoneIds.has(entry.id) ? { ...entry, canUndo: false, undone: true } : entry)
+      .map((entry) => this.undoneIds.has(entry.id) ? { ...entry, canUndo: false, isCurrent: false, undone: true } : entry)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
   }
 

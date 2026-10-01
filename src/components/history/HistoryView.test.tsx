@@ -26,7 +26,7 @@ describe('HistoryView', () => {
   })
 
   it('uses backend canUndo and disables unavailable server undo', () => {
-    const entry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-10-01T12:00:00Z', canUndo: false }
+    const entry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task-updated', description: 'Изменена задача', createdAt: '2026-10-01T12:00:00Z', canUndo: false, isCurrent: true }
     const markup = renderToStaticMarkup(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={async () => undefined} />)
     expect(markup).toContain('История проекта из backend')
     expect(markup).toContain('disabled=""')
@@ -35,9 +35,9 @@ describe('HistoryView', () => {
 
   it('allows sequential undo only for the latest available entry', () => {
     const entries = [
-      { source: 'server' as const, id: 'A', projectId: 'project', operationType: 'task.update', description: 'A', createdAt: '2026-10-01T10:00:00Z', canUndo: true },
-      { source: 'server' as const, id: 'B', projectId: 'project', operationType: 'task.update', description: 'B', createdAt: '2026-10-01T11:00:00Z', canUndo: true },
-      { source: 'server' as const, id: 'C', projectId: 'project', operationType: 'task.update', description: 'C', createdAt: '2026-10-01T12:00:00Z', canUndo: true },
+      { source: 'server' as const, id: 'A', projectId: 'project', operationType: 'task.update', description: 'A', createdAt: '2026-10-01T10:00:00Z', canUndo: true, isCurrent: true },
+      { source: 'server' as const, id: 'B', projectId: 'project', operationType: 'task.update', description: 'B', createdAt: '2026-10-01T11:00:00Z', canUndo: true, isCurrent: true },
+      { source: 'server' as const, id: 'C', projectId: 'project', operationType: 'task.update', description: 'C', createdAt: '2026-10-01T12:00:00Z', canUndo: true, isCurrent: true },
     ]
     const markup = renderToStaticMarkup(<HistoryView entries={entries} workspace={workspace} source="server" onRevert={async () => undefined} />)
     expect(markup.match(/Отменить последнее изменение/g)).toHaveLength(1)
@@ -46,12 +46,19 @@ describe('HistoryView', () => {
 
   it('makes the previous entry available after the latest one is undone', () => {
     const entries = [
-      { source: 'server' as const, id: 'A', projectId: 'project', operationType: 'task.update', description: 'A', createdAt: '2026-10-01T10:00:00Z', canUndo: true },
-      { source: 'server' as const, id: 'B', projectId: 'project', operationType: 'task.update', description: 'B', createdAt: '2026-10-01T11:00:00Z', canUndo: true },
-      { source: 'server' as const, id: 'C', projectId: 'project', operationType: 'task.update', description: 'C', createdAt: '2026-10-01T12:00:00Z', canUndo: false, undone: true },
+      { source: 'server' as const, id: 'A', projectId: 'project', operationType: 'task.update', description: 'A', createdAt: '2026-10-01T10:00:00Z', canUndo: true, isCurrent: true },
+      { source: 'server' as const, id: 'B', projectId: 'project', operationType: 'task.update', description: 'B', createdAt: '2026-10-01T11:00:00Z', canUndo: true, isCurrent: true },
+      { source: 'server' as const, id: 'C', projectId: 'project', operationType: 'task.update', description: 'C', createdAt: '2026-10-01T12:00:00Z', canUndo: false, isCurrent: false, undone: true },
     ]
     const markup = renderToStaticMarkup(<HistoryView entries={entries} workspace={workspace} source="server" onRevert={async () => undefined} />)
     expect(markup.match(/Отменить последнее изменение/g)).toHaveLength(1)
     expect(markup).toContain('Отменено')
+  })
+
+  it('does not offer undo for an entry that backend marks non-current after reload', () => {
+    const entry = { source: 'server' as const, id: 'abc', projectId: 'project', operationType: 'task.update', description: 'Уже отменено', createdAt: '2026-10-01T12:00:00Z', canUndo: true, isCurrent: false }
+    const markup = renderToStaticMarkup(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={async () => undefined} />)
+    expect(markup).toContain('Отменено')
+    expect(markup).not.toContain('Отменить последнее изменение')
   })
 })

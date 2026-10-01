@@ -118,7 +118,7 @@ export function ProjectWorkspacePage() {
       const entry = serverHistoryEntryFromRealtimeData(projectId, event.data)
       if (event.action.toLowerCase() === 'undone' && event.entityId) serverHistorySession.markUndone(projectId, event.entityId)
       if (entry) {
-        setHistoryEntries(serverHistorySession.upsert(projectId, event.action.toLowerCase() === 'undone' ? { ...entry, canUndo: false, undone: true } : entry))
+        setHistoryEntries(serverHistorySession.upsert(projectId, event.action.toLowerCase() === 'undone' ? { ...entry, canUndo: false, isCurrent: false, undone: true } : entry))
         return
       }
       void serverHistorySession.refresh(projectId, historyApi).then(setHistoryEntries).catch(() => undefined)

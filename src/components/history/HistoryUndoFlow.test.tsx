@@ -13,7 +13,7 @@ const workspace: ProjectWorkspace = {
   impact: { sourceTaskId: '', lastChange: { kind: 'session-started' }, affectedTaskIds: [], criticalTaskIds: [], slackDaysByTaskId: {}, atRiskTaskIds: [], previousProjectEndDate: '2026-10-31', projectedProjectEndDate: '2026-10-31', projectEndChangeDays: 0, deadlineShiftDays: 0, requiresIntervention: false, reasons: [], analyzedAt: '2026-10-01T00:00:00Z' },
 }
 
-const entry: ServerHistoryEntry = { source: 'server', id: 'abc', projectId: 'project', operationType: 'task.update', description: 'Изменена задача', createdAt: '2026-10-01T12:00:00Z', canUndo: true }
+const entry: ServerHistoryEntry = { source: 'server', id: 'abc', projectId: 'project', operationType: 'task.update', description: 'Изменена задача', createdAt: '2026-10-01T12:00:00Z', canUndo: true, isCurrent: true }
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -59,7 +59,7 @@ describe('HistoryView undo flow', () => {
     const onRevert = vi.fn()
     const view = render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={onRevert} />)
     openConfirmation()
-    view.rerender(<HistoryView entries={[{ ...entry, canUndo: false, undone: true }]} workspace={workspace} source="server" onRevert={onRevert} />)
+    view.rerender(<HistoryView entries={[{ ...entry, canUndo: false, isCurrent: false, undone: true }]} workspace={workspace} source="server" onRevert={onRevert} />)
     fireEvent.click(screen.getByRole('button', { name: 'Отменить изменение' }))
     expect(onRevert).not.toHaveBeenCalled()
     expect(screen.queryByText('Backend транзакционно отменит последнее доступное изменение. Связанные сущности обновятся через realtime.')).toBeNull()

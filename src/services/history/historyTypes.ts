@@ -39,6 +39,7 @@ export interface ServerHistoryEntry {
   description: string
   createdAt: string
   canUndo: boolean
+  isCurrent: boolean
   undone?: boolean
 }
 

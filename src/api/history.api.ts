@@ -15,7 +15,8 @@ export function isHistoryRealtimeEntity(entity: string): boolean {
 export function mapServerHistoryEntry(projectId: string, dto: ChangeHistoryDto): ServerHistoryEntry {
   return {
     source: 'server', projectId, id: dto.id, operationType: dto.operationType,
-    description: dto.description, createdAt: dto.createdAt, canUndo: dto.canUndo,
+    description: dto.description, createdAt: dto.createdAt, canUndo: dto.canUndo && dto.isCurrent,
+    isCurrent: dto.isCurrent, undone: !dto.isCurrent,
   }
 }
 
@@ -24,7 +25,8 @@ export function serverHistoryEntryFromRealtimeData(projectId: string, data: unkn
   const outer = data as Record<string, unknown>
   const value = outer.history && typeof outer.history === 'object' ? outer.history as Record<string, unknown> : outer
   if (typeof value.id !== 'string' || typeof value.operationType !== 'string' || typeof value.description !== 'string'
-    || typeof value.createdAt !== 'string' || typeof value.canUndo !== 'boolean') return null
+    || typeof value.createdAt !== 'string' || typeof value.canUndo !== 'boolean'
+    || typeof value.isCurrent !== 'boolean') return null
   return mapServerHistoryEntry(projectId, value as unknown as ChangeHistoryDto)
 }
 
