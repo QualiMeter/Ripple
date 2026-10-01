@@ -77,6 +77,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   const timelineColumns = buildTimelineColumns(scale, scaleMode)
   const geometryByTaskId = new Map(visibleTasks.map((task) => [task.id, getTimelineBarGeometry(task, scale)]))
   const todayPosition = getTimelineDatePosition(today, scale)
+  const deadlinePosition = getTimelineDatePosition(project.targetEndDate, scale)
   const conflictDependencyKeys = new Set(dependencyConflicts.map((conflict) => `${conflict.predecessor.id}->${conflict.successor.id}`))
   const taskIndexById = new Map(visibleTasks.map((task, index) => [task.id, index]))
   const dependencyConnectors = dependencies.flatMap((dependency, dependencyIndex) => {
@@ -247,6 +248,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
       <div data-timeline-scroll-container="true" className="overflow-x-auto overscroll-x-contain outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#7768ed]" role="region" aria-label="Горизонтальная шкала плана проекта" tabIndex={0}>
         <div className="relative w-full" data-timeline-canvas-width={viewport.canvasWidthPx} data-timeline-content-width={viewport.totalWidthPx} style={{ minWidth: `${viewport.totalWidthPx}px` }}>
           {todayPosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }} aria-label={`Сегодня: ${formatFullDate(today)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l border-[#e46f42]" style={{ left: `${todayPosition}%` }}><b className="absolute left-0 top-1 -translate-x-1/2 rounded bg-[#fff0e8] px-1.5 py-0.5 text-[8px] font-bold not-italic text-[#b9542f]">Сегодня</b></i></span></div>}
+          {deadlinePosition !== null && <div className="pointer-events-none absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }} aria-label={`Дедлайн проекта: ${formatFullDate(project.targetEndDate)}`}><span /><span className="relative"><i className="absolute inset-y-0 border-l-2 border-dashed border-rose-500" style={{ left: `${deadlinePosition}%` }}><b className="absolute left-0 top-6 -translate-x-1/2 whitespace-nowrap rounded bg-rose-50 px-1.5 py-0.5 text-[8px] font-bold not-italic text-rose-700 shadow-sm">Дедлайн</b></i></span></div>}
           <div className="grid border-b border-[#eeecf1] bg-[#faf9fb]" style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }}>
             <div className="sticky left-0 z-30 border-r border-[#eeecf1] bg-[#faf9fb] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#9a96a3]">Задача</div>
             <div className="relative min-h-9" data-timeline-column-count={timelineColumns.length}>
