@@ -55,15 +55,24 @@ describe('HistoryView undo flow', () => {
     await act(async () => pending.resolve())
   })
 
-  it('does not POST when realtime made the selected entry unavailable before confirmation', () => {
+  it('closes confirmation immediately when realtime marks the entry non-current', async () => {
     const onRevert = vi.fn()
     const view = render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={onRevert} />)
     openConfirmation()
     view.rerender(<HistoryView entries={[{ ...entry, canUndo: false, isCurrent: false, undone: true }]} workspace={workspace} source="server" onRevert={onRevert} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменение' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Отменить изменение' })).toBeNull())
     expect(onRevert).not.toHaveBeenCalled()
     expect(screen.queryByText('Backend транзакционно отменит последнее доступное изменение. Связанные сущности обновятся через realtime.')).toBeNull()
     expect(screen.getByText('Изменение уже отменено.')).toBeTruthy()
+  })
+
+  it('refreshes an open details drawer from the latest isCurrent state', async () => {
+    const view = render(<HistoryView entries={[entry]} workspace={workspace} source="server" onRevert={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
+    expect(screen.getByText('Доступен')).toBeTruthy()
+    view.rerender(<HistoryView entries={[{ ...entry, canUndo: false, isCurrent: false, undone: true }]} workspace={workspace} source="server" onRevert={vi.fn()} />)
+    await waitFor(() => expect(screen.getAllByText('Отменено').length).toBeGreaterThan(0))
+    expect(screen.queryByText('Доступен')).toBeNull()
   })
 
   it('closes the modal and shows success after HTTP 200', async () => {

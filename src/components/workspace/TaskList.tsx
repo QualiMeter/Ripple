@@ -25,6 +25,8 @@ interface TaskListProps {
   today?: string
   onTaskSelect: (task: ProjectTask) => void
   onTaskCreate: () => void
+  selectedFilter?: TaskPlanFilter
+  onFilterChange?: (filter: TaskPlanFilter) => void
 }
 
 const filters: Array<{ id: TaskPlanFilter; label: string }> = [
@@ -76,8 +78,9 @@ export function handleTaskPlanRowClick(event: Pick<MouseEvent<HTMLElement>, 'tar
   if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) onTaskSelect(task)
 }
 
-export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, slackDaysByTaskId, projectedProjectEndDate, currentIssues, dependencies = [], today = getTodayIsoDate(), onTaskSelect, onTaskCreate }: TaskListProps) {
-  const [filter, setFilter] = useState<TaskPlanFilter>('attention')
+export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, slackDaysByTaskId, projectedProjectEndDate, currentIssues, dependencies = [], today = getTodayIsoDate(), onTaskSelect, onTaskCreate, selectedFilter, onFilterChange }: TaskListProps) {
+  const [localFilter, setLocalFilter] = useState<TaskPlanFilter>('attention')
+  const filter = selectedFilter ?? localFilter
   const rows = useMemo(() => buildTaskPlanRows({ tasks, dependencies, criticalTaskIds, slackDaysByTaskId, currentIssues, today }), [tasks, dependencies, criticalTaskIds, slackDaysByTaskId, currentIssues, today])
   const counts = useMemo(() => countTaskPlanFilters(rows, tasks, affectedTaskIds, criticalTaskIds, currentIssues), [rows, tasks, affectedTaskIds, criticalTaskIds, currentIssues])
   const visibleRows = useMemo(() => filterTaskPlanRows(rows, filter, tasks, affectedTaskIds, criticalTaskIds, currentIssues), [rows, filter, tasks, affectedTaskIds, criticalTaskIds, currentIssues])
@@ -87,7 +90,7 @@ export function TaskList({ tasks, assignees, affectedTaskIds, criticalTaskIds, s
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
       <div className="border-b border-[#ebe9ef] px-4 py-4 sm:px-5">
         <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-bold text-[#302d40]">План задач</h2><p className="mt-0.5 text-[11px] text-[#918d9b]">Сроки, состояние и временной запас задач проекта</p></div><button type="button" onClick={onTaskCreate} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#25223b] px-3 py-2 text-[11px] font-semibold text-white"><Plus size={14} /> Добавить задачу</button></div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Фильтры плана задач">{filters.map((item) => <button key={item.id} type="button" onClick={() => setFilter(item.id)} aria-pressed={filter === item.id} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold ${filter === item.id ? 'bg-[#2c2942] text-white' : 'bg-[#f4f2f7] text-[#716b7b] hover:bg-[#ebe8f1]'}`}>{item.label} <span className="opacity-70">{counts[item.id]}</span></button>)}</div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Фильтры плана задач">{filters.map((item) => <button key={item.id} type="button" onClick={() => { setLocalFilter(item.id); onFilterChange?.(item.id) }} aria-pressed={filter === item.id} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold ${filter === item.id ? 'bg-[#2c2942] text-white' : 'bg-[#f4f2f7] text-[#716b7b] hover:bg-[#ebe8f1]'}`}>{item.label} <span className="opacity-70">{counts[item.id]}</span></button>)}</div>
       </div>
 
       {tasks.length === 0 ? <p className="px-5 py-10 text-center text-xs text-[#8f8a98]">В проекте пока нет задач. Добавьте первую задачу.</p> : <>

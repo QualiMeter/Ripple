@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock3, RotateCcw, X } from 'lucide-react'
 import { buildHistoryRevertPlan } from '../../services/history/historyRevert'
 import { isServerHistoryEntry, type HistoryEntry, type ProjectHistoryEntry, type ProjectHistoryKind } from '../../services/history/historyTypes'
@@ -103,6 +103,28 @@ export function HistoryView({ entries, workspace, onRevert, source = 'local', lo
         changes: [],
       }
     : buildHistoryRevertPlan(reverting, workspace) : null
+
+  useEffect(() => {
+    if (selected) {
+      const currentSelected = entries.find((entry) => entry.id === selected.id)
+      if (!currentSelected) setSelected(null)
+      else if (currentSelected !== selected) setSelected(currentSelected)
+    }
+    if (!reverting || !isServerHistoryEntry(reverting)) return
+    const currentReverting = entries.find((entry) => entry.id === reverting.id)
+    if (!currentReverting || !isServerHistoryEntry(currentReverting)) {
+      setReverting(null)
+      return
+    }
+    if (!currentReverting.canUndo || !currentReverting.isCurrent || currentReverting.undone) {
+      setReverting(null)
+      setError(null)
+      setSuccess(null)
+      setNotice('Изменение уже отменено.')
+    } else if (currentReverting !== reverting) {
+      setReverting(currentReverting)
+    }
+  }, [entries, reverting, selected])
 
   const confirmRevert = async () => {
     if (!reverting || !revertPlan?.allowed) return
