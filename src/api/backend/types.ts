@@ -100,7 +100,6 @@ export interface ChangeHistoryDto {
   operationType: string
   description: string
   createdAt: string
-  canUndo: boolean
   isCurrent: boolean
 }
 
