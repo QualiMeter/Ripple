@@ -16,6 +16,7 @@ interface RecoveryPlanProps {
   onApplyTaskReassignment?: (preview: TaskReassignmentPreview) => Promise<void>
   onShowCriticalChain: (taskIds: string[]) => void
   onTaskSelect: (taskId: string) => void
+  analysisOnly?: boolean
 }
 
 type SuccessSummary =
@@ -33,7 +34,7 @@ function OptionShell({ index, title, icon, children }: { index: number; title: s
   </section>
 }
 
-export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApplyScheduleShift, onApplyTaskReassignment, onShowCriticalChain, onTaskSelect }: RecoveryPlanProps) {
+export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApplyScheduleShift, onApplyTaskReassignment, onShowCriticalChain, onTaskSelect, analysisOnly = false }: RecoveryPlanProps) {
   const basePlan = useMemo(() => buildRecoveryPlan(workspace), [workspace])
   const localScheduleOption = basePlan.options.find((option): option is Extract<RecoveryOption, { type: 'schedule-shift' }> => option.type === 'schedule-shift')
   const [confirmedSchedulePreview, setConfirmedSchedulePreview] = useState<ScheduleShiftPreview | null>(null)
@@ -52,6 +53,12 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
       setIsCalculating(false)
       return
     }
+    if (analysisOnly) {
+      setConfirmedSchedulePreview(localScheduleOption.preview)
+      setIsCalculating(false)
+      setPreviewError(null)
+      return
+    }
     let active = true
     setIsCalculating(true)
     setPreviewError(null)
@@ -64,7 +71,7 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
       if (active) setIsCalculating(false)
     })
     return () => { active = false }
-  }, [localScheduleOption?.sourceTaskId, onPreviewScheduleShift, workspace.project.id])
+  }, [analysisOnly, localScheduleOption?.sourceTaskId, onPreviewScheduleShift, workspace.project.id])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -76,7 +83,7 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
 
   const applySchedule = async () => {
     const option = plan.options.find((candidate): candidate is Extract<RecoveryOption, { type: 'schedule-shift' }> => candidate.type === 'schedule-shift')
-    if (!option || !confirmedSchedulePreview || actionInFlightRef.current) return
+    if (analysisOnly || !option || !confirmedSchedulePreview || actionInFlightRef.current) return
     actionInFlightRef.current = true
     setApplyingType('schedule-shift')
     setActionError(null)
@@ -98,7 +105,7 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
   }
 
   const applyReassignment = async (option: Extract<RecoveryOption, { type: 'workload-reassignment' }>) => {
-    if (!onApplyTaskReassignment || actionInFlightRef.current) return
+    if (analysisOnly || !onApplyTaskReassignment || actionInFlightRef.current) return
     actionInFlightRef.current = true
     setApplyingType('workload-reassignment')
     setActionError(null)
@@ -132,6 +139,7 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
           <Stat label="Текущий прогноз" value={formatMonthDay(plan.projectedEndDate)} />
           <Stat label="Отклонение" value={plan.delayDays > 0 ? `+${plan.delayDays} дн.` : 'Нет'} accent={plan.delayDays > 0} />
         </div>
+        {analysisOnly && <p className="mt-3 rounded-xl border border-[#d8d2f5] bg-[#f1efff] px-3 py-2.5 text-[10px] leading-4 text-[#5f5688]"><strong>Предпросмотр сценария.</strong> Сначала примените или отмените исходное изменение. Варианты восстановления пока не изменяют реальный проект.</p>}
         <section className="mt-4 rounded-2xl border border-[#e4e0e9] bg-white p-4">
           <p className="text-[9px] font-bold uppercase tracking-[.1em] text-[#96909e]">Что произошло</p>
           <p className="mt-1.5 text-sm font-bold text-[#3b3648]">{plan.cause.title}</p>
@@ -146,7 +154,7 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
             <div className="mt-3 space-y-2">{option.taskShifts.map((shift) => <div key={shift.taskId} className="rounded-xl bg-[#f8f7fa] px-3 py-2 text-[10px]"><p className="font-bold text-[#4b4657]">{taskTitle(shift.taskId)}</p><p className="mt-0.5 text-[#7d7787]">{formatShortDate(shift.currentStartDate)}–{formatShortDate(shift.currentEndDate)} <ArrowRight size={10} className="mx-1 inline" /> {formatShortDate(shift.proposedStartDate)}–{formatShortDate(shift.proposedEndDate)}</p></div>)}</div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-900"><p className="font-bold">Что изменится</p><p className="mt-1">{option.taskShifts.length} {pluralizeRu(option.taskShifts.length, ['задача изменится', 'задачи изменятся', 'задач изменятся'])}; конфликтов: {option.conflictsBefore} → {option.conflictsAfter}; завершение: {formatShortDate(option.preview.currentProjectEndDate)} → {formatShortDate(option.preview.proposedProjectEndDate)}.</p></div><div className="rounded-xl bg-amber-50 p-2.5 text-amber-900"><p className="font-bold">Что останется</p><p className="mt-1">{option.remainingProblem}</p></div></div>
             {previewError && <p className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-[10px] text-rose-700" role="alert">{previewError}</p>}
-            <button type="button" disabled={isCalculating || !confirmedSchedulePreview || applyingType !== null} onClick={() => { void applySchedule() }} className="mt-3 w-full rounded-xl bg-[#6d5dfb] px-3 py-2.5 text-xs font-bold text-white disabled:opacity-55">{applyingType === 'schedule-shift' ? 'Применение…' : isCalculating ? 'Проверка расчёта…' : 'Применить безопасный сдвиг'}</button>
+            <button type="button" disabled={analysisOnly || isCalculating || !confirmedSchedulePreview || applyingType !== null} onClick={() => { void applySchedule() }} className="mt-3 w-full rounded-xl bg-[#6d5dfb] px-3 py-2.5 text-xs font-bold text-white disabled:opacity-55">{analysisOnly ? 'Сначала примените сценарий' : applyingType === 'schedule-shift' ? 'Применение…' : isCalculating ? 'Проверка расчёта…' : 'Применить безопасный сдвиг'}</button>
           </OptionShell>
           if (option.type === 'preserve-deadline') return <OptionShell key={option.type} index={index + 1} title="Сохранить плановый срок" icon={<TriangleAlert size={16} />}>
             <p className="mt-3 text-[11px] leading-5 text-[#635d6d]">Чтобы сохранить {formatFullDate(plan.plannedEndDate)}, руководителю необходимо вернуть <strong>{option.daysToRecover} {pluralizeRu(option.daysToRecover, ['календарный день', 'календарных дня', 'календарных дней'])}</strong> на критической цепочке.</p>
@@ -157,9 +165,9 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
           if (option.type === 'workload-reassignment') return <OptionShell key={option.type} index={index + 1} title="Перераспределить работу" icon={<Users size={16} />}>
             <div className="mt-3 rounded-xl bg-[#f8f7fa] p-3"><p className="text-xs font-bold text-[#474252]">{option.preview.taskTitle}</p><p className="mt-1 text-[10px] font-semibold text-[#6f6879]">{option.preview.sourceEmployeeName} <ArrowRight size={10} className="mx-1 inline" /> {option.preview.candidateEmployeeName}</p></div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-900"><p className="font-bold">Что изменится</p><p className="mt-1">{option.preview.sourceEmployeeName}: пик {option.preview.sourceBefore.peakConcurrency} → {option.preview.sourceAfter.peakConcurrency}. {option.preview.candidateEmployeeName}: пик {option.preview.candidateBefore.peakConcurrency} → {option.preview.candidateAfter.peakConcurrency}.</p></div><div className="rounded-xl bg-amber-50 p-2.5 text-amber-900"><p className="font-bold">Что останется</p><p className="mt-1">Даты, статус и зависимости не изменятся. {option.remainingProblem}</p></div></div>
-            <button type="button" disabled={!onApplyTaskReassignment || applyingType !== null} onClick={() => { void applyReassignment(option) }} className="mt-3 w-full rounded-xl bg-[#6d5dfb] px-3 py-2.5 text-xs font-bold text-white disabled:opacity-55">{applyingType === 'workload-reassignment' ? 'Применение…' : 'Подтвердить перераспределение'}</button>
+            <button type="button" disabled={analysisOnly || !onApplyTaskReassignment || applyingType !== null} onClick={() => { void applyReassignment(option) }} className="mt-3 w-full rounded-xl bg-[#6d5dfb] px-3 py-2.5 text-xs font-bold text-white disabled:opacity-55">{analysisOnly ? 'Сначала примените сценарий' : applyingType === 'workload-reassignment' ? 'Применение…' : 'Подтвердить перераспределение'}</button>
           </OptionShell>
-          return <OptionShell key={option.type} index={index + 1} title="Проверить фактические даты" icon={<TriangleAlert size={16} />}><p className="mt-3 text-[11px] leading-5 text-[#635d6d]">{option.reason}</p><div className="mt-2 rounded-xl bg-amber-50 p-2.5 text-[10px] text-amber-900"><p className="font-bold">Что останется</p><p className="mt-1">{option.remainingProblem}</p></div><button type="button" onClick={() => { onTaskSelect(option.taskId); onClose() }} className="mt-3 w-full rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white">Открыть «{option.taskTitle}»</button></OptionShell>
+          return <OptionShell key={option.type} index={index + 1} title="Проверить фактические даты" icon={<TriangleAlert size={16} />}><p className="mt-3 text-[11px] leading-5 text-[#635d6d]">{option.reason}</p><div className="mt-2 rounded-xl bg-amber-50 p-2.5 text-[10px] text-amber-900"><p className="font-bold">Что останется</p><p className="mt-1">{option.remainingProblem}</p></div><button type="button" disabled={analysisOnly} onClick={() => { onTaskSelect(option.taskId); onClose() }} className="mt-3 w-full rounded-xl bg-[#29263e] px-3 py-2.5 text-xs font-bold text-white disabled:opacity-50">{analysisOnly ? 'Сначала примените сценарий' : `Открыть «${option.taskTitle}»`}</button></OptionShell>
         })}</div>
         {actionError && <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700" role="alert">{actionError}</p>}
       </div>

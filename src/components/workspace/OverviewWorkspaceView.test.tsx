@@ -4,6 +4,7 @@ import type { ProjectWorkspace } from '../../types/workspace'
 import { buildTimelineDraftPreview } from '../../services/timelineDraft'
 import { rebuildWorkspaceDerivedState } from '../../services/workspaceState'
 import { OverviewWorkspaceView } from './OverviewWorkspaceView'
+import { buildTaskDelayScenario } from '../../services/scenario/scenarioEngine'
 
 const workspace: ProjectWorkspace = {
   project: { id: 'project', creatorId: 'manager', name: 'Проект', description: '', startDate: '2026-10-01', targetEndDate: '2026-10-31', projectedEndDate: '2026-10-31', ownerName: 'Менеджер', health: 'on-track', progress: 0, taskCount: 1, completedTaskCount: 0 },
@@ -43,5 +44,16 @@ describe('Overview workspace', () => {
     expect(draft.recommendedTaskChanges).toEqual(expect.arrayContaining([
       expect.objectContaining({ taskId: 'backend', proposedStartDate: '2026-10-06', proposedEndDate: '2026-10-12' }),
     ]))
+  })
+
+  it('uses scenario workspace across the overview while keeping the real plan marked as unchanged', () => {
+    const draft = buildTaskDelayScenario(workspace, 'task', 4)
+    const markup = renderToStaticMarkup(<OverviewWorkspaceView workspace={workspace} scenarioDraft={draft} onScenarioCreate={() => undefined} onScenarioCancel={() => undefined} onScenarioApply={async () => undefined} onTaskSelect={() => undefined} onTaskCreate={() => undefined} onTaskDraft={() => undefined} onApplyTimelineDraft={async () => undefined} onCancelTimelineDraft={() => undefined} onViewWorkload={() => undefined} onCreateDependency={async () => undefined} onPreviewScheduleShift={async () => { throw new Error('not called') }} onApplyScheduleShift={async () => undefined} />)
+
+    expect(markup).toContain('Режим симуляции')
+    expect(markup).toContain('Реальный план не изменён')
+    expect(markup).toContain('data-task-end-date="2026-10-07"')
+    expect(markup).toContain('Применить изменение')
+    expect(workspace.tasks[0].endDate).toBe('2026-10-03')
   })
 })

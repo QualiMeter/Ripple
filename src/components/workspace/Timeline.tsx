@@ -1,5 +1,5 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Link2, TriangleAlert } from 'lucide-react'
+import { FlaskConical, Link2, TriangleAlert } from 'lucide-react'
 import type { CurrentProjectIssues, ImpactAnalysis } from '../../types/impact'
 import type { CreateDependencyRequest, Dependency } from '../../types/dependency'
 import type { ProjectSummary } from '../../types/project'
@@ -45,10 +45,13 @@ interface TimelineProps {
   onTaskDraft?: (taskId: string, update: TaskUpdateRequest) => void
   onCreateDependency?: (request: CreateDependencyRequest) => Promise<void>
   recoveryHighlightedTaskIds?: string[]
+  onOpenScenario?: () => void
+  scenarioBlocked?: boolean
+  interactionLockedMessage?: string
   today?: string
 }
 
-export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, onTaskDraft, onCreateDependency, recoveryHighlightedTaskIds = [], today = getTodayIsoDate() }: TimelineProps) {
+export function Timeline({ project, tasks, assignees, impact, currentIssues, dependencies = [], onTaskSelect, onTaskDraft, onCreateDependency, recoveryHighlightedTaskIds = [], onOpenScenario, scenarioBlocked = false, interactionLockedMessage, today = getTodayIsoDate() }: TimelineProps) {
   const [scaleMode, setScaleMode] = useState<TimelineScaleMode>('day')
   const [taskPreview, setTaskPreview] = useState<{ taskId: string; value: TimelineTaskPreview } | null>(null)
   const [linkPreview, setLinkPreview] = useState<LinkDragState | null>(null)
@@ -108,7 +111,14 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
     return measuredWidth > 0 ? measuredWidth : viewport.canvasWidthPx
   }
 
+  const guardInteraction = () => {
+    if (!interactionLockedMessage) return false
+    setMutationError(interactionLockedMessage)
+    return true
+  }
+
   const startTaskDrag = (event: ReactPointerEvent<HTMLButtonElement>, task: ProjectTask) => {
+    if (guardInteraction()) return
     if (!onTaskDraft) return
     const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-resize-handle]')?.dataset.resizeHandle
     const mode: TimelineDragMode = handle === 'start' ? 'resize-start' : handle === 'end' ? 'resize-end' : 'move'
@@ -157,6 +167,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   }
 
   const startLinkDrag = (event: ReactPointerEvent<HTMLButtonElement>, sourceTaskId: string) => {
+    if (guardInteraction()) return
     if (!onCreateDependency) return
     event.preventDefault()
     event.stopPropagation()
@@ -223,7 +234,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
       suppressClickRef.current = false
       return
     }
-    onTaskSelect(task)
+    if (!guardInteraction()) onTaskSelect(task)
   }
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
@@ -233,6 +244,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
           <p className="mt-0.5 text-[11px] text-[#918d9b]">Критический путь и сдвиг зависимостей</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {onOpenScenario && <button type="button" onClick={onOpenScenario} disabled={scenarioBlocked} title={scenarioBlocked ? 'Сначала примените или отмените текущий черновик.' : 'Проверить последствия без изменения проекта'} className="inline-flex items-center gap-1.5 rounded-xl border border-[#cfc8f7] bg-[#f3f0ff] px-3 py-2 text-[10px] font-bold text-[#5c4ec4] transition hover:bg-[#ebe7ff] disabled:cursor-not-allowed disabled:opacity-50"><FlaskConical size={13} />Смоделировать изменение</button>}
           <div className="rounded-xl border border-[#e8e5ed] bg-[#faf9fb] px-3 py-2 text-[10px] leading-4 text-[#777181]" data-project-dates="true"><span className="font-semibold text-[#4d4858]">Начало:</span> {formatMonthDay(project.startDate)}<br /><span className="font-semibold text-[#4d4858]">Окончание:</span> {formatMonthDay(project.targetEndDate)}</div>
           <div className="inline-flex rounded-xl border border-[#dedbe5] bg-white p-1" aria-label="Масштаб плана">{(['day', 'week', 'month'] as const).map((mode) => <button key={mode} type="button" onClick={() => setScaleMode(mode)} aria-pressed={scaleMode === mode} data-timeline-scale={mode} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${scaleMode === mode ? 'bg-[#29263e] text-white' : 'text-[#777181] hover:bg-[#f5f3fa]'}`}>{mode === 'day' ? 'Дни' : mode === 'week' ? 'Недели' : 'Месяцы'}</button>)}</div>
           <p className="rounded-lg bg-[#f5f3fa] px-2.5 py-1.5 text-[10px] font-semibold text-[#777181]">Сегодня: {formatFullDate(today)}</p>
@@ -289,7 +301,7 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
             const position = { left: `${geometry.leftPercent}%`, width: `${geometry.widthPercent}%` }
             return (
               <div key={task.id} className={`grid h-14 border-b border-[#f0eef3] last:border-b-0 ${affected ? 'bg-[#fffdfb]' : ''}`} style={{ gridTemplateColumns: `${taskColumnWidth}px minmax(0, 1fr)` }}>
-                <div role="button" tabIndex={0} onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]')) onTaskSelect(task) }} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onTaskSelect(task) } }} className="sticky left-0 z-30 flex min-w-0 cursor-pointer items-center gap-2.5 border-r border-[#eeecf1] bg-white px-5 py-2.5 text-left transition hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
+                <div role="button" tabIndex={0} onClick={(event) => { if (!(event.target as HTMLElement).closest('[data-tooltip-trigger]') && !guardInteraction()) onTaskSelect(task) }} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); if (!guardInteraction()) onTaskSelect(task) } }} className="sticky left-0 z-30 flex min-w-0 cursor-pointer items-center gap-2.5 border-r border-[#eeecf1] bg-white px-5 py-2.5 text-left transition hover:bg-[#faf9fc]" aria-label={`Редактировать задачу «${task.title}»`}>
                   <span data-task-visual-state={visualState} className={`h-2 w-2 shrink-0 rounded-full ${taskVisualStateClasses[visualState]}`} />
                   <div className="min-w-0 flex-1  ">
                     <div className="flex min-w-0 items-center gap-1.5">
