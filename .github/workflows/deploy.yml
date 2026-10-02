@@ -40,7 +40,8 @@ jobs:
       - name: Validate production configuration
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-        run: test -n "$VITE_API_URL"
+        run: |
+          test -n "$VITE_API_URL"
 
       - name: Build
         env:
@@ -66,7 +67,9 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy
         env:
@@ -74,5 +77,6 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
           set -euo pipefail
+
           tar -C dist -cf - . | ssh "$SERVER_USER@$SERVER_HOST" \
-            "rm -rf /var/www/site/* && tar -C /var/www/site -xf -"
+            "rm -rf /var/www/ripple/frontend/* && tar -C /var/www/ripple/frontend -xf -"
