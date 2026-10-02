@@ -35,6 +35,8 @@ import { downloadProjectDiagnostics } from '../services/projectDiagnostics'
 import { applyTimelineDraftPreview, buildTimelineDraftPreview, type TimelineDraftApplyMode, type TimelineDraftPreview } from '../services/timelineDraft'
 import { downloadProjectExport } from '../services/projectTransfer'
 import { applyTaskReassignment, type TaskReassignmentPreview } from '../services/taskReassignment'
+import { AiPlanPanel } from '../components/ai/AiPlanPanel'
+import type { AiPlan } from '../api/ai.api'
 
 function WorkspaceSkeleton() {
   return <div className="p-7" role="status" aria-label="Загрузка проекта"><span className="sr-only">Загрузка проекта…</span><div className="h-8 w-64 animate-pulse rounded-lg bg-[#e5e3ea]" /><div className="mt-8 grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div></div>
@@ -58,6 +60,7 @@ export function ProjectWorkspacePage() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [requestedShiftSourceId, setRequestedShiftSourceId] = useState<string | null>(null)
   const [timelineDraft, setTimelineDraft] = useState<TimelineDraftPreview | null>(null)
+  const [aiEditOpen, setAiEditOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -69,6 +72,7 @@ export function ProjectWorkspacePage() {
     setIsDeletingProject(false)
     setRequestedShiftSourceId(null)
     setTimelineDraft(null)
+    setAiEditOpen(false)
     setActiveView('overview')
     const cachedServerHistory = isHttpApiMode ? serverHistorySession.get(projectId) : undefined
     const historyVisit = beginHistoryVisit(isHttpApiMode, cachedServerHistory, isHttpApiMode ? [] : projectHistory.list(projectId))
@@ -275,6 +279,17 @@ export function ProjectWorkspacePage() {
     })
   }
   const handleProjectDiagnosticsDownload = () => downloadProjectDiagnostics(projectId, workspace.project.name).then(() => undefined)
+  const handleAiProjectConfirmed = async (_plan: AiPlan) => {
+    const refreshed = await projectService.getWorkspace(projectId)
+    setWorkspace(refreshed)
+    if (isHttpApiMode) {
+      const entries = await serverHistorySession.refresh(projectId, historyApi)
+      setHistoryEntries(entries)
+      setHistoryLoaded(true)
+    }
+    await refreshProjects()
+    setAiEditOpen(false)
+  }
   const handleProjectExport = () => downloadProjectExport(projectId, workspace.project.name)
   const handleHistoryRevert = async (entry: HistoryEntry) => {
     if (isHttpApiMode) {
@@ -302,7 +317,7 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="min-h-screen">
-      <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} onExportProject={isHttpApiMode ? handleProjectExport : undefined} />
+      <WorkspaceHeader project={workspace.project} activeView={activeView} onViewChange={setActiveView} onOpenNavigation={openMobileSidebar} onEditProject={() => setIsEditingProject(true)} onDeleteProject={() => setIsDeletingProject(true)} onDownloadDiagnostics={isHttpApiMode ? handleProjectDiagnosticsDownload : undefined} onExportProject={isHttpApiMode ? handleProjectExport : undefined} onAiEditProject={isHttpApiMode ? () => setAiEditOpen(true) : undefined} />
       <div className="space-y-4 p-4 sm:p-7">
         <ProjectBoundaryWarnings issues={workspace.projectBoundaryIssues} />
         {activeView === 'overview' && <OverviewWorkspaceView workspace={workspace} timelineDraft={timelineDraft} onTaskSelect={setSelectedTaskId} onTaskCreate={() => setIsCreatingTask(true)} onTaskDraft={handleTimelineDraft} onApplyTimelineDraft={handleTimelineDraftApply} onCancelTimelineDraft={() => setTimelineDraft(null)} onViewWorkload={() => setActiveView('employees')} onApplyTaskReassignment={handleTaskReassignment} onCreateDependency={handleDependencyCreate} onPreviewScheduleShift={handleSchedulePreview} onApplyScheduleShift={handleScheduleApply} requestedPreviewSourceId={requestedShiftSourceId} onRequestedPreviewHandled={() => setRequestedShiftSourceId(null)} />}
@@ -314,6 +329,7 @@ export function ProjectWorkspacePage() {
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} onCreateEmployee={handleEmployeeCreate} />}
       {isEditingProject && <ProjectFormPanel title="Редактирование проекта" submitLabel="Сохранить" initialValues={{ name: workspace.project.name, startDate: workspace.project.startDate, targetEndDate: workspace.project.targetEndDate }} onClose={() => setIsEditingProject(false)} onSubmit={handleProjectUpdate} />}
       {isDeletingProject && <ProjectDeleteDialog projectName={workspace.project.name} onClose={() => setIsDeletingProject(false)} onConfirm={handleProjectDelete} />}
+      {aiEditOpen && <AiPlanPanel mode="update" projectId={projectId} projectName={workspace.project.name} employees={workspace.assignees} onClose={() => setAiEditOpen(false)} onConfirmed={handleAiProjectConfirmed} />}
     </div>
   )
 }

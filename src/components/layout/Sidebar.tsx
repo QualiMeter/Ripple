@@ -13,6 +13,7 @@ interface SidebarProps {
   loading: boolean
   error?: string | null
   onCreateProject: () => void
+  onCreateProjectWithAi?: () => void
   mobile?: boolean
   onClose?: () => void
 }
@@ -21,7 +22,7 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('ru-RU')
 }
 
-export function Sidebar({ projects, loading, error, onCreateProject, mobile = false, onClose }: SidebarProps) {
+export function Sidebar({ projects, loading, error, onCreateProject, onCreateProjectWithAi, mobile = false, onClose }: SidebarProps) {
   return (
     <aside className={mobile ? 'flex h-full w-[280px] max-w-[86vw] shrink-0 flex-col bg-[#17152b] text-white shadow-[24px_0_60px_rgba(23,21,43,.28)]' : 'hidden h-screen w-[244px] shrink-0 flex-col bg-[#17152b] text-white lg:fixed lg:flex'} aria-label={mobile ? 'Мобильная навигация' : undefined}>
       <div className="flex h-[72px] items-center gap-3 px-6">
@@ -39,7 +40,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, mobile = fa
             <span className="h-2 w-2 rounded-full bg-[#8b7fff]" />
             Мои проекты
           </div>
-          <button type="button" onClick={onCreateProject} className="grid h-7 w-7 place-items-center rounded-lg text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Создать проект"><Plus size={15} /></button>
+          <div className="flex items-center gap-1"><button type="button" onClick={onCreateProject} className="grid h-7 w-7 place-items-center rounded-lg text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Создать проект"><Plus size={15} /></button>{onCreateProjectWithAi && <button type="button" onClick={onCreateProjectWithAi} className="grid h-7 w-7 place-items-center rounded-lg text-[#aaa6ba] transition hover:bg-white/[.08] hover:text-white" aria-label="Создать проект с помощью ИИ"><Sparkles size={14} /></button>}</div>
         </div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain">
           {loading && <div className="h-14 animate-pulse rounded-xl bg-white/[.06]" aria-label="Загрузка проектов" />}

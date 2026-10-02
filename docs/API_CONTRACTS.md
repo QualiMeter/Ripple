@@ -85,6 +85,16 @@ Detailed task analysis is loaded lazily only while that task's edit panel is ope
 
 The POST body contains only `predecessorTaskId` and `successorTaskId`; the only MVP dependency type is finish-to-start. Since backend edges have no ID, the adapter creates a deterministic UI ID from the two task IDs. Deletion resolves that ID back to the endpoint coordinates. Backend analysis is retained after both mutations, and the local edge collection is updated without a project-details refetch.
 
+### AI planning
+
+- `POST /api/v1/ai/projects/plan` — создаёт AI-план нового проекта без изменения данных.
+- `GET /api/v1/ai/plans/{planId}` — повторно получает сохранённый план.
+- `POST /api/v1/ai/plans/{planId}/confirm` — подтверждает план создания проекта.
+- `POST /api/v1/projects/{projectId}/ai/plan` — создаёт AI-план изменения существующего проекта.
+- `POST /api/v1/projects/{projectId}/ai/plan/{planId}/confirm` — подтверждает план изменения проекта.
+
+UI намеренно разделяет генерацию и применение: сначала показываются `summary` и список `changes`, затем пользователь явно подтверждает применение. Backend повторно проверяет актуальность проекта перед подтверждением; при изменении проекта после предпросмотра требуется создать новый план. После подтверждения AI-операция попадает в обычную серверную историю и публикует realtime-события.
+
 ### Explicit schedule shift
 
 - `POST /api/v1/projects/{projectId}/tasks/{taskId}/shift-preview` (no request body)
@@ -123,9 +133,11 @@ Recovery scenarios remain in domain types for compatibility, but the unimplement
 - `GET /api/v1/projects/{projectId}/history`
 - `POST /api/v1/projects/{projectId}/history/{historyId}/undo`
 
-In HTTP mode the backend is the only history source of truth. History is loaded lazily on the first opening of the tab during each project visit, cached in memory for immediate display, sorted newest first, and rendered 50 entries at a time. Reopening History during the same visit does not repeat the request; leaving and later returning to the project makes the next History opening refresh the cache once. `ChangeHistoryDto` contains `id`, `operationType`, `description`, `createdAt`, `canUndo`, and `isCurrent`; the UI does not invent before/after snapshots absent from the contract. An entry is offered for Undo only when both `canUndo` and `isCurrent` are true. `isCurrent: false` is persisted server state: the entry is shown as «Отменено» and remains unavailable after a page refresh.
+In HTTP mode the backend is the only history source of truth. History is loaded lazily on the first opening of the tab during each project visit, cached in memory for immediate display, sorted newest first, and rendered 50 entries at a time. Reopening History during the same visit does not repeat the request; leaving and later returning to the project makes the next History opening refresh the cache once. `ChangeHistoryDto` contains `id`, `operationType`, `description`, `createdAt`, and `isCurrent`; the UI does not invent before/after snapshots absent from the contract. `isCurrent` is the persistent server-side marker of the active version.
 
-Selective Undo posts the exact selected ID and relies on the backend transaction rather than frontend inverse CRUD. A synchronous single-flight guard prevents duplicate POSTs before React can render the disabled state, and the latest cached entry is checked again before submission. A `404` refreshes only server history and reports that the entry may have changed. After `409`, the client refreshes history: an entry that is now unavailable is treated as an already synchronized concurrent Undo, while a still-undoable entry remains a visible backend inconsistency rather than being masked.
+Undo is sequential: the backend always moves the project one history version backward from the currently active version. The route keeps `historyId` for frontend compatibility, but the backend does not restore an arbitrary selected historical version. After Undo the frontend refreshes both the authoritative workspace and server history, so repeated Undo operations move backward one version at a time and survive page reloads.
+
+The frontend still uses a single-flight guard for duplicate Undo requests and refreshes server history after `404`/`409` responses before reporting the result.
 
 Only `history` and `change_history` SignalR events can update or refresh History. Ordinary task, employee, dependency, and project events never request the complete history list. A complete history DTO is upserted in memory; an incomplete event triggers only the History GET, and concurrent refreshes share one in-flight request. Undo entity deltas continue through the normal task/employee/dependency/project realtime handlers. When realtime is unavailable after successful Undo, one full project GET is allowed as a multi-entity synchronization fallback.
 

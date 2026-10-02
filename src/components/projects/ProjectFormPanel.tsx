@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { CalendarDays, Upload, X } from 'lucide-react'
+import { CalendarDays, Sparkles, Upload, X } from 'lucide-react'
 import type { CreateProjectRequest } from '../../types/project'
 import { validateProjectInput } from '../../services/projectValidation'
+import { DateInput } from '../common/DateInput'
 
 interface ProjectFormPanelProps {
   title: string
@@ -10,9 +11,10 @@ interface ProjectFormPanelProps {
   onClose: () => void
   onSubmit: (values: CreateProjectRequest) => Promise<void>
   onImport?: (file: File) => Promise<void>
+  onCreateWithAi?: () => void
 }
 
-export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, onSubmit, onImport }: ProjectFormPanelProps) {
+export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, onSubmit, onImport, onCreateWithAi }: ProjectFormPanelProps) {
   const [values, setValues] = useState(initialValues)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -75,9 +77,13 @@ export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, o
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
             <label className="block text-xs font-semibold text-[#575262]">Название<span className="text-rose-500"> *</span><input autoFocus required value={values.name} onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-[#dedbe5] bg-white px-3 py-2.5 text-sm font-medium text-[#363143] outline-none focus:border-[#7667ed]" placeholder="Название проекта" /></label>
-            <label className="block text-xs font-semibold text-[#575262]">Дата начала<span className="text-rose-500"> *</span><input type="date" required value={values.startDate} onChange={(event) => setValues((current) => ({ ...current, startDate: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-[#dedbe5] bg-white px-3 py-2.5 text-sm text-[#363143] outline-none focus:border-[#7667ed]" /></label>
-            <label className="block text-xs font-semibold text-[#575262]">Плановая дата окончания<span className="text-rose-500"> *</span><input type="date" required value={values.targetEndDate} onChange={(event) => setValues((current) => ({ ...current, targetEndDate: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-[#dedbe5] bg-white px-3 py-2.5 text-sm text-[#363143] outline-none focus:border-[#7667ed]" /></label>
+            <label className="block text-xs font-semibold text-[#575262]">Дата начала<span className="text-rose-500"> *</span><DateInput required value={values.startDate} onChange={(value) => setValues((current) => ({ ...current, startDate: value }))} className="mt-1.5 w-full rounded-xl border border-[#dedbe5] bg-white px-3 py-2.5 text-sm text-[#363143] outline-none focus:border-[#7667ed]" /></label>
+            <label className="block text-xs font-semibold text-[#575262]">Плановая дата окончания<span className="text-rose-500"> *</span><DateInput required value={values.targetEndDate} onChange={(value) => setValues((current) => ({ ...current, targetEndDate: value }))} className="mt-1.5 w-full rounded-xl border border-[#dedbe5] bg-white px-3 py-2.5 text-sm text-[#363143] outline-none focus:border-[#7667ed]" /></label>
             <p className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 text-[11px] leading-4 text-sky-800">Изменение границ проекта не переносит даты задач. Возможные выходы за границы будут показаны как предупреждения.</p>
+            {onCreateWithAi && <div className="pt-1">
+              <button type="button" disabled={isBusy} onClick={onCreateWithAi} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#dcd7ff] bg-[#f5f3ff] px-4 py-2.5 text-xs font-bold text-[#5f51c8] transition hover:bg-[#eeebff] disabled:opacity-60"><Sparkles size={15} /> Создать с помощью ИИ</button>
+              <p className="mt-2 text-center text-[10px] leading-4 text-[#918c9b]">Опишите проект обычным языком — сначала получите предпросмотр.</p>
+            </div>}
             {onImport && <div className="pt-1">
               <div className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[.12em] text-[#aaa6b4]"><span className="h-px flex-1 bg-[#e5e2ea]" />или<span className="h-px flex-1 bg-[#e5e2ea]" /></div>
               <button type="button" disabled={isBusy} onClick={() => importInputRef.current?.click()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#d8d4e2] bg-white px-4 py-2.5 text-xs font-semibold text-[#575262] transition hover:border-[#bcb5df] hover:bg-[#f8f7ff] disabled:opacity-60"><Upload size={15} />{isImporting ? 'Импорт проекта…' : 'Импортировать проект из файла'}</button>

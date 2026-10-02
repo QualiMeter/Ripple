@@ -3,6 +3,7 @@ import { CalendarDays, Link2, Plus, Save, Trash2, TriangleAlert, Unlink, X } fro
 import type { Assignee, ProjectTask, TaskStatus, TaskUpdateRequest } from '../../types/task'
 import type { CreateDependencyRequest, Dependency } from '../../types/dependency'
 import { Avatar } from '../common/Avatar'
+import { DateInput } from '../common/DateInput'
 import type { Employee } from '../../types/employee'
 import { EmployeeCreateAction } from '../employees/EmployeeCreateAction'
 import { getTaskCompletionError } from '../../services/taskStatusConsistency'
@@ -232,8 +233,8 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel">
               <div className="mb-3 flex items-center gap-2 text-xs font-bold text-[#494456]"><CalendarDays size={15} className="text-[#6d5dfb]" /> Сроки</div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="text-xs font-semibold text-[#716c7c]">Начало<input type="date" className={inputClassName} value={startDate} onChange={(event) => { markDirty('startDate'); setStartDate(event.target.value) }} /></label>
-                <label className="text-xs font-semibold text-[#716c7c]">Завершение<input type="date" className={inputClassName} value={endDate} min={startDate} onChange={(event) => { markDirty('endDate'); setEndDate(event.target.value) }} /></label>
+                <label className="text-xs font-semibold text-[#716c7c]">Начало<DateInput className={inputClassName} value={startDate} onChange={(value) => { markDirty('startDate'); setStartDate(value) }} /></label>
+                <label className="text-xs font-semibold text-[#716c7c]">Завершение<DateInput className={inputClassName} value={endDate} min={startDate} onChange={(value) => { markDirty('endDate'); setEndDate(value) }} /></label>
               </div>
               <p className="mt-3 rounded-lg bg-[#f5f3fa] px-3 py-2 text-[11px] leading-4 text-[#85808f]">Ripple сохранит только введённые даты и покажет возможные конфликты. Сдвиг зависимых задач запускается отдельно.</p>
             </div>

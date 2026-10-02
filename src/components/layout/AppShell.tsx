@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { ProjectFormPanel } from '../projects/ProjectFormPanel'
+import { AiPlanPanel } from '../ai/AiPlanPanel'
+import type { AiPlan } from '../../api/ai.api'
 import { projectService } from '../../services/projectService'
 import type { CreateProjectRequest, ProjectNavigationItem } from '../../types/project'
 import { Sidebar } from './Sidebar'
@@ -21,6 +23,7 @@ export function AppShell() {
   const navigate = useNavigate()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
+  const [aiCreateOpen, setAiCreateOpen] = useState(false)
   const [projects, setProjects] = useState<ProjectNavigationItem[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
   const [projectsError, setProjectsError] = useState<string | null>(null)
@@ -91,15 +94,16 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f8] lg:flex">
-      <Sidebar projects={projects} loading={projectsLoading} error={projectsError} onCreateProject={openCreateProject} />
+      <Sidebar projects={projects} loading={projectsLoading} error={projectsError} onCreateProject={openCreateProject} onCreateProjectWithAi={() => setAiCreateOpen(true)} />
       {mobileSidebarOpen && <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Навигация">
-        <Sidebar projects={projects} loading={projectsLoading} error={projectsError} mobile onClose={() => setMobileSidebarOpen(false)} onCreateProject={openCreateProject} />
+        <Sidebar projects={projects} loading={projectsLoading} error={projectsError} mobile onClose={() => setMobileSidebarOpen(false)} onCreateProject={openCreateProject} onCreateProjectWithAi={() => { setMobileSidebarOpen(false); setAiCreateOpen(true) }} />
         <button type="button" className="min-w-0 flex-1 bg-[#17152b]/55 backdrop-blur-[1px]" onClick={() => setMobileSidebarOpen(false)} aria-label="Закрыть навигацию по фону" />
       </div>}
       <main className="min-w-0 flex-1 lg:ml-[244px]">
         <Outlet context={{ openMobileSidebar: () => setMobileSidebarOpen(true), refreshProjects, syncProjectNavigation, removeProjectNavigation, projects, projectsLoading, projectsError } satisfies AppShellContext} />
       </main>
-      {createProjectOpen && <ProjectFormPanel title="Новый проект" submitLabel="Создать проект" initialValues={{ name: '', startDate: '', targetEndDate: '' }} onClose={() => setCreateProjectOpen(false)} onSubmit={handleCreateProject} onImport={isHttpApiMode ? handleImportProject : undefined} />}
+      {createProjectOpen && <ProjectFormPanel title="Новый проект" submitLabel="Создать проект" initialValues={{ name: '', startDate: '', targetEndDate: '' }} onClose={() => setCreateProjectOpen(false)} onSubmit={handleCreateProject} onImport={isHttpApiMode ? handleImportProject : undefined} onCreateWithAi={isHttpApiMode ? () => { setCreateProjectOpen(false); setAiCreateOpen(true) } : undefined} />}
+      {aiCreateOpen && <AiPlanPanel mode="create" onClose={() => setAiCreateOpen(false)} onConfirmed={async (plan: AiPlan) => { if (!plan.projectId) throw new Error('ИИ не вернул идентификатор созданного проекта.'); await refreshProjects(); setAiCreateOpen(false); navigate(`/projects/${plan.projectId}`) }} />}
     </div>
   )
 }
