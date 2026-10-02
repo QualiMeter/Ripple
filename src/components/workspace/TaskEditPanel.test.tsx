@@ -46,7 +46,7 @@ describe('TaskEditPanel realtime synchronization', () => {
     view.rerender(<TaskEditPanel {...props({ ...task, assigneeId: 'anna', startDate: '2026-10-02' })} />)
     expect((screen.getByLabelText('Название') as HTMLInputElement).value).toBe('Локальное название')
     expect((screen.getByLabelText('Ответственный') as HTMLSelectElement).value).toBe('anna')
-    expect((screen.getByLabelText('Начало') as HTMLInputElement).value).toBe('2026-10-02')
+    expect((screen.getByLabelText('Начало') as HTMLInputElement).value).toBe('02.10.2026')
   })
 
   it('warns when realtime changes the same dirty field and can load remote data', () => {
