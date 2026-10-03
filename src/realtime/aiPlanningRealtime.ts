@@ -16,7 +16,8 @@ function normalizeProgress(value: unknown): AiProgress {
 
 function normalizePlan(value: unknown): AiPlan {
   const item = (value ?? {}) as Record<string, unknown>
-  const rawChanges = Array.isArray(item.changes ?? item.Changes) ? (item.changes ?? item.Changes) : []
+  const candidateChanges: unknown = item.changes ?? item.Changes
+  const rawChanges: unknown[] = Array.isArray(candidateChanges) ? candidateChanges : []
   return {
     planId: String(item.planId ?? item.PlanId ?? ''),
     projectId: item.projectId ?? item.ProjectId ? String(item.projectId ?? item.ProjectId) : null,
