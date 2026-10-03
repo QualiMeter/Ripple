@@ -50,27 +50,54 @@ async function streamPlan(path: string, prompt: string, onProgress: (progress: A
   let buffer = ''
   let completed: AiPlan | null = null
 
+  const processEvent = (event: string) => {
+    const normalized = event.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    let type = 'message'
+    const dataLines: string[] = []
+
+    for (const line of normalized.split('\n')) {
+      if (line.startsWith('event:')) {
+        type = line.slice('event:'.length).trim()
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice('data:'.length).trimStart())
+      }
+    }
+
+    const data = dataLines.join('\n').trim()
+    if (!data) return
+
+    let value: unknown
+    try {
+      value = JSON.parse(data)
+    } catch {
+      throw new Error('Сервер вернул некорректный JSON в потоке генерации.')
+    }
+
+    if (type === 'progress') {
+      onProgress(value as AiProgress)
+      return
+    }
+
+    if (type === 'completed' || (type === 'message' && typeof value === 'object' && value !== null && 'planId' in value)) {
+      completed = value as AiPlan
+      return
+    }
+
+    if (type === 'error') {
+      const message = typeof value === 'object' && value !== null && 'message' in value
+        ? String((value as { message?: unknown }).message ?? '')
+        : ''
+      throw new Error(message || 'ИИ не смог сформировать план.')
+    }
+  }
+
   const consume = (chunk: string) => {
     buffer += chunk
-    const events = buffer.split(/\n\n/)
+    buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const events = buffer.split('\n\n')
     buffer = events.pop() ?? ''
     for (const event of events) {
-      let type = 'message'
-      let data = ''
-      for (const line of event.split(/\n/)) {
-        if (line.startsWith('event:')) type = line.slice(6).trim()
-        else if (line.startsWith('data:')) data += line.slice(5).trim()
-      }
-      if (!data) continue
-      try {
-        const value = JSON.parse(data) as AiProgress | AiPlan | { message?: string }
-        if (type === 'progress') onProgress(value as AiProgress)
-        else if (type === 'completed') completed = value as AiPlan
-        else if (type === 'error') throw new Error((value as { message?: string }).message || 'ИИ не смог сформировать план.')
-      } catch (error) {
-        if (error instanceof Error) throw error
-        throw new Error('Сервер вернул некорректный поток генерации.')
-      }
+      processEvent(event)
     }
   }
 
@@ -79,8 +106,14 @@ async function streamPlan(path: string, prompt: string, onProgress: (progress: A
     if (done) break
     consume(decoder.decode(value, { stream: true }))
   }
+
   consume(decoder.decode())
-  if (!completed) throw new Error('Поток генерации завершился без готового плана.')
+  if (buffer.trim()) processEvent(buffer)
+
+  if (!completed) {
+    throw new Error('Поток генерации завершился без готового плана. Проверьте ответ SSE от backend.')
+  }
+
   return completed
 }
 
