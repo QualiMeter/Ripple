@@ -17,7 +17,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const updateMode = (nextMode: AiPanelMode) => {
+  const updateMode = (nextMode: PanelMode) => {
     setMode(nextMode)
     setPanelMode(nextMode)
   }
