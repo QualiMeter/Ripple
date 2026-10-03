@@ -6,6 +6,48 @@ import type { Employee } from '../../types/employee'
 import { formatFullDate } from '../../utils/date'
 import { getPanelMode, type PanelMode } from '../../services/aiPanelPreferences'
 
+const AI_PLAN_STORAGE_PREFIX = 'ripple.aiPlanPanel.v2:'
+
+interface PersistedAiPanelState {
+  prompt: string
+  plan: AiPlan | null
+  confirmed: boolean
+  progress: AiProgress
+  streamText: string
+  elapsedSeconds: number
+  startedAt: number | null
+}
+
+function getStorageKey(mode: 'create' | 'update', projectId?: string) {
+  return `${AI_PLAN_STORAGE_PREFIX}${mode}:${projectId ?? 'new'}`
+}
+
+function readPersistedState(key: string): PersistedAiPanelState | null {
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return null
+    return JSON.parse(raw) as PersistedAiPanelState
+  } catch {
+    return null
+  }
+}
+
+function savePersistedState(key: string, state: PersistedAiPanelState) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(state))
+  } catch {
+    // Storage may be unavailable or full; the live component still keeps the state in memory.
+  }
+}
+
+function clearPersistedState(key: string) {
+  try {
+    window.localStorage.removeItem(key)
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
 interface AiPlanPanelProps {
   mode: 'create' | 'update'
   projectId?: string
@@ -48,17 +90,23 @@ function changeIcon(action: string) {
 }
 
 export function AiPlanPanel({ mode, projectId, projectName, employees = [], onClose, onConfirmed }: AiPlanPanelProps) {
-  const [prompt, setPrompt] = useState('')
-  const [plan, setPlan] = useState<AiPlan | null>(null)
+  const storageKey = getStorageKey(mode, projectId)
+  const persisted = useMemo(() => readPersistedState(storageKey), [storageKey])
+  const [prompt, setPrompt] = useState(persisted?.prompt ?? '')
+  const [plan, setPlan] = useState<AiPlan | null>(persisted?.plan ?? null)
   const [busy, setBusy] = useState(false)
   const [background, setBackground] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [confirmed, setConfirmed] = useState(false)
-  const [progress, setProgress] = useState<AiProgress>({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
-  const [streamText, setStreamText] = useState('')
+  const [confirmed, setConfirmed] = useState(persisted?.confirmed ?? false)
+  const [progress, setProgress] = useState<AiProgress>(persisted?.progress ?? { stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
+  const [streamText, setStreamText] = useState(persisted?.streamText ?? '')
   const [panelMode] = useState<PanelMode>(getPanelMode)
   const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [elapsedSeconds, setElapsedSeconds] = useState(persisted?.elapsedSeconds ?? 0)
+
+  useEffect(() => {
+    savePersistedState(storageKey, { prompt, plan, confirmed, progress, streamText, elapsedSeconds, startedAt })
+  }, [storageKey, prompt, plan, confirmed, progress, streamText, elapsedSeconds, startedAt])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -116,6 +164,9 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
             setProgress(nextProgress)
             if (nextProgress.text) setStreamText((current) => (current + nextProgress.text).slice(-5000))
           })
+      const finishedAt = Date.now()
+      const totalSeconds = startedAt === null ? elapsedSeconds : Math.max(0, Math.floor((finishedAt - startedAt) / 1000))
+      setElapsedSeconds(totalSeconds)
       setProgress({ stage: 'completed', progress: 100, message: 'План готов', text: null })
       setPlan(next)
     } catch (caughtError) {
@@ -149,6 +200,7 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setError(null)
     setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
     setStreamText('')
+    clearPersistedState(storageKey)
   }
 
   const isDialog = panelMode === 'dialog'
@@ -172,14 +224,14 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
 
   return (
     <div className={shellClass} role="dialog" aria-modal="true" aria-labelledby="ai-plan-title">
-      {!isDialog && <button type="button" className="min-w-0 flex-1" onClick={() => !busy && onClose()} aria-label="Закрыть ИИ-панель по фону" />}
-      {isDialog && <button type="button" className="absolute inset-0 cursor-default" onClick={() => !busy && onClose()} aria-label="Закрыть окно ИИ по фону" />}
+      {!isDialog && <button type="button" className="min-w-0 flex-1" onClick={() => busy ? setBackground(true) : onClose()} aria-label="Свернуть или закрыть ИИ-панель по фону" />}
+      {isDialog && <button type="button" className="absolute inset-0 cursor-default" onClick={() => busy ? setBackground(true) : onClose()} aria-label="Свернуть или закрыть окно ИИ по фону" />}
       <section className={`relative z-10 ${contentClass}`}>
         <header className="flex items-center gap-3 border-b border-[#e5e2ea] bg-white px-5 py-4 sm:px-6">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#efedff] text-[#6757df]"><Sparkles size={18} /></span>
           <div className="min-w-0 flex-1"><h2 id="ai-plan-title" className="text-base font-bold text-[#302c40]">{mode === 'create' ? 'Создать проект с ИИ' : 'Изменить проект с ИИ'}</h2><p className="mt-0.5 truncate text-[11px] text-[#8c8797]">{mode === 'create' ? 'Опишите результат обычным языком' : projectName}</p></div>
           {busy && <button type="button" onClick={() => setBackground(true)} className="hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-[10px] font-bold text-[#6259a8] hover:bg-[#f3f1ff] sm:inline-flex"><Minimize2 size={14} /> В фон</button>}
-          <button type="button" onClick={onClose} disabled={busy} className="grid h-9 w-9 place-items-center rounded-xl text-[#777281] hover:bg-[#f3f1f6] disabled:opacity-50" aria-label="Закрыть ИИ-панель"><X size={18} /></button>
+          <button type="button" onClick={() => busy ? setBackground(true) : onClose()} className="grid h-9 w-9 place-items-center rounded-xl text-[#777281] hover:bg-[#f3f1f6] disabled:opacity-50" aria-label="Закрыть ИИ-панель"><X size={18} /></button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
@@ -214,10 +266,27 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
             </div>
             <div className="rounded-2xl border border-[#e5e2ea] bg-white p-4 shadow-panel sm:p-5">
               <div className="mb-4 flex items-end justify-between gap-3"><div><p className="text-xs font-bold text-[#494456]">Структура предложения</p><p className="mt-1 text-[10px] text-[#918c9b]">Изменения сгруппированы по типу, чтобы план было проще проверить.</p></div><span className="rounded-full bg-[#f5f3fa] px-2.5 py-1 text-[9px] font-bold text-[#716b7e]">Предпросмотр</span></div>
-              {changes.length === 0 ? <p className="rounded-xl bg-[#f7f6f9] p-4 text-xs text-[#777181]">Изменений не обнаружено.</p> : <div className="space-y-4">{groupedChanges.map((group) => { const Icon = changeIcon(group.action); return <section key={group.key} className="overflow-hidden rounded-2xl border border-[#e8e5ed] bg-[#fbfafc]">
-                <div className="flex items-center gap-3 border-b border-[#e8e5ed] bg-white px-4 py-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${group.action === 'delete' ? 'bg-rose-50 text-rose-600' : group.action === 'create' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#efedff] text-[#6757df]'}`}><Icon size={15} /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#403b4d]">{actionLabels[group.action] ?? group.action} {entityLabels[group.entityType] ?? group.entityType}</p><p className="text-[10px] text-[#918c9b]">{group.items.length} {group.items.length === 1 ? 'изменение' : 'изменений'}</p></div></div>
-                <div className="grid gap-2 p-3 sm:grid-cols-2">{group.items.map((change, index) => { const view = changeDescription(change, employees); return <article key={`${change.entityType}-${change.entityId}-${change.field}-${index}`} className="rounded-xl border border-[#e8e5ed] bg-white p-3"><div className="flex items-center gap-2"><span className="min-w-0 truncate text-xs font-bold text-[#3f3a4b]">{view.title}</span>{view.field && <span className="shrink-0 rounded-full bg-[#f5f3f8] px-2 py-0.5 text-[9px] font-semibold text-[#777181]">{view.field}</span>}</div>{change.action === 'update' ? <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] text-[#777181]">{view.before}</span><ArrowRight size={13} className="shrink-0 text-[#b4afbd]" /><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f2f0ff] px-2.5 py-2 text-[10px] font-bold text-[#5147aa]">{view.after}</span></div> : <p className="mt-2 rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] leading-4 text-[#777181]">{view.after !== '—' ? view.after : view.before}</p>}</article> })}</div>
-              </section> })}</div>}
+              {changes.length === 0 ? <p className="rounded-xl bg-[#f7f6f9] p-4 text-xs text-[#777181]">Изменений не обнаружено.</p> : <div className="space-y-4">
+                {mode === 'create' && (() => {
+                  const projectChanges = changes.filter((change) => change.entityType === 'project')
+                  if (projectChanges.length === 0) return null
+                  const nameChange = projectChanges.find((change) => change.field === 'name')
+                  return <section className="overflow-hidden rounded-2xl border-2 border-[#dcd7ff] bg-gradient-to-br from-[#f7f5ff] via-white to-[#f5f3ff] shadow-[0_12px_32px_rgba(103,87,223,.10)]">
+                    <div className="border-b border-[#e5e1fa] bg-white/80 px-5 py-4">
+                      <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#ebe8ff] text-[#6757df]"><Sparkles size={17} /></span><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.1em] text-[#6757df]">Новый проект</p><h3 className="mt-1 text-lg font-bold text-[#302c40]">{nameChange?.after || 'Новый проект'}</h3><p className="mt-1 text-[10px] text-[#827c91]">Вся информация о создаваемом проекте собрана в одной карточке.</p></div></div>
+                    </div>
+                    <div className="grid gap-2 p-4 sm:grid-cols-2">{projectChanges.filter((change) => change.field !== 'name').map((change, index) => { const view = changeDescription(change, employees); return <article key={`project-${change.field}-${index}`} className="rounded-xl border border-[#e5e1ee] bg-white/90 p-3"><p className="text-[9px] font-semibold uppercase tracking-wide text-[#918c9b]">{view.field || 'Информация'}</p><p className="mt-1 break-words text-xs font-semibold text-[#3f3a4b]">{view.after !== '—' ? view.after : view.before}</p></article> })}</div>
+                  </section>
+                })()}
+                {groupedChanges.filter((group) => !(mode === 'create' && group.entityType === 'project')).map((group) => { const Icon = changeIcon(group.action); return <section key={group.key} className="overflow-hidden rounded-2xl border border-[#e8e5ed] bg-[#fbfafc]">
+                  <div className="flex items-center gap-3 border-b border-[#e8e5ed] bg-white px-4 py-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${group.action === 'delete' ? 'bg-rose-50 text-rose-600' : group.action === 'create' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#efedff] text-[#6757df]'}`}><Icon size={15} /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#403b4d]">{actionLabels[group.action] ?? group.action} {entityLabels[group.entityType] ?? group.entityType}</p><p className="text-[10px] text-[#918c9b]">{group.items.length} {group.items.length === 1 ? 'изменение' : 'изменений'}</p></div></div>
+                  <div className="grid gap-2 p-3 sm:grid-cols-2">{group.items.map((change, index) => { const view = changeDescription(change, employees); return <article key={`${change.entityType}-${change.entityId}-${change.field}-${index}`} className="rounded-xl border border-[#e8e5ed] bg-white p-3"><div className="flex items-center gap-2"><span className="min-w-0 truncate text-xs font-bold text-[#3f3a4b]">{view.title}</span>{view.field && <span className="shrink-0 rounded-full bg-[#f5f3f8] px-2 py-0.5 text-[9px] font-semibold text-[#777181]">{view.field}</span>}</div>{change.action === 'update' ? <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] text-[#777181]">{view.before}</span><ArrowRight size={13} className="shrink-0 text-[#b4afbd]" /><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f2f0ff] px-2.5 py-2 text-[10px] font-bold text-[#5147aa]">{view.after}</span></div> : <p className="mt-2 rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] leading-4 text-[#777181]">{view.after !== '—' ? view.after : view.before}</p>}</article> })}</div>
+                </section> })}
+              </div>}
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e2ea] bg-white px-4 py-3">
+              <div><p className="text-[10px] font-semibold text-[#777181]">Время ожидания ответа ИИ</p><p className="mt-1 text-[9px] text-[#9a95a3]">От отправки запроса до готового плана.</p></div>
+              <span className="shrink-0 rounded-full bg-[#efedff] px-3 py-1.5 text-xs font-bold text-[#5147aa]">{formatElapsed(elapsedSeconds)}</span>
             </div>
             <div className="flex items-start gap-2 rounded-xl bg-[#f5f3f8] px-3 py-2.5 text-[10px] leading-4 text-[#777181]"><UserRound size={14} className="mt-0.5 shrink-0 text-[#756bc9]" /> После подтверждения изменения пройдут обычную серверную валидацию, попадут в историю и синхронизируются с другими открытыми клиентами.</div>
             {confirmed && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700">Изменения применены.</div>}
