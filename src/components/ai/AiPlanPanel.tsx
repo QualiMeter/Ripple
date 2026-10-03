@@ -167,7 +167,7 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
         change.label,
         change.after,
       ]
-      const name = candidates.find((value): value is string => Boolean(value) && !isGuid(value))
+      const name = candidates.find((value): value is string => value != null && value !== '' && !isGuid(value))
       if (name) result.set(change.entityId, name)
     }
     return result
