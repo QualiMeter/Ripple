@@ -193,7 +193,8 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setError(null)
     setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
     setStreamText('')
-    setStartedAt(Date.now())
+    const requestStartedAt = Date.now()
+    setStartedAt(requestStartedAt)
     setElapsedSeconds(0)
     try {
       const next = mode === 'create'
@@ -206,7 +207,7 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
             if (nextProgress.text) setStreamText((current) => (current + nextProgress.text).slice(-5000))
           })
       const finishedAt = Date.now()
-      const totalSeconds = startedAt === null ? elapsedSeconds : Math.max(0, Math.floor((finishedAt - startedAt) / 1000))
+      const totalSeconds = Math.max(0, Math.floor((finishedAt - requestStartedAt) / 1000))
       setElapsedSeconds(totalSeconds)
       setProgress({ stage: 'completed', progress: 100, message: 'План готов', text: null })
       setPlan(next)
@@ -303,15 +304,23 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
                   if (projectChanges.length === 0) return null
                   const nameChange = projectChanges.find((change) => change.field === 'name')
                   return <section className="overflow-hidden rounded-2xl border-2 border-[#dcd7ff] bg-gradient-to-br from-[#f7f5ff] via-white to-[#f5f3ff] shadow-[0_12px_32px_rgba(103,87,223,.10)]">
-                    <div className="border-b border-[#e5e1fa] bg-white/80 px-5 py-4">
-                      <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#ebe8ff] text-[#6757df]"><Sparkles size={17} /></span><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.1em] text-[#6757df]">Новый проект</p><h3 className="mt-1 text-lg font-bold text-[#302c40]">{nameChange?.after || 'Новый проект'}</h3><p className="mt-1 text-[10px] text-[#827c91]">Вся информация о создаваемом проекте собрана в одной карточке.</p></div></div>
+                    <div className="border-b border-[#e5e1fa] bg-white/80 px-5 py-5 text-center">
+                      <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#ebe8ff] text-[#6757df]"><Check size={19} /></div>
+                      <p className="mt-2 text-sm font-bold text-[#302c40]">Проект готов</p>
+                      <p className="mt-1 text-[10px] text-[#827c91]">Вся информация о новом проекте собрана в одной карточке.</p>
                     </div>
-                    <div className="grid gap-2 p-4 sm:grid-cols-2">{projectChanges.filter((change) => change.field !== 'name').map((change, index) => { const view = changeDescription(change, employees, taskNames); return <article key={`project-${change.field}-${index}`} className="rounded-xl border border-[#e5e1ee] bg-white/90 p-3"><p className="text-[9px] font-semibold uppercase tracking-wide text-[#918c9b]">{view.field || 'Информация'}</p><p className="mt-1 break-words text-xs font-semibold text-[#3f3a4b]">{view.after !== '—' ? view.after : view.before}</p></article> })}</div>
+                    <div className="p-4 sm:p-5">
+                      <div className="rounded-xl border border-[#e5e1ee] bg-white/90 p-4">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-[#918c9b]">Название проекта</p>
+                        <h3 className="mt-1 break-words text-lg font-bold text-[#302c40]">{nameChange?.after || 'Новый проект'}</h3>
+                      </div>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">{projectChanges.filter((change) => change.field !== 'name').map((change, index) => { const view = changeDescription(change, employees, taskNames); return <article key={`project-${change.field}-${index}`} className="rounded-xl border border-[#e5e1ee] bg-white/90 p-3"><p className="text-[9px] font-semibold uppercase tracking-wide text-[#918c9b]">{view.field || 'Информация'}</p><p className="mt-1 break-words text-xs font-semibold text-[#3f3a4b]">{view.after !== '—' ? view.after : view.before}</p></article> })}</div>
+                    </div>
                   </section>
                 })()}
                 {groupedChanges.filter((group) => !(mode === 'create' && group.entityType === 'project')).map((group) => { const Icon = changeIcon(group.action); return <section key={group.key} className="overflow-hidden rounded-2xl border border-[#e8e5ed] bg-[#fbfafc]">
                   <div className="flex items-center gap-3 border-b border-[#e8e5ed] bg-white px-4 py-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${group.action === 'delete' ? 'bg-rose-50 text-rose-600' : group.action === 'create' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#efedff] text-[#6757df]'}`}><Icon size={15} /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#403b4d]">{group.entityType === 'task_dependency' ? (group.action === 'delete' ? 'Удаление зависимостей' : 'Зависимости') : `${actionLabels[group.action] ?? group.action} ${entityLabels[group.entityType] ?? group.entityType}`}</p><p className="text-[10px] text-[#918c9b]">{group.items.length} {group.items.length === 1 ? 'изменение' : 'изменений'}</p></div></div>
-                  <div className="grid gap-2 p-3 sm:grid-cols-2">{group.items.map((change, index) => { const view = changeDescription(change, employees, taskNames); return <article key={`${change.entityType}-${change.entityId}-${change.field}-${index}`} className="rounded-xl border border-[#e8e5ed] bg-white p-3"><div className="flex items-center gap-2"><span className="min-w-0 truncate text-xs font-bold text-[#3f3a4b]">{view.title}</span>{view.field && <span className="shrink-0 rounded-full bg-[#f5f3f8] px-2 py-0.5 text-[9px] font-semibold text-[#777181]">{view.field}</span>}</div>{change.action === 'update' ? <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] text-[#777181]">{view.before}</span><ArrowRight size={13} className="shrink-0 text-[#b4afbd]" /><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f2f0ff] px-2.5 py-2 text-[10px] font-bold text-[#5147aa]">{view.after}</span></div> : <p className="mt-2 rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] leading-4 text-[#777181]">{view.after !== '—' ? view.after : view.before}</p>}</article> })}</div>
+                  <div className="grid gap-2 p-3 sm:grid-cols-2">{group.items.map((change, index) => { const view = changeDescription(change, employees, taskNames); return <article key={`${change.entityType}-${change.entityId}-${change.field}-${index}`} className="rounded-xl border border-[#e8e5ed] bg-white p-3"><div className="flex items-center gap-2"><span className="min-w-0 break-words whitespace-normal text-xs font-bold leading-5 text-[#3f3a4b]">{view.title}</span>{view.field && <span className="shrink-0 rounded-full bg-[#f5f3f8] px-2 py-0.5 text-[9px] font-semibold text-[#777181]">{view.field}</span>}</div>{change.action === 'update' ? <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] text-[#777181]">{view.before}</span><ArrowRight size={13} className="shrink-0 text-[#b4afbd]" /><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f2f0ff] px-2.5 py-2 text-[10px] font-bold text-[#5147aa]">{view.after}</span></div> : <p className="mt-2 rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] leading-4 text-[#777181]">{view.after !== '—' ? view.after : view.before}</p>}</article> })}</div>
                 </section> })}
               </div>}
             </div>
