@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Check, ChevronRight, CirclePlus, Clock3, Loader2, Pencil, Sparkles, Trash2, UserRound, X, Minimize2, Maximize2 } from 'lucide-react'
+import { ArrowRight, Check, CirclePlus, Clock3, Loader2, Pencil, Sparkles, Trash2, UserRound, X, Minimize2, Maximize2 } from 'lucide-react'
 import type { AiPlan, AiPlanChange } from '../../api/ai.api'
 import { aiApi } from '../../api/ai.api'
 import type { Employee } from '../../types/employee'

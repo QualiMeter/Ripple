@@ -29,7 +29,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Test
         run: npm test
@@ -78,5 +78,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          ssh "$SERVER_USER@$SERVER_HOST" \
+            "mkdir -p /var/www/ripple/frontend && rm -rf /var/www/ripple/frontend/*"
+
           tar -C dist -cf - . | ssh "$SERVER_USER@$SERVER_HOST" \
-            "rm -rf /var/www/ripple/frontend/* && tar -C /var/www/ripple/frontend -xf -"
+            "tar -C /var/www/ripple/frontend -xf -"
+
+          ssh "$SERVER_USER@$SERVER_HOST" \
+            "test -f /var/www/ripple/frontend/index.html"
