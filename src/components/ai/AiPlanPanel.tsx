@@ -71,12 +71,39 @@ function displayValue(value: string | null, field?: string | null): string {
   return value
 }
 
-function changeDescription(change: AiPlanChange, employees: Employee[]) {
+function replaceTaskIdsWithNames(value: string, taskNames: Map<string, string>) {
+  let result = value
+  for (const [id, name] of taskNames) {
+    if (id && name) result = result.split(id).join(name)
+  }
+  return result
+}
+
+function isGuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+function changeDescription(change: AiPlanChange, employees: Employee[], taskNames: Map<string, string>) {
   const field = fieldLabels[change.field ?? ''] ?? change.field ?? ''
-  const label = change.label || `${entityLabels[change.entityType] ?? change.entityType}`
   const resolveEmployee = (value: string | null) => employees.find((employee) => employee.id === value)?.name ?? value ?? '—'
+  const resolveTaskValue = (value: string | null) => value == null ? '—' : replaceTaskIdsWithNames(displayValue(value, change.field), taskNames)
+
+  if (change.entityType === 'task_dependency') {
+    const rawLabel = change.label || ''
+    const title = replaceTaskIdsWithNames(rawLabel, taskNames)
+    const before = resolveTaskValue(change.before)
+    const after = resolveTaskValue(change.after)
+    return {
+      title: title && title !== rawLabel ? title : (after !== '—' ? after : before),
+      field: '',
+      before,
+      after,
+    }
+  }
+
+  const label = change.label || `${entityLabels[change.entityType] ?? change.entityType}`
   return {
-    title: label,
+    title: replaceTaskIdsWithNames(label, taskNames),
     field,
     before: change.field === 'assigneeId' ? resolveEmployee(change.before) : displayValue(change.before, change.field),
     after: change.field === 'assigneeId' ? resolveEmployee(change.after) : displayValue(change.after, change.field),
@@ -131,6 +158,20 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
   }
 
   const changes = useMemo(() => plan?.changes ?? [], [plan])
+  const taskNames = useMemo(() => {
+    const result = new Map<string, string>()
+    for (const change of changes) {
+      if (change.entityType !== 'task' || !change.entityId) continue
+      const candidates = [
+        change.field === 'name' ? change.after : null,
+        change.label,
+        change.after,
+      ]
+      const name = candidates.find((value): value is string => Boolean(value) && !isGuid(value))
+      if (name) result.set(change.entityId, name)
+    }
+    return result
+  }, [changes])
   const groupedChanges = useMemo(() => {
     const groups = new Map<string, AiPlanChange[]>()
     changes.forEach((change) => {
@@ -213,10 +254,9 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
 
   if (background && busy) {
     return <div className="fixed bottom-5 right-5 z-[95] w-[min(380px,calc(100vw-32px))] rounded-2xl border border-[#ddd8ff] bg-white p-4 shadow-[0_18px_50px_rgba(32,28,58,.18)]" role="status" aria-live="polite">
-      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#eeebf5]"><div className="h-full rounded-full bg-[#6d5dfb] transition-all duration-300" style={{ width: `${progress.progress}%` }} /></div>
       <div className="flex items-center gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#efedff] text-[#6757df]"><Loader2 size={18} className="animate-spin" /></span>
-        <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#373145]">ИИ работает — {progress.progress}%</p><p className="mt-1 truncate text-[10px] text-[#8a8594]">{progress.message}. {formatElapsed(elapsedSeconds)} · {streamText.length.toLocaleString('ru-RU')} симв.</p></div>
+        <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#373145]">ИИ формирует план…</p><p className="mt-1 truncate text-[10px] text-[#8a8594]">Время ожидания: {formatElapsed(elapsedSeconds)}</p></div>
         <button type="button" onClick={() => setBackground(false)} className="grid h-8 w-8 place-items-center rounded-lg text-[#777181] hover:bg-[#f3f1f6]" aria-label="Развернуть генерацию"><Maximize2 size={15} /></button>
       </div>
     </div>
@@ -239,18 +279,9 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
             <div className="rounded-2xl border border-[#ddd8ff] bg-gradient-to-br from-[#f7f5ff] to-white p-4 shadow-panel">
               <div className="flex items-start gap-3"><div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ebe8ff] text-[#6757df]"><Sparkles size={16} /></div><div><p className="text-xs font-bold text-[#433a70]">Опишите цель проекта</p><p className="mt-1 text-[11px] leading-5 text-[#77718b]">ИИ сам разложит запрос на проект, задачи, сотрудников и зависимости, а Ripple проверит план перед применением.</p></div></div>
             </div>
-            {busy && <div className="rounded-2xl border border-[#ddd8ff] bg-white p-4 shadow-panel" role="status" aria-live="polite">
-              <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-[#40386b]">{progress.message}</p><p className="mt-1 text-[10px] text-[#8a8594]">ИИ не показывает внутренние рассуждения, но результат поступает потоково и сервер сразу обрабатывает его.</p></div><span className="shrink-0 text-xs font-bold text-[#6757df]">{progress.progress}%</span></div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#eeebf5]"><div className="h-full rounded-full bg-[#6d5dfb] transition-all duration-300" style={{ width: `${progress.progress}%` }} /></div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-[9px] font-semibold text-[#777181]"><span className={progress.progress >= 15 ? 'text-[#5147aa]' : ''}>Контекст</span><span className={progress.progress >= 20 ? 'text-[#5147aa]' : ''}>Генерация</span><span className={progress.progress >= 82 ? 'text-[#5147aa]' : ''}>Проверка</span></div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-                <div className="rounded-lg bg-[#f7f6fa] px-3 py-2"><span className="text-[#918c9b]">Время</span><span className="ml-2 font-bold text-[#5147aa]">{formatElapsed(elapsedSeconds)}</span></div>
-                <div className="rounded-lg bg-[#f7f6fa] px-3 py-2"><span className="text-[#918c9b]">Получено</span><span className="ml-2 font-bold text-[#5147aa]">{streamText.length.toLocaleString('ru-RU')} симв.</span></div>
-              </div>
-              <div className="mt-4 overflow-hidden rounded-xl border border-[#e5e2ea] bg-[#17152b]">
-                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2"><span className="text-[10px] font-bold text-white/80">ИИ генерирует</span><span className="text-[9px] text-white/45">live</span></div>
-                <pre className="max-h-52 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[9px] leading-4 text-white/75">{streamText || 'Ожидаю первый фрагмент ответа…'}</pre>
-              </div>
+            {busy && <div className="flex items-center gap-3 rounded-2xl border border-[#ddd8ff] bg-white px-4 py-3 shadow-panel" role="status" aria-live="polite">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#efedff] text-[#6757df]"><Loader2 size={16} className="animate-spin" /></span>
+              <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#40386b]">ИИ формирует план…</p><p className="mt-1 text-[10px] text-[#8a8594]">Время ожидания: {formatElapsed(elapsedSeconds)}</p></div>
             </div>}
             <textarea disabled={busy} autoFocus value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') void generate() }} rows={9} placeholder={mode === 'create' ? 'Например: Создай проект запуска сайта…' : 'Например: Перенеси тестирование на 10 ноября и назначь его Анне…'} className="w-full resize-none rounded-2xl border border-[#dedbe5] bg-white p-4 text-sm leading-6 text-[#363143] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10" />
             <div className="flex items-center gap-2 rounded-xl bg-[#f5f3f8] px-3 py-2.5 text-[10px] leading-4 text-[#777181]"><Clock3 size={14} className="shrink-0 text-[#7167c9]" /> Пока вы не подтвердите предложение, данные проекта не изменятся.</div>
@@ -275,12 +306,12 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
                     <div className="border-b border-[#e5e1fa] bg-white/80 px-5 py-4">
                       <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#ebe8ff] text-[#6757df]"><Sparkles size={17} /></span><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.1em] text-[#6757df]">Новый проект</p><h3 className="mt-1 text-lg font-bold text-[#302c40]">{nameChange?.after || 'Новый проект'}</h3><p className="mt-1 text-[10px] text-[#827c91]">Вся информация о создаваемом проекте собрана в одной карточке.</p></div></div>
                     </div>
-                    <div className="grid gap-2 p-4 sm:grid-cols-2">{projectChanges.filter((change) => change.field !== 'name').map((change, index) => { const view = changeDescription(change, employees); return <article key={`project-${change.field}-${index}`} className="rounded-xl border border-[#e5e1ee] bg-white/90 p-3"><p className="text-[9px] font-semibold uppercase tracking-wide text-[#918c9b]">{view.field || 'Информация'}</p><p className="mt-1 break-words text-xs font-semibold text-[#3f3a4b]">{view.after !== '—' ? view.after : view.before}</p></article> })}</div>
+                    <div className="grid gap-2 p-4 sm:grid-cols-2">{projectChanges.filter((change) => change.field !== 'name').map((change, index) => { const view = changeDescription(change, employees, taskNames); return <article key={`project-${change.field}-${index}`} className="rounded-xl border border-[#e5e1ee] bg-white/90 p-3"><p className="text-[9px] font-semibold uppercase tracking-wide text-[#918c9b]">{view.field || 'Информация'}</p><p className="mt-1 break-words text-xs font-semibold text-[#3f3a4b]">{view.after !== '—' ? view.after : view.before}</p></article> })}</div>
                   </section>
                 })()}
                 {groupedChanges.filter((group) => !(mode === 'create' && group.entityType === 'project')).map((group) => { const Icon = changeIcon(group.action); return <section key={group.key} className="overflow-hidden rounded-2xl border border-[#e8e5ed] bg-[#fbfafc]">
-                  <div className="flex items-center gap-3 border-b border-[#e8e5ed] bg-white px-4 py-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${group.action === 'delete' ? 'bg-rose-50 text-rose-600' : group.action === 'create' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#efedff] text-[#6757df]'}`}><Icon size={15} /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#403b4d]">{actionLabels[group.action] ?? group.action} {entityLabels[group.entityType] ?? group.entityType}</p><p className="text-[10px] text-[#918c9b]">{group.items.length} {group.items.length === 1 ? 'изменение' : 'изменений'}</p></div></div>
-                  <div className="grid gap-2 p-3 sm:grid-cols-2">{group.items.map((change, index) => { const view = changeDescription(change, employees); return <article key={`${change.entityType}-${change.entityId}-${change.field}-${index}`} className="rounded-xl border border-[#e8e5ed] bg-white p-3"><div className="flex items-center gap-2"><span className="min-w-0 truncate text-xs font-bold text-[#3f3a4b]">{view.title}</span>{view.field && <span className="shrink-0 rounded-full bg-[#f5f3f8] px-2 py-0.5 text-[9px] font-semibold text-[#777181]">{view.field}</span>}</div>{change.action === 'update' ? <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] text-[#777181]">{view.before}</span><ArrowRight size={13} className="shrink-0 text-[#b4afbd]" /><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f2f0ff] px-2.5 py-2 text-[10px] font-bold text-[#5147aa]">{view.after}</span></div> : <p className="mt-2 rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] leading-4 text-[#777181]">{view.after !== '—' ? view.after : view.before}</p>}</article> })}</div>
+                  <div className="flex items-center gap-3 border-b border-[#e8e5ed] bg-white px-4 py-3"><span className={`grid h-8 w-8 place-items-center rounded-lg ${group.action === 'delete' ? 'bg-rose-50 text-rose-600' : group.action === 'create' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#efedff] text-[#6757df]'}`}><Icon size={15} /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#403b4d]">{group.entityType === 'task_dependency' ? (group.action === 'delete' ? 'Удаление зависимостей' : 'Зависимости') : `${actionLabels[group.action] ?? group.action} ${entityLabels[group.entityType] ?? group.entityType}`}</p><p className="text-[10px] text-[#918c9b]">{group.items.length} {group.items.length === 1 ? 'изменение' : 'изменений'}</p></div></div>
+                  <div className="grid gap-2 p-3 sm:grid-cols-2">{group.items.map((change, index) => { const view = changeDescription(change, employees, taskNames); return <article key={`${change.entityType}-${change.entityId}-${change.field}-${index}`} className="rounded-xl border border-[#e8e5ed] bg-white p-3"><div className="flex items-center gap-2"><span className="min-w-0 truncate text-xs font-bold text-[#3f3a4b]">{view.title}</span>{view.field && <span className="shrink-0 rounded-full bg-[#f5f3f8] px-2 py-0.5 text-[9px] font-semibold text-[#777181]">{view.field}</span>}</div>{change.action === 'update' ? <div className="mt-3 flex items-center gap-2"><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] text-[#777181]">{view.before}</span><ArrowRight size={13} className="shrink-0 text-[#b4afbd]" /><span className="min-w-0 flex-1 break-words rounded-lg bg-[#f2f0ff] px-2.5 py-2 text-[10px] font-bold text-[#5147aa]">{view.after}</span></div> : <p className="mt-2 rounded-lg bg-[#f7f6f9] px-2.5 py-2 text-[10px] leading-4 text-[#777181]">{view.after !== '—' ? view.after : view.before}</p>}</article> })}</div>
                 </section> })}
               </div>}
             </div>
