@@ -232,15 +232,15 @@ export function Timeline({ project, tasks, assignees, impact, currentIssues, dep
   }
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e3eb] bg-white shadow-panel">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#ebe9ef] px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#ebe9ef] px-4 py-2.5">
         <div>
           <h2 className="text-sm font-bold text-[#302d40]">План проекта</h2>
-          <p className="mt-0.5 text-[11px] text-[#918d9b]">Критический путь и сдвиг зависимостей</p>
+          <p className="mt-0.5 text-[10px] text-[#918d9b]">Критический путь и сдвиг зависимостей</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="rounded-xl border border-[#e8e5ed] bg-[#faf9fb] px-3 py-2 text-[10px] leading-4 text-[#777181]" data-project-dates="true"><span className="font-semibold text-[#4d4858]">Начало:</span> {formatMonthDay(project.startDate)}<br /><span className="font-semibold text-[#4d4858]">Окончание:</span> {formatMonthDay(project.targetEndDate)}</div>
-          <div className="inline-flex rounded-xl border border-[#dedbe5] bg-white p-1" aria-label="Масштаб плана">{(['day', 'week', 'month'] as const).map((mode) => <button key={mode} type="button" onClick={() => setScaleMode(mode)} aria-pressed={scaleMode === mode} data-timeline-scale={mode} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${scaleMode === mode ? 'bg-[#29263e] text-white' : 'text-[#777181] hover:bg-[#f5f3fa]'}`}>{mode === 'day' ? 'Дни' : mode === 'week' ? 'Недели' : 'Месяцы'}</button>)}</div>
-          <p className="rounded-lg bg-[#f5f3fa] px-2.5 py-1.5 text-[10px] font-semibold text-[#777181]">Сегодня: {formatFullDate(today)}</p>
+          <div className="rounded-lg border border-[#e8e5ed] bg-[#faf9fb] px-2.5 py-1.5 text-[10px] leading-4 text-[#777181]" data-project-dates="true"><span className="font-semibold text-[#4d4858]">Начало:</span> {formatMonthDay(project.startDate)} <span className="text-[#b9b5c1]">→</span> <span className="font-semibold text-[#4d4858]">Окончание:</span> {formatMonthDay(project.targetEndDate)}</div>
+          <div className="inline-flex rounded-lg border border-[#dedbe5] bg-white p-0.5" aria-label="Масштаб плана">{(['day', 'week', 'month'] as const).map((mode) => <button key={mode} type="button" onClick={() => setScaleMode(mode)} aria-pressed={scaleMode === mode} data-timeline-scale={mode} className={`rounded-md px-2 py-1 text-[10px] font-bold transition ${scaleMode === mode ? 'bg-[#29263e] text-white' : 'text-[#777181] hover:bg-[#f5f3fa]'}`}>{mode === 'day' ? 'Дни' : mode === 'week' ? 'Недели' : 'Месяцы'}</button>)}</div>
+          <p className="rounded-md bg-[#f5f3fa] px-2 py-1 text-[10px] font-semibold text-[#777181]">Сегодня: {formatFullDate(today)}</p>
         </div>
       </div>
       {mutationError && <p className="mx-4 mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700" role="alert">{mutationError}</p>}
