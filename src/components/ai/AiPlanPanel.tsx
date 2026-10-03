@@ -54,7 +54,8 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
   const [background, setBackground] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState(false)
-  const [progress, setProgress] = useState<AiProgress>({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
+  const [progress, setProgress] = useState<AiProgress>({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
+  const [streamText, setStreamText] = useState('')
   const [panelMode] = useState<PanelMode>(getPanelMode)
 
   useEffect(() => {
@@ -85,19 +86,19 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setBusy(true)
     setBackground(false)
     setError(null)
-    setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
+    setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
+    setStreamText('')
     try {
       const next = mode === 'create'
         ? await aiApi.createProjectPlanStream(prompt.trim(), (nextProgress) => {
             setProgress(nextProgress)
+            if (nextProgress.text) setStreamText((current) => (current + nextProgress.text).slice(-5000))
           })
         : await aiApi.createProjectUpdatePlanStream(projectId!, prompt.trim(), (nextProgress) => {
             setProgress(nextProgress)
+            if (nextProgress.text) setStreamText((current) => (current + nextProgress.text).slice(-5000))
           })
-      // SignalR invocation returns the persisted AiPlanDto itself. It already
-      // contains the plan UUID and the complete preview changes.
-      if (!next.planId) throw new Error('Backend returned an AI plan without planId.')
-      setProgress({ stage: 'completed', progress: 100, message: `План готов: ${next.changes.length} изменений` })
+      setProgress({ stage: 'completed', progress: 100, message: 'План готов', text: null })
       setPlan(next)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Не удалось получить предложение от ИИ.')
@@ -128,7 +129,8 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setPlan(null)
     setConfirmed(false)
     setError(null)
-    setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
+    setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос', text: null })
+    setStreamText('')
   }
 
   const isDialog = panelMode === 'dialog'
@@ -171,6 +173,10 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
               <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-[#40386b]">{progress.message}</p><p className="mt-1 text-[10px] text-[#8a8594]">ИИ не показывает внутренние рассуждения, но результат поступает потоково и сервер сразу обрабатывает его.</p></div><span className="shrink-0 text-xs font-bold text-[#6757df]">{progress.progress}%</span></div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#eeebf5]"><div className="h-full rounded-full bg-[#6d5dfb] transition-all duration-300" style={{ width: `${progress.progress}%` }} /></div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-[9px] font-semibold text-[#777181]"><span className={progress.progress >= 15 ? 'text-[#5147aa]' : ''}>Контекст</span><span className={progress.progress >= 20 ? 'text-[#5147aa]' : ''}>Генерация</span><span className={progress.progress >= 82 ? 'text-[#5147aa]' : ''}>Проверка</span></div>
+              <div className="mt-4 overflow-hidden rounded-xl border border-[#e5e2ea] bg-[#17152b]">
+                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2"><span className="text-[10px] font-bold text-white/80">ИИ генерирует</span><span className="text-[9px] text-white/45">live</span></div>
+                <pre className="max-h-52 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[9px] leading-4 text-white/75">{streamText || 'Ожидаю первый фрагмент ответа…'}</pre>
+              </div>
             </div>}
             <textarea disabled={busy} autoFocus value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') void generate() }} rows={9} placeholder={mode === 'create' ? 'Например: Создай проект запуска сайта…' : 'Например: Перенеси тестирование на 10 ноября и назначь его Анне…'} className="w-full resize-none rounded-2xl border border-[#dedbe5] bg-white p-4 text-sm leading-6 text-[#363143] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10" />
             <div className="flex items-center gap-2 rounded-xl bg-[#f5f3f8] px-3 py-2.5 text-[10px] leading-4 text-[#777181]"><Clock3 size={14} className="shrink-0 text-[#7167c9]" /> Пока вы не подтвердите предложение, данные проекта не изменятся.</div>

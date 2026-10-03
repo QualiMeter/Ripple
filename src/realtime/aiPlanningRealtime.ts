@@ -1,101 +1,72 @@
-import { HubConnectionBuilder, HubConnectionState, type HubConnection } from '@microsoft/signalr'
+import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
 import { realtimeUrl } from '../config/api'
 import type { AiPlan, AiProgress } from '../api/ai.api'
 
-export type AiPlanProgressHandler = (progress: AiProgress) => void
+export type AiProgressHandler = (progress: AiProgress) => void
 
-export class AiPlanningRealtime {
-  private connection: HubConnection | null = null
-
-  private getConnection(): HubConnection {
-    if (this.connection) return this.connection
-    this.connection = new HubConnectionBuilder()
-      .withUrl(realtimeUrl('/hubs/ai-planning'))
-      .withAutomaticReconnect()
-      .build()
-    return this.connection
-  }
-
-  private async ensureConnected(): Promise<HubConnection> {
-    const connection = this.getConnection()
-    if (connection.state === HubConnectionState.Disconnected) {
-      await connection.start()
-    }
-    return connection
-  }
-
-  async createProjectPlan(prompt: string, onProgress: AiPlanProgressHandler): Promise<AiPlan> {
-    return this.invoke('CreateProjectPlan', [prompt], onProgress)
-  }
-
-  async createProjectUpdatePlan(projectId: string, prompt: string, onProgress: AiPlanProgressHandler): Promise<AiPlan> {
-    return this.invoke('CreateProjectUpdatePlan', [projectId, prompt], onProgress)
-  }
-
-  async stop(): Promise<void> {
-    if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
-      await this.connection.stop()
-    }
-  }
-
-  private async invoke(method: string, args: unknown[], onProgress: AiPlanProgressHandler): Promise<AiPlan> {
-    const connection = await this.ensureConnected()
-    const progressHandler = (value: unknown) => {
-      const progress = normalizeProgress(value)
-      if (progress) onProgress(progress)
-    }
-    connection.on('aiPlanProgress', progressHandler)
-    try {
-      const value = await connection.invoke<unknown>(method, ...args)
-      const plan = normalizePlan(value)
-      if (!plan.planId) throw new Error('SignalR завершил генерацию без planId.')
-      return plan
-    } finally {
-      connection.off('aiPlanProgress', progressHandler)
-    }
-  }
-}
-
-function normalizeProgress(value: unknown): AiProgress | null {
-  if (!value || typeof value !== 'object') return null
-  const source = value as Record<string, unknown>
+function normalizeProgress(value: unknown): AiProgress {
+  const item = (value ?? {}) as Record<string, unknown>
   return {
-    stage: String(source.stage ?? source.Stage ?? 'progress'),
-    progress: Number(source.progress ?? source.Progress ?? 0),
-    message: String(source.message ?? source.Message ?? ''),
+    stage: String(item.stage ?? item.Stage ?? 'generating'),
+    progress: Number(item.progress ?? item.Progress ?? 0),
+    message: String(item.message ?? item.Message ?? 'ИИ генерирует план'),
+    text: typeof (item.text ?? item.Text) === 'string' ? String(item.text ?? item.Text) : null,
   }
 }
 
 function normalizePlan(value: unknown): AiPlan {
-  const root = value && typeof value === 'object' ? value as Record<string, unknown> : {}
-  const source = root.data && typeof root.data === 'object' ? root.data as Record<string, unknown>
-    : root.result && typeof root.result === 'object' ? root.result as Record<string, unknown>
-    : root
-  const rawChanges = source.changes ?? source.Changes
-  const changes = Array.isArray(rawChanges) ? rawChanges.map(normalizeChange) : []
+  const item = (value ?? {}) as Record<string, unknown>
+  const rawChanges = Array.isArray(item.changes ?? item.Changes) ? (item.changes ?? item.Changes) : []
   return {
-    planId: String(source.planId ?? source.PlanId ?? ''),
-    projectId: source.projectId == null && source.ProjectId == null ? null : String(source.projectId ?? source.ProjectId),
-    operationType: String(source.operationType ?? source.OperationType ?? ''),
-    status: String(source.status ?? source.Status ?? 'Pending'),
-    summary: String(source.summary ?? source.Summary ?? ''),
-    changes,
-    createdAt: String(source.createdAt ?? source.CreatedAt ?? ''),
-    confirmedAt: source.confirmedAt == null && source.ConfirmedAt == null ? null : String(source.confirmedAt ?? source.ConfirmedAt),
+    planId: String(item.planId ?? item.PlanId ?? ''),
+    projectId: item.projectId ?? item.ProjectId ? String(item.projectId ?? item.ProjectId) : null,
+    operationType: String(item.operationType ?? item.OperationType ?? ''),
+    status: String(item.status ?? item.Status ?? 'Pending'),
+    summary: String(item.summary ?? item.Summary ?? ''),
+    changes: rawChanges.map((raw) => {
+      const change = raw as Record<string, unknown>
+      return {
+        action: String(change.action ?? change.Action ?? ''),
+        entityType: String(change.entityType ?? change.EntityType ?? ''),
+        entityId: change.entityId ?? change.EntityId ? String(change.entityId ?? change.EntityId) : null,
+        label: String(change.label ?? change.Label ?? ''),
+        field: change.field ?? change.Field ? String(change.field ?? change.Field) : null,
+        before: change.before ?? change.Before ? String(change.before ?? change.Before) : null,
+        after: change.after ?? change.After ? String(change.after ?? change.After) : null,
+      }
+    }),
+    createdAt: String(item.createdAt ?? item.CreatedAt ?? ''),
+    confirmedAt: item.confirmedAt ?? item.ConfirmedAt ? String(item.confirmedAt ?? item.ConfirmedAt) : null,
   }
 }
 
-function normalizeChange(value: unknown) {
-  const source = value && typeof value === 'object' ? value as Record<string, unknown> : {}
-  return {
-    action: String(source.action ?? source.Action ?? ''),
-    entityType: String(source.entityType ?? source.EntityType ?? ''),
-    entityId: source.entityId == null && source.EntityId == null ? null : String(source.entityId ?? source.EntityId),
-    label: String(source.label ?? source.Label ?? ''),
-    field: source.field == null && source.Field == null ? null : String(source.field ?? source.Field),
-    before: source.before == null && source.Before == null ? null : String(source.before ?? source.Before),
-    after: source.after == null && source.After == null ? null : String(source.after ?? source.After),
+async function invokePlan(method: string, args: unknown[], onProgress: AiProgressHandler): Promise<AiPlan> {
+  const connection = new HubConnectionBuilder()
+    .withUrl(realtimeUrl('/hubs/ai-planning'))
+    .withAutomaticReconnect()
+    .configureLogging(LogLevel.Warning)
+    .build()
+
+  connection.on('aiPlanProgress', (value: unknown) => onProgress(normalizeProgress(value)))
+
+  try {
+    await connection.start()
+    const result = await connection.invoke<unknown>(method, ...args)
+    const plan = normalizePlan(result)
+    if (!plan.planId) throw new Error('Backend returned an AI plan without planId.')
+    return plan
+  } finally {
+    if (connection.state !== HubConnectionState.Disconnected) {
+      await connection.stop()
+    }
   }
 }
 
-export const aiPlanningRealtime = new AiPlanningRealtime()
+export const aiPlanningRealtime = {
+  createProjectPlan(prompt: string, onProgress: AiProgressHandler) {
+    return invokePlan('CreateProjectPlan', [prompt], onProgress)
+  },
+  createProjectUpdatePlan(projectId: string, prompt: string, onProgress: AiProgressHandler) {
+    return invokePlan('CreateProjectUpdatePlan', [projectId, prompt], onProgress)
+  },
+}
