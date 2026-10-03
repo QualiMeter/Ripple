@@ -37,6 +37,31 @@ export interface AiApi {
 }
 
 
+function normalizeAiPlan(value: unknown): AiPlan {
+  const root = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  const source = root.data && typeof root.data === 'object' ? root.data as Record<string, unknown>
+    : root.result && typeof root.result === 'object' ? root.result as Record<string, unknown>
+    : root
+  const changesValue = source.changes ?? source.Changes
+  const changes = Array.isArray(changesValue) ? changesValue as AiPlanChange[] : []
+
+  return {
+    planId: String(source.planId ?? source.PlanId ?? ''),
+    projectId: source.projectId == null && source.ProjectId == null
+      ? null
+      : String(source.projectId ?? source.ProjectId),
+    operationType: String(source.operationType ?? source.OperationType ?? ''),
+    status: String(source.status ?? source.Status ?? 'Pending'),
+    summary: String(source.summary ?? source.Summary ?? ''),
+    changes,
+    createdAt: String(source.createdAt ?? source.CreatedAt ?? ''),
+    confirmedAt: source.confirmedAt == null && source.ConfirmedAt == null
+      ? null
+      : String(source.confirmedAt ?? source.ConfirmedAt),
+  }
+}
+
+
 async function streamPlan(path: string, prompt: string, onProgress: (progress: AiProgress) => void): Promise<AiPlan> {
   const response = await apiFetch(path, {
     method: 'POST',
@@ -79,7 +104,7 @@ async function streamPlan(path: string, prompt: string, onProgress: (progress: A
     }
 
     if (type === 'completed' || (type === 'message' && typeof value === 'object' && value !== null && 'planId' in value)) {
-      completed = value as AiPlan
+      completed = normalizeAiPlan(value)
       return
     }
 
