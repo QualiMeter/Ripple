@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, CirclePlus, Clock3, Loader2, Pencil, Sparkles, Trash2, UserRound, X, Minimize2, Maximize2 } from 'lucide-react'
-import type { AiPlan, AiPlanChange } from '../../api/ai.api'
+import type { AiPlan, AiPlanChange, AiProgress } from '../../api/ai.api'
 import { aiApi } from '../../api/ai.api'
 import type { Employee } from '../../types/employee'
 import { formatFullDate } from '../../utils/date'
@@ -54,6 +54,8 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
   const [background, setBackground] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState(false)
+  const [progress, setProgress] = useState<AiProgress>({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
+  const [receivedChars, setReceivedChars] = useState(0)
   const [panelMode] = useState<PanelMode>(getPanelMode)
 
   useEffect(() => {
@@ -84,10 +86,19 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setBusy(true)
     setBackground(false)
     setError(null)
+    setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
+    setReceivedChars(0)
     try {
       const next = mode === 'create'
-        ? await aiApi.createProjectPlan(prompt.trim())
-        : await aiApi.createProjectUpdatePlan(projectId!, prompt.trim())
+        ? await aiApi.createProjectPlanStream(prompt.trim(), (nextProgress) => {
+            setProgress(nextProgress)
+            if (nextProgress.stage === 'generating') setReceivedChars((value) => value + 160)
+          })
+        : await aiApi.createProjectUpdatePlanStream(projectId!, prompt.trim(), (nextProgress) => {
+            setProgress(nextProgress)
+            if (nextProgress.stage === 'generating') setReceivedChars((value) => value + 160)
+          })
+      setProgress({ stage: 'completed', progress: 100, message: 'План готов' })
       setPlan(next)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Не удалось получить предложение от ИИ.')
@@ -118,6 +129,8 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setPlan(null)
     setConfirmed(false)
     setError(null)
+    setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
+    setReceivedChars(0)
   }
 
   const isDialog = panelMode === 'dialog'
@@ -129,10 +142,11 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     : 'flex h-full w-full max-w-[620px] flex-col bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.18)]'
 
   if (background && busy) {
-    return <div className="fixed bottom-5 right-5 z-[95] w-[min(380px,calc(100vw-32px))] rounded-2xl border border-[#ddd8ff] bg-white p-4 shadow-[0_18px_50px_rgba(32,28,58,.18)]" role="status">
+    return <div className="fixed bottom-5 right-5 z-[95] w-[min(380px,calc(100vw-32px))] rounded-2xl border border-[#ddd8ff] bg-white p-4 shadow-[0_18px_50px_rgba(32,28,58,.18)]" role="status" aria-live="polite">
+      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#eeebf5]"><div className="h-full rounded-full bg-[#6d5dfb] transition-all duration-300" style={{ width: `${progress.progress}%` }} /></div>
       <div className="flex items-center gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#efedff] text-[#6757df]"><Loader2 size={18} className="animate-spin" /></span>
-        <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#373145]">Генерация проекта…</p><p className="mt-1 truncate text-[10px] text-[#8a8594]">ИИ работает в фоне, можно продолжать пользоваться Ripple.</p></div>
+        <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#373145]">ИИ работает — {progress.progress}%</p><p className="mt-1 truncate text-[10px] text-[#8a8594]">{progress.message}. Можно продолжать пользоваться Ripple.</p></div>
         <button type="button" onClick={() => setBackground(false)} className="grid h-8 w-8 place-items-center rounded-lg text-[#777181] hover:bg-[#f3f1f6]" aria-label="Развернуть генерацию"><Maximize2 size={15} /></button>
       </div>
     </div>
@@ -155,7 +169,12 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
             <div className="rounded-2xl border border-[#ddd8ff] bg-gradient-to-br from-[#f7f5ff] to-white p-4 shadow-panel">
               <div className="flex items-start gap-3"><div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ebe8ff] text-[#6757df]"><Sparkles size={16} /></div><div><p className="text-xs font-bold text-[#433a70]">Опишите цель проекта</p><p className="mt-1 text-[11px] leading-5 text-[#77718b]">ИИ сам разложит запрос на проект, задачи, сотрудников и зависимости, а Ripple проверит план перед применением.</p></div></div>
             </div>
-            <textarea autoFocus value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') void generate() }} rows={9} placeholder={mode === 'create' ? 'Например: Создай проект запуска сайта…' : 'Например: Перенеси тестирование на 10 ноября и назначь его Анне…'} className="w-full resize-none rounded-2xl border border-[#dedbe5] bg-white p-4 text-sm leading-6 text-[#363143] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10" />
+            {busy && <div className="rounded-2xl border border-[#ddd8ff] bg-white p-4 shadow-panel" role="status" aria-live="polite">
+              <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-[#40386b]">{progress.message}</p><p className="mt-1 text-[10px] text-[#8a8594]">ИИ не показывает внутренние рассуждения, но результат поступает потоково и сервер сразу обрабатывает его.</p></div><span className="shrink-0 text-xs font-bold text-[#6757df]">{progress.progress}%</span></div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#eeebf5]"><div className="h-full rounded-full bg-[#6d5dfb] transition-all duration-300" style={{ width: `${progress.progress}%` }} /></div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-[9px] font-semibold text-[#777181]"><span className={progress.progress >= 15 ? 'text-[#5147aa]' : ''}>Контекст</span><span className={progress.progress >= 20 ? 'text-[#5147aa]' : ''}>Генерация</span><span className={progress.progress >= 82 ? 'text-[#5147aa]' : ''}>Проверка</span></div>
+            </div>}
+            <textarea disabled={busy} autoFocus value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') void generate() }} rows={9} placeholder={mode === 'create' ? 'Например: Создай проект запуска сайта…' : 'Например: Перенеси тестирование на 10 ноября и назначь его Анне…'} className="w-full resize-none rounded-2xl border border-[#dedbe5] bg-white p-4 text-sm leading-6 text-[#363143] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10" />
             <div className="flex items-center gap-2 rounded-xl bg-[#f5f3f8] px-3 py-2.5 text-[10px] leading-4 text-[#777181]"><Clock3 size={14} className="shrink-0 text-[#7167c9]" /> Пока вы не подтвердите предложение, данные проекта не изменятся.</div>
           </div> : <div className="space-y-4">
             <div className="rounded-2xl border border-[#dcd7ff] bg-gradient-to-br from-[#f4f2ff] to-white p-5">
