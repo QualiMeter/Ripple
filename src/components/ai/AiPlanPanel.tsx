@@ -55,7 +55,6 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
   const [error, setError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [progress, setProgress] = useState<AiProgress>({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
-  const [receivedChars, setReceivedChars] = useState(0)
   const [panelMode] = useState<PanelMode>(getPanelMode)
 
   useEffect(() => {
@@ -87,16 +86,13 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setBackground(false)
     setError(null)
     setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
-    setReceivedChars(0)
     try {
       const next = mode === 'create'
         ? await aiApi.createProjectPlanStream(prompt.trim(), (nextProgress) => {
             setProgress(nextProgress)
-            if (nextProgress.stage === 'generating') setReceivedChars((value) => value + 160)
           })
         : await aiApi.createProjectUpdatePlanStream(projectId!, prompt.trim(), (nextProgress) => {
             setProgress(nextProgress)
-            if (nextProgress.stage === 'generating') setReceivedChars((value) => value + 160)
           })
       setProgress({ stage: 'completed', progress: 100, message: 'План готов' })
       setPlan(next)
@@ -130,7 +126,6 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
     setConfirmed(false)
     setError(null)
     setProgress({ stage: 'starting', progress: 5, message: 'Подготавливаю запрос' })
-    setReceivedChars(0)
   }
 
   const isDialog = panelMode === 'dialog'
