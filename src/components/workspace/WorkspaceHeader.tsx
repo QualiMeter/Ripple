@@ -93,6 +93,7 @@ export function WorkspaceHeader({ project, activeView, onViewChange, onOpenNavig
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${healthStyle.badge}`}><span className={`h-1.5 w-1.5 rounded-full ${healthStyle.dot}`} />{healthLabels[project.health]}</span>
           </div>
           <p className="text-sm text-[#837f8e]">{project.description}</p>
+          <p className="mt-2 flex items-center gap-2 text-[11px] font-medium text-[#777181]"><span>План проекта</span><span className="text-[#c3bfca]">•</span><span>{new Date(`${project.startDate}T00:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span className="text-[#b5b1bd]">→</span><span>{new Date(`${project.targetEndDate}T00:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span></p>
         </div>
         <nav className="mt-6 flex gap-6 overflow-x-auto text-sm" aria-label="Разделы проекта">
           {projectViews.map((view) => (

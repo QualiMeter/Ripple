@@ -19,11 +19,11 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
     { icon: Route, label: 'Критические задачи', value: formatTaskCount(impact.criticalTaskIds.length), detail: 'Задачи без временного запаса — их задержка может сдвинуть срок проекта.', accent: 'text-[#4e46b5]', criticalInfo: true },
   ]
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(({ icon: Icon, label, value, detail, accent, danger, progress, criticalInfo }) => (
-          <section key={label} className={`rounded-2xl border bg-white p-4 shadow-panel ${danger ? 'border-[#f2c8b9]' : 'border-[#e7e5ec]'}`}>
-          <div className="mb-3 flex items-center justify-between">
+          <section key={label} className={`rounded-2xl border bg-white p-3 shadow-panel ${danger ? 'border-[#f2c8b9]' : 'border-[#e7e5ec]'}`}>
+          <div className="mb-2 flex items-center justify-between">
             <span className={`grid h-8 w-8 place-items-center rounded-lg bg-[#f4f3f8] ${accent}`}><Icon size={17} strokeWidth={2} /></span>
             {danger && <span className="rounded-full bg-[#fff0e8] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#bf5934]">Требует внимания</span>}
           </div>
@@ -42,7 +42,7 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
             <p className="text-[22px] font-bold tracking-[-.035em] text-[#29263b]">{value}</p>
           </div>
           <p className={`mt-1 text-[11px] ${danger ? 'font-medium text-[#c55b37]' : 'text-[#9692a0]'}`}>{detail}</p>
-          {progress !== undefined && <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ecebf1]" aria-label={`Прогресс проекта: ${progress}%`}><div className="h-full rounded-full bg-[#42a782]" style={{ width: `${progress}%` }} /></div>}
+          {progress !== undefined && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ecebf1]" aria-label={`Прогресс проекта: ${progress}%`}><div className="h-full rounded-full bg-[#42a782]" style={{ width: `${progress}%` }} /></div>}
           </section>
         ))}
       </div>
