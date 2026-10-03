@@ -94,21 +94,11 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
         : await aiApi.createProjectUpdatePlanStream(projectId!, prompt.trim(), (nextProgress) => {
             setProgress(nextProgress)
           })
-      let resolvedPlan = next
-      // SSE is only a transport for progress. Fetch the persisted plan once more
-      // so the preview always comes from the same backend DTO used by GET /plans/{id}.
-      if (next.planId) {
-        try {
-          const fetched = await aiApi.getPlan(next.planId)
-          if (fetched.changes.length > 0 || next.changes.length === 0) {
-            resolvedPlan = fetched
-          }
-        } catch {
-          // Keep the SSE result if the follow-up GET fails.
-        }
-      }
-      setProgress({ stage: 'completed', progress: 100, message: 'План готов' })
-      setPlan(resolvedPlan)
+      // SignalR invocation returns the persisted AiPlanDto itself. It already
+      // contains the plan UUID and the complete preview changes.
+      if (!next.planId) throw new Error('Backend returned an AI plan without planId.')
+      setProgress({ stage: 'completed', progress: 100, message: `План готов: ${next.changes.length} изменений` })
+      setPlan(next)
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Не удалось получить предложение от ИИ.')
     } finally {
