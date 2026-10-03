@@ -4,7 +4,7 @@ import type { AiPlan, AiPlanChange } from '../../api/ai.api'
 import { aiApi } from '../../api/ai.api'
 import type { Employee } from '../../types/employee'
 import { formatFullDate } from '../../utils/date'
-import { getAiPanelMode, type AiPanelMode } from '../../services/aiPanelPreferences'
+import { getPanelMode, type PanelMode } from '../../services/aiPanelPreferences'
 
 interface AiPlanPanelProps {
   mode: 'create' | 'update'
@@ -54,7 +54,7 @@ export function AiPlanPanel({ mode, projectId, projectName, employees = [], onCl
   const [background, setBackground] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState(false)
-  const [panelMode] = useState<AiPanelMode>(getAiPanelMode)
+  const [panelMode] = useState<PanelMode>(getPanelMode)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

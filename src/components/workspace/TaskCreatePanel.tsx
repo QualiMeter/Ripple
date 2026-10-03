@@ -5,6 +5,7 @@ import { Avatar } from '../common/Avatar'
 import type { Employee } from '../../types/employee'
 import { EmployeeCreateAction } from '../employees/EmployeeCreateAction'
 import { DateInput } from '../common/DateInput'
+import { getPanelMode } from '../../services/aiPanelPreferences'
 
 interface TaskCreatePanelProps {
   assignees: Assignee[]
@@ -21,7 +22,10 @@ const statusOptions: Array<{ value: TaskStatus; label: string }> = [
   { value: 'completed', label: 'Закончено' },
 ]
 
-export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate, onCreateEmployee }: TaskCreatePanelProps) {
+export function TaskCreatePanel({
+ assignees, initialStartDate, onClose, onCreate, onCreateEmployee }: TaskCreatePanelProps) {
+	const panelMode = getPanelMode()
+	const isDialog = panelMode === 'dialog'
   const [title, setTitle] = useState('')
   const [startDate, setStartDate] = useState(initialStartDate)
   const [endDate, setEndDate] = useState(initialStartDate)
@@ -81,8 +85,8 @@ export function TaskCreatePanel({ assignees, initialStartDate, onClose, onCreate
   const inputClassName = 'mt-1.5 w-full rounded-xl border border-[#dedce6] bg-white px-3 py-2.5 text-sm text-[#363244] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10'
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#17152b]/25 backdrop-blur-[1px]" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !isSaving && onClose()}>
-      <aside className="flex h-full w-full max-w-[440px] flex-col border-l border-[#e2dfe8] bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.14)]" role="dialog" aria-modal="true" aria-labelledby="task-create-title">
+    <div className={isDialog ? "fixed inset-0 z-50 grid place-items-center bg-[#17152b]/25 p-4 backdrop-blur-[1px]" : "fixed inset-0 z-50 flex justify-end bg-[#17152b]/25 backdrop-blur-[1px]"} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !isSaving && onClose()}>
+      <aside className={isDialog ? "relative z-10 flex max-h-[min(760px,calc(100vh-32px))] h-full w-full max-w-[560px] flex-col overflow-hidden rounded-3xl border border-[#e2dfe8] bg-[#f8f7fa] shadow-[0_28px_80px_rgba(23,21,43,.24)]" : "flex h-full w-full max-w-[440px] flex-col border-l border-[#e2dfe8] bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.14)]"} role="dialog" aria-modal="true" aria-labelledby="task-create-title">
         <div className="flex items-start justify-between border-b border-[#e5e3ea] bg-white px-6 py-5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#8d8898]">Новая задача</p>

@@ -7,6 +7,7 @@ import type { TaskReassignmentPreview } from '../../services/taskReassignment'
 import { formatFullDate, formatMonthDay, formatShortDate } from '../../utils/date'
 import { pluralizeRu } from '../../utils/plural'
 import { getErrorMessage } from '../../utils/error'
+import { getPanelMode } from '../../services/aiPanelPreferences'
 
 interface RecoveryPlanProps {
   workspace: ProjectWorkspace
@@ -33,7 +34,10 @@ function OptionShell({ index, title, icon, children }: { index: number; title: s
   </section>
 }
 
-export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApplyScheduleShift, onApplyTaskReassignment, onShowCriticalChain, onTaskSelect }: RecoveryPlanProps) {
+export function RecoveryPlan({
+ workspace, onClose, onPreviewScheduleShift, onApplyScheduleShift, onApplyTaskReassignment, onShowCriticalChain, onTaskSelect }: RecoveryPlanProps) {
+	const panelMode = getPanelMode()
+	const isDialog = panelMode === 'dialog'
   const basePlan = useMemo(() => buildRecoveryPlan(workspace), [workspace])
   const localScheduleOption = basePlan.options.find((option): option is Extract<RecoveryOption, { type: 'schedule-shift' }> => option.type === 'schedule-shift')
   const [confirmedSchedulePreview, setConfirmedSchedulePreview] = useState<ScheduleShiftPreview | null>(null)
@@ -116,7 +120,7 @@ export function RecoveryPlan({ workspace, onClose, onPreviewScheduleShift, onApp
   const taskTitle = (taskId: string) => workspace.tasks.find((task) => task.id === taskId)?.title ?? taskId
   const chainTitles = plan.criticalChainTaskIds.map(taskTitle)
 
-  return <div className="fixed inset-0 z-[90] flex justify-end bg-[#17152b]/45 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-labelledby="recovery-plan-title">
+  return <div className={isDialog ? "fixed inset-0 z-[90] grid place-items-center bg-[#17152b]/45 p-4 backdrop-blur-[1px]" : "fixed inset-0 z-[90] flex justify-end bg-[#17152b]/45 backdrop-blur-[1px]"} role="dialog" aria-modal="true" aria-labelledby="recovery-plan-title">
     <button type="button" className="min-w-0 flex-1" onClick={onClose} aria-label="Закрыть план восстановления по фону" />
     <aside className="flex h-full w-full max-w-[680px] flex-col bg-[#f7f6f9] shadow-[-24px_0_64px_rgba(23,21,43,.24)]">
       <header className="flex items-start gap-3 border-b border-[#e3dfe8] bg-white px-5 py-4">

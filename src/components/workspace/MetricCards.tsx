@@ -19,10 +19,10 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
     { icon: Route, label: 'Критические задачи', value: formatTaskCount(impact.criticalTaskIds.length), detail: 'Задачи без временного запаса — их задержка может сдвинуть срок проекта.', accent: 'text-[#4e46b5]', criticalInfo: true },
   ]
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(({ icon: Icon, label, value, detail, accent, danger, progress, criticalInfo }) => (
-          <section key={label} className={`rounded-2xl border bg-white p-3 shadow-panel ${danger ? 'border-[#f2c8b9]' : 'border-[#e7e5ec]'}`}>
+          <section key={label} className={`rounded-xl border bg-white p-3 shadow-panel ${danger ? 'border-[#f2c8b9]' : 'border-[#e7e5ec]'}`}>
           <div className="mb-2 flex items-center justify-between">
             <span className={`grid h-8 w-8 place-items-center rounded-lg bg-[#f4f3f8] ${accent}`}><Icon size={17} strokeWidth={2} /></span>
             {danger && <span className="rounded-full bg-[#fff0e8] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#bf5934]">Требует внимания</span>}
@@ -46,9 +46,9 @@ export function MetricCards({ workspace }: { workspace: ProjectWorkspace }) {
           </section>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2 text-[11px]">
-        <span className="rounded-full border border-[#e4e1ea] bg-white px-3 py-1.5 text-[#716c7b]">Затронуто последним изменением: <strong className="text-[#403a50]">{impact.affectedTaskIds.length}</strong></span>
-        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800">Текущие проблемы: <strong>{currentIssueCount}</strong></span>
+      <div className="flex flex-wrap gap-1.5 text-[10px]">
+        <span className="rounded-full border border-[#e4e1ea] bg-white px-2.5 py-1 text-[#716c7b]">Затронуто последним изменением: <strong className="text-[#403a50]">{impact.affectedTaskIds.length}</strong></span>
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">Текущие проблемы: <strong>{currentIssueCount}</strong></span>
       </div>
     </div>
   )

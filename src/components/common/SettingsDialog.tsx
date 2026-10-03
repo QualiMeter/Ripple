@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Check, Settings, X } from 'lucide-react'
-import { getAiPanelMode, setAiPanelMode, type AiPanelMode } from '../../services/aiPanelPreferences'
+import { getPanelMode, setPanelMode, type PanelMode } from '../../services/aiPanelPreferences'
 
 interface SettingsDialogProps {
   onClose: () => void
 }
 
 export function SettingsDialog({ onClose }: SettingsDialogProps) {
-  const [mode, setMode] = useState<AiPanelMode>(getAiPanelMode)
+  const [mode, setMode] = useState<PanelMode>(getPanelMode)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -19,7 +19,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
 
   const updateMode = (nextMode: AiPanelMode) => {
     setMode(nextMode)
-    setAiPanelMode(nextMode)
+    setPanelMode(nextMode)
   }
 
   return (
@@ -33,8 +33,8 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
         </header>
         <div className="space-y-5 p-6">
           <div>
-            <p className="text-xs font-bold text-[#4a4557]">Панель ИИ</p>
-            <p className="mt-1 text-[11px] leading-5 text-[#8a8593]">Выберите, где открывать окно создания и редактирования проекта с помощью ИИ.</p>
+            <p className="text-xs font-bold text-[#4a4557]">Режим боковых панелей</p>
+            <p className="mt-1 text-[11px] leading-5 text-[#8a8593]">Выберите, как открывать формы и панели Ripple: справа или по центру экрана.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {([['drawer', 'Боковая панель', 'Справа от рабочего пространства'], ['dialog', 'Центральное окно', 'По центру экрана']] as const).map(([value, title, description]) => {
                 const selected = mode === value
@@ -45,7 +45,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
               })}
             </div>
           </div>
-          <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-[10px] leading-4 text-sky-800">Настройка действует для следующих открытий панели ИИ и хранится только в локальном хранилище этого браузера.</div>
+          <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-[10px] leading-4 text-sky-800">Настройка применяется ко всем панелям Ripple и хранится только в локальном хранилище этого браузера.</div>
         </div>
         <footer className="border-t border-[#e5e2ea] bg-white px-6 py-4 text-right"><button type="button" onClick={onClose} className="rounded-xl bg-[#211f37] px-4 py-2.5 text-xs font-bold text-white">Готово</button></footer>
       </section>

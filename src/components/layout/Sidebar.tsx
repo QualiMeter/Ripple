@@ -64,11 +64,7 @@ export function Sidebar({ projects, loading, error, onCreateProject, onCreatePro
       </div>
 
       <div className="mt-4 px-3 pb-4">
-        <div className="mb-2 rounded-2xl bg-gradient-to-br from-[#292545] to-[#211e39] p-4">
-          <Sparkles size={17} className="mb-2.5 text-[#f1b971]" />
-          <p className="text-xs font-semibold">Анализ влияния активен</p>
-          <p className="mt-1 text-[11px] leading-4 text-[#9e99ae]">Ripple анализирует изменения и зависимости в ваших проектах.</p>
-        </div>
+        
         {onOpenSettings && <button type="button" onClick={onOpenSettings} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[#aaa6ba] transition hover:bg-white/[.06] hover:text-white"><Settings size={15} /> Настройки</button>}
       </div>
     </aside>

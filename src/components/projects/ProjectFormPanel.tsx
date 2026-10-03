@@ -3,6 +3,7 @@ import { CalendarDays, Sparkles, Upload, X } from 'lucide-react'
 import type { CreateProjectRequest } from '../../types/project'
 import { validateProjectInput } from '../../services/projectValidation'
 import { DateInput } from '../common/DateInput'
+import { getPanelMode } from '../../services/aiPanelPreferences'
 
 interface ProjectFormPanelProps {
   title: string
@@ -14,7 +15,10 @@ interface ProjectFormPanelProps {
   onCreateWithAi?: () => void
 }
 
-export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, onSubmit, onImport, onCreateWithAi }: ProjectFormPanelProps) {
+export function ProjectFormPanel({
+ title, submitLabel, initialValues, onClose, onSubmit, onImport, onCreateWithAi }: ProjectFormPanelProps) {
+	const panelMode = getPanelMode()
+	const isDialog = panelMode === 'dialog'
   const [values, setValues] = useState(initialValues)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -66,9 +70,9 @@ export function ProjectFormPanel({ title, submitLabel, initialValues, onClose, o
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex justify-end bg-[#17152b]/35 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-labelledby="project-form-title">
-      <button type="button" className="min-w-0 flex-1" onClick={onClose} aria-label="Закрыть форму проекта по фону" />
-      <aside className="flex h-full w-full max-w-[440px] flex-col bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.18)]">
+    <div className={isDialog ? "fixed inset-0 z-[70] grid place-items-center bg-[#17152b]/35 p-4 backdrop-blur-[1px]" : "fixed inset-0 z-[70] flex justify-end bg-[#17152b]/35 backdrop-blur-[1px]"} role="dialog" aria-modal="true" aria-labelledby="project-form-title">
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Закрыть форму проекта по фону" />
+      <aside className={isDialog ? "relative z-10 flex max-h-[min(760px,calc(100vh-32px))] h-full w-full max-w-[560px] flex-col overflow-hidden rounded-3xl bg-[#f8f7fa] shadow-[0_28px_80px_rgba(23,21,43,.24)]" : "relative z-10 flex h-full w-full max-w-[440px] flex-col bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.18)]"}>
         <div className="flex items-center gap-3 border-b border-[#e5e2ea] bg-white px-5 py-4">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#efedff] text-[#6757df]"><CalendarDays size={18} /></span>
           <div><h2 id="project-form-title" className="text-base font-bold text-[#302c40]">{title}</h2><p className="mt-0.5 text-[11px] text-[#8c8797]">Основные сроки и название проекта</p></div>

@@ -10,6 +10,7 @@ import { getTaskCompletionError } from '../../services/taskStatusConsistency'
 import { getErrorMessage } from '../../utils/error'
 import type { TaskAnalysisMessage } from '../../types/taskAnalysis'
 import { TaskAnalysisSection } from './TaskAnalysisSection'
+import { getPanelMode } from '../../services/aiPanelPreferences'
 
 interface TaskEditPanelProps {
   task: ProjectTask
@@ -37,7 +38,10 @@ const statusOptions: Array<{ value: TaskStatus; label: string }> = [
 
 type EditableTaskField = keyof TaskUpdateRequest
 
-export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMode = 'local', onClose, onSave, onDelete, onCreateDependency, onDeleteDependency, onCreateEmployee, onLoadAnalysis, onOpenTask, onRequestScheduleShift }: TaskEditPanelProps) {
+export function TaskEditPanel({
+ task, assignees, tasks, dependencies, historyMode = 'local', onClose, onSave, onDelete, onCreateDependency, onDeleteDependency, onCreateEmployee, onLoadAnalysis, onOpenTask, onRequestScheduleShift }: TaskEditPanelProps) {
+	const panelMode = getPanelMode()
+	const isDialog = panelMode === 'dialog'
   const [title, setTitle] = useState(task.title)
   const [startDate, setStartDate] = useState(task.startDate)
   const [endDate, setEndDate] = useState(task.endDate)
@@ -210,8 +214,8 @@ export function TaskEditPanel({ task, assignees, tasks, dependencies, historyMod
   const inputClassName = 'mt-1.5 w-full rounded-xl border border-[#dedce6] bg-white px-3 py-2.5 text-sm text-[#363244] outline-none transition focus:border-[#7667ed] focus:ring-2 focus:ring-[#7667ed]/10'
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#17152b]/25 backdrop-blur-[1px]" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !isSaving && !isDeleting && onClose()}>
-      <aside className="flex h-full w-full max-w-[440px] flex-col border-l border-[#e2dfe8] bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.14)]" role="dialog" aria-modal="true" aria-labelledby="task-edit-title">
+    <div className={isDialog ? "fixed inset-0 z-50 grid place-items-center bg-[#17152b]/25 p-4 backdrop-blur-[1px]" : "fixed inset-0 z-50 flex justify-end bg-[#17152b]/25 backdrop-blur-[1px]"} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !isSaving && !isDeleting && onClose()}>
+      <aside className={isDialog ? "relative z-10 flex max-h-[min(820px,calc(100vh-32px))] h-full w-full max-w-[620px] flex-col overflow-hidden rounded-3xl border border-[#e2dfe8] bg-[#f8f7fa] shadow-[0_28px_80px_rgba(23,21,43,.24)]" : "flex h-full w-full max-w-[440px] flex-col border-l border-[#e2dfe8] bg-[#f8f7fa] shadow-[-24px_0_60px_rgba(23,21,43,.14)]"} role="dialog" aria-modal="true" aria-labelledby="task-edit-title">
         <div className="flex items-start justify-between border-b border-[#e5e3ea] bg-white px-6 py-5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#8d8898]">Редактирование задачи</p>
