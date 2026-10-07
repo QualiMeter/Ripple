@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
 import type { AppShellContext } from '../components/layout/AppShell'
 import { DependenciesView } from '../components/workspace/DependenciesView'
 import { TaskEditPanel } from '../components/workspace/TaskEditPanel'
