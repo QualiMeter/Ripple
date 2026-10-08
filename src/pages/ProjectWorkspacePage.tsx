@@ -333,6 +333,28 @@ export function ProjectWorkspacePage() {
     }, 5000)
   }
 
+<<<<<<< HEAD
+=======
+  const cancelProjectDeletion = useCallback(() => {
+    if (projectDeletionTimerRef.current) {
+      clearTimeout(projectDeletionTimerRef.current)
+      projectDeletionTimerRef.current = null
+    }
+    if (projectDeletionIntervalRef.current) {
+      clearInterval(projectDeletionIntervalRef.current)
+      projectDeletionIntervalRef.current = null
+    }
+    setPendingProjectDeletion(false)
+    setProjectDeletionSeconds(5)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (projectDeletionTimerRef.current) clearTimeout(projectDeletionTimerRef.current)
+      if (projectDeletionIntervalRef.current) clearInterval(projectDeletionIntervalRef.current)
+    }
+  }, [])
+>>>>>>> c50703c6a56a0955bfdb5634470d139b796abf95
   const handleProjectDiagnosticsDownload = () => downloadProjectDiagnostics(projectId, workspace.project.name).then(() => undefined)
   const handleAiProjectConfirmed = async (_plan: AiPlan) => {
     const refreshed = await projectService.getWorkspace(projectId)
