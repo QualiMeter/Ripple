@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { AppShellContext } from '../components/layout/AppShell'
 import { DependenciesView } from '../components/workspace/DependenciesView'
@@ -53,6 +53,10 @@ export function ProjectWorkspacePage() {
   const [activeView, setActiveView] = useState<WorkspaceView>('overview')
   const [isEditingProject, setIsEditingProject] = useState(false)
   const [isDeletingProject, setIsDeletingProject] = useState(false)
+  const [pendingProjectDeletion, setPendingProjectDeletion] = useState(false)
+  const [projectDeletionSeconds, setProjectDeletionSeconds] = useState(5)
+  const projectDeletionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const projectDeletionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([])
   const [historyLoaded, setHistoryLoaded] = useState(!isHttpApiMode)
@@ -70,6 +74,8 @@ export function ProjectWorkspacePage() {
     setIsCreatingTask(false)
     setIsEditingProject(false)
     setIsDeletingProject(false)
+    setPendingProjectDeletion(false)
+    setProjectDeletionSeconds(5)
     setRequestedShiftSourceId(null)
     setTimelineDraft(null)
     setAiEditOpen(false)
@@ -92,6 +98,8 @@ export function ProjectWorkspacePage() {
     setIsCreatingTask(false)
     setIsEditingProject(false)
     setIsDeletingProject(false)
+    setPendingProjectDeletion(false)
+    setProjectDeletionSeconds(5)
     setWorkspace(null)
     removeProjectNavigation(deletedProjectId)
     navigate('/', { replace: true })
@@ -147,6 +155,26 @@ export function ProjectWorkspacePage() {
       employeeCount: workspace.assignees.length,
     })
   }, [workspace, syncProjectNavigation])
+
+  const cancelProjectDeletion = useCallback(() => {
+    if (projectDeletionTimerRef.current) {
+      clearTimeout(projectDeletionTimerRef.current)
+      projectDeletionTimerRef.current = null
+    }
+    if (projectDeletionIntervalRef.current) {
+      clearInterval(projectDeletionIntervalRef.current)
+      projectDeletionIntervalRef.current = null
+    }
+    setPendingProjectDeletion(false)
+    setProjectDeletionSeconds(5)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (projectDeletionTimerRef.current) clearTimeout(projectDeletionTimerRef.current)
+      if (projectDeletionIntervalRef.current) clearInterval(projectDeletionIntervalRef.current)
+    }
+  }, [])
 
   if (error) return <div className="grid min-h-screen place-items-center p-8"><div className="text-center text-sm text-rose-700"><p>{error}</p><button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="mt-4 rounded-xl bg-[#29263e] px-4 py-2 font-bold text-white">Повторить</button></div></div>
   if (!workspace) return <WorkspaceSkeleton />
@@ -271,13 +299,40 @@ export function ProjectWorkspacePage() {
     setIsEditingProject(false)
   }
   const handleProjectDelete = async () => {
-    await deleteProjectAndLeave(projectId, {
-      deleteProject: projectService.deleteProject,
-      closeDialog: () => setIsDeletingProject(false),
-      refreshProjects,
-      navigateHome: () => navigate('/', { replace: true }),
-    })
+    if (projectDeletionTimerRef.current) clearTimeout(projectDeletionTimerRef.current)
+    if (projectDeletionIntervalRef.current) clearInterval(projectDeletionIntervalRef.current)
+
+    setIsDeletingProject(false)
+    setProjectDeletionSeconds(5)
+    setPendingProjectDeletion(true)
+
+    projectDeletionIntervalRef.current = setInterval(() => {
+      setProjectDeletionSeconds((seconds) => Math.max(0, seconds - 1))
+    }, 1000)
+
+    projectDeletionTimerRef.current = setTimeout(async () => {
+      if (projectDeletionIntervalRef.current) {
+        clearInterval(projectDeletionIntervalRef.current)
+        projectDeletionIntervalRef.current = null
+      }
+
+      try {
+        await deleteProjectAndLeave(projectId, {
+          deleteProject: projectService.deleteProject,
+          closeDialog: () => undefined,
+          refreshProjects,
+          navigateHome: () => navigate('/', { replace: true }),
+        })
+      } catch (error) {
+        setPendingProjectDeletion(false)
+        setProjectDeletionSeconds(5)
+        setError(error instanceof Error ? error.message : 'Не удалось удалить проект.')
+      } finally {
+        projectDeletionTimerRef.current = null
+      }
+    }, 5000)
   }
+
   const handleProjectDiagnosticsDownload = () => downloadProjectDiagnostics(projectId, workspace.project.name).then(() => undefined)
   const handleAiProjectConfirmed = async (_plan: AiPlan) => {
     const refreshed = await projectService.getWorkspace(projectId)
@@ -329,6 +384,33 @@ export function ProjectWorkspacePage() {
       {isCreatingTask && <TaskCreatePanel assignees={workspace.assignees} initialStartDate={workspace.project.startDate} onClose={() => setIsCreatingTask(false)} onCreate={handleTaskCreate} onCreateEmployee={handleEmployeeCreate} />}
       {isEditingProject && <ProjectFormPanel title="Редактирование проекта" submitLabel="Сохранить" initialValues={{ name: workspace.project.name, startDate: workspace.project.startDate, targetEndDate: workspace.project.targetEndDate }} onClose={() => setIsEditingProject(false)} onSubmit={handleProjectUpdate} />}
       {isDeletingProject && <ProjectDeleteDialog projectName={workspace.project.name} onClose={() => setIsDeletingProject(false)} onConfirm={handleProjectDelete} />}
+      {pendingProjectDeletion && <div className="fixed bottom-5 left-1/2 z-[90] w-[min(520px,calc(100vw-32px))] -translate-x-1/2" role="status" aria-live="polite">
+        <div className="flex items-center gap-3 rounded-2xl border border-[#ded9f8] bg-white px-4 py-3 shadow-[0_18px_50px_rgba(32,29,49,.22)]">
+          <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-50 text-rose-600" aria-label={`До удаления осталось ${projectDeletionSeconds} секунд`}>
+            <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" strokeWidth="2.5" opacity="0.14" />
+              <circle
+                cx="20"
+                cy="20"
+                r="17"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="106.81"
+                strokeDashoffset={`${106.81 * (1 - projectDeletionSeconds / 5)}`}
+                className="transition-[stroke-dashoffset] duration-1000 linear"
+              />
+            </svg>
+            <span className="relative text-xs font-bold leading-none">{projectDeletionSeconds}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-[#302c40]">Проект удаляется</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-[#777181]">Удаление можно отменить в течение 5 секунд.</p>
+          </div>
+          <button type="button" onClick={cancelProjectDeletion} className="shrink-0 rounded-xl bg-[#6757df] px-3 py-2 text-xs font-bold text-white hover:bg-[#5848ce]">Отменить</button>
+        </div>
+      </div>}
       {aiEditOpen && <AiPlanPanel mode="update" projectId={projectId} projectName={workspace.project.name} employees={workspace.assignees} onClose={() => setAiEditOpen(false)} onConfirmed={handleAiProjectConfirmed} />}
     </div>
   )
